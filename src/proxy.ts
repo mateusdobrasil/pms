@@ -3,9 +3,14 @@ import { updateSession } from "@/lib/supabase/proxy";
 
 // Domínios da plataforma (painel/site). Qualquer outro host é tratado como loja.
 // "*.vercel.app" aceita qualquer subdomínio (produção e previews da Vercel).
-const ROOT_DOMAINS = (process.env.NEXT_PUBLIC_ROOT_DOMAINS ?? "localhost")
-  .split(",")
-  .map((d) => d.trim().toLowerCase())
+// Os domínios que a própria Vercel informa (produção, branch e deploy) também contam como raiz.
+const ROOT_DOMAINS = [
+  ...(process.env.NEXT_PUBLIC_ROOT_DOMAINS ?? "localhost").split(","),
+  process.env.VERCEL_PROJECT_PRODUCTION_URL,
+  process.env.VERCEL_BRANCH_URL,
+  process.env.VERCEL_URL,
+]
+  .map((d) => (d ?? "").trim().toLowerCase())
   .filter(Boolean);
 
 function isRootDomain(host: string) {
