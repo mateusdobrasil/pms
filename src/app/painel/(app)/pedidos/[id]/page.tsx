@@ -4,7 +4,7 @@ import { requireStore } from "@/lib/panel";
 import { formatBRL } from "@/lib/money";
 import { formatCPF, formatDateTime, formatPhone } from "@/lib/format";
 import { isUuid } from "@/lib/validation";
-import { MEMBER_TRANSITIONS, statusLabel, type OrderStatus } from "@/lib/order-status";
+import { MEMBER_TRANSITIONS, statusLabel, statusTone, type OrderStatus } from "@/lib/order-status";
 import { OrderActions } from "./order-actions";
 
 type Order = {
@@ -60,10 +60,8 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
       <div>
         <Link href="/painel/pedidos" className="text-sm text-neutral-500 underline">← Pedidos</Link>
         <div className="mt-2 flex flex-wrap items-baseline gap-3">
-          <h1 className="font-mono text-2xl font-semibold">{order.code}</h1>
-          <span className="rounded-full border bg-white px-3 py-0.5 text-sm">
-            {statusLabel(order.status, order.shipping_method)}
-          </span>
+          <h1 className="font-mono text-2xl font-semibold tracking-tight">{order.code}</h1>
+          <span className={statusTone(order.status)}>{statusLabel(order.status, order.shipping_method)}</span>
         </div>
         <p className="text-sm text-neutral-500">
           Criado em {formatDateTime(order.created_at)}
@@ -80,7 +78,7 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
 
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="space-y-6 lg:col-span-2">
-          <section className="rounded-md border bg-white">
+          <section className="rounded-xl border bg-white shadow-sm">
             <h2 className="border-b px-4 py-3 font-medium">Itens</h2>
             <ul className="divide-y text-sm">
               {order.order_items.map((i) => (
@@ -104,7 +102,7 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
             </div>
           </section>
 
-          <section className="rounded-md border bg-white">
+          <section className="rounded-xl border bg-white shadow-sm">
             <h2 className="border-b px-4 py-3 font-medium">Pagamentos</h2>
             {order.payments.length === 0 ? (
               <p className="px-4 py-3 text-sm text-neutral-500">Nenhuma tentativa de pagamento ainda.</p>
@@ -135,10 +133,10 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
             transitions={MEMBER_TRANSITIONS[order.status]}
           />
 
-          <section className="space-y-1 rounded-md border bg-white px-4 py-3 text-sm">
+          <section className="space-y-1 rounded-xl border bg-white shadow-sm px-4 py-3 text-sm">
             <h2 className="mb-2 font-medium">Cliente</h2>
             <p>{order.customer_name}</p>
-            <p><a href={`mailto:${order.customer_email}`} className="underline">{order.customer_email}</a></p>
+            <p><a href={`mailto:${order.customer_email}`} className="font-medium text-primary-700 hover:underline">{order.customer_email}</a></p>
             {order.customer_phone && (
               <p>
                 {formatPhone(order.customer_phone)}
@@ -152,7 +150,7 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
             <p className="text-neutral-500">CPF {formatCPF(order.customer_cpf)}</p>
           </section>
 
-          <section className="space-y-1 rounded-md border bg-white px-4 py-3 text-sm">
+          <section className="space-y-1 rounded-xl border bg-white shadow-sm px-4 py-3 text-sm">
             <h2 className="mb-2 font-medium">Entrega</h2>
             {isPickup ? (
               <p>Retirada na loja</p>

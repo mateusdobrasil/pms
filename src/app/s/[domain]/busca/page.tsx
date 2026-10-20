@@ -20,7 +20,7 @@ export default async function SearchPage({
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-semibold">{q ? `Resultados para “${q}”` : "Buscar"}</h1>
+      <h1 className="text-2xl font-bold tracking-tight">{q ? `Resultados para “${q}”` : "Buscar"}</h1>
       {q.length < 2 ? (
         <p className="text-neutral-600">Digite pelo menos 2 letras na busca.</p>
       ) : products.length === 0 ? (

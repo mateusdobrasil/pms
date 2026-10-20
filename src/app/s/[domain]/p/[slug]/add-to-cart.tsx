@@ -40,7 +40,7 @@ export function AddToCart({ productName, variants }: { productName: string; vari
     <div className="space-y-5">
       <p className="text-2xl">
         {!selected && prices.size > 1 && <span className="text-base text-neutral-500">a partir de </span>}
-        <span className="font-semibold">{formatBRL(selected ? selected.priceCents : Math.min(...prices))}</span>
+        <span className="text-3xl font-bold tracking-tight">{formatBRL(selected ? selected.priceCents : Math.min(...prices))}</span>
         {shown.compareAtCents && (selected || prices.size === 1) && (
           <span className="ml-3 text-lg text-neutral-400 line-through">{formatBRL(shown.compareAtCents)}</span>
         )}
@@ -61,9 +61,10 @@ export function AddToCart({ productName, variants }: { productName: string; vari
                   setMessage(null);
                   setQuantity(1);
                 }}
-                className={`rounded-md border px-4 py-2 text-sm disabled:cursor-not-allowed disabled:text-neutral-400 disabled:line-through ${
-                  v.id === selectedId ? "border-neutral-900 font-medium" : ""
+                className={`min-w-12 rounded-lg border-2 px-4 py-2 text-sm font-medium transition disabled:cursor-not-allowed disabled:border-dashed disabled:text-neutral-400 disabled:line-through ${
+                  v.id === selectedId ? "" : "border-neutral-200 hover:border-neutral-400"
                 }`}
+                style={v.id === selectedId ? { borderColor: "var(--brand)", color: "var(--brand)" } : undefined}
               >
                 {v.name}
               </button>
@@ -73,7 +74,7 @@ export function AddToCart({ productName, variants }: { productName: string; vari
       )}
 
       {soldOut ? (
-        <p className="rounded-md bg-neutral-100 px-4 py-3 text-sm text-neutral-700">Produto esgotado no momento.</p>
+        <p className="rounded-lg bg-neutral-100 px-4 py-3 text-sm font-medium text-neutral-700">Produto esgotado no momento.</p>
       ) : (
         <div className="flex gap-3">
           <label className="sr-only" htmlFor="qty">Quantidade</label>
@@ -84,12 +85,12 @@ export function AddToCart({ productName, variants }: { productName: string; vari
             max={selected?.stock ?? undefined}
             value={quantity}
             onChange={(e) => setQuantity(Math.max(1, Math.floor(e.target.valueAsNumber || 1)))}
-            className="w-20 rounded-md border px-3 py-3 text-sm"
+            className="w-20 rounded-lg border px-3 py-3 text-center text-sm"
           />
           <button
             type="button"
             onClick={add}
-            className="flex-1 rounded-md px-4 py-3 font-medium text-white"
+            className="flex-1 rounded-lg px-4 py-3 font-semibold text-white shadow-sm transition hover:brightness-110"
             style={{ background: "var(--brand)" }}
           >
             Adicionar ao carrinho
@@ -102,7 +103,7 @@ export function AddToCart({ productName, variants }: { productName: string; vari
       )}
       {message && <p className="text-sm text-red-700">{message}</p>}
       {added && (
-        <p className="flex flex-wrap items-center gap-3 text-sm text-green-700">
+        <p className="flex flex-wrap items-center gap-3 rounded-lg bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
           {productName} adicionado ao carrinho.
           <Link href="/carrinho" className="font-medium underline">Ver carrinho</Link>
           <Link href="/checkout" className="font-medium underline">Finalizar compra</Link>

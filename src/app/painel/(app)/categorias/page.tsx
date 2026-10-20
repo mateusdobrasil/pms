@@ -16,13 +16,13 @@ export default async function CategoriesPage() {
 
   return (
     <div className="max-w-2xl space-y-6">
-      <h1 className="text-2xl font-semibold">Categorias</h1>
+      <h1 className="text-2xl font-semibold tracking-tight">Categorias</h1>
       <CreateCategoryForm />
 
       {categories.length === 0 ? (
-        <p className="rounded-md border bg-white px-4 py-8 text-center text-neutral-500">Nenhuma categoria ainda.</p>
+        <p className="rounded-xl border bg-white shadow-sm px-4 py-8 text-center text-neutral-500">Nenhuma categoria ainda.</p>
       ) : (
-        <ul className="divide-y rounded-md border bg-white">
+        <ul className="divide-y rounded-xl border bg-white shadow-sm">
           {categories.map((c, i) => (
             <li key={c.id} className="flex flex-wrap items-center gap-3 px-4 py-3 text-sm">
               <form action={moveCategory} className="flex flex-col">

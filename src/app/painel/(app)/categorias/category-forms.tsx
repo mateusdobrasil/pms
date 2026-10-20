@@ -15,7 +15,7 @@ export function CreateCategoryForm() {
     <form ref={formRef} action={action} className="space-y-2">
       <div className="flex gap-2">
         <input name="name" required placeholder="Nova categoria" className="min-w-0 flex-1 rounded-md border bg-white px-3 py-2 text-sm" />
-        <button type="submit" disabled={pending} className="rounded-md bg-neutral-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50">
+        <button type="submit" disabled={pending} className="rounded-md bg-primary-600 hover:bg-primary-700 px-4 py-2 text-sm font-medium text-white disabled:opacity-50">
           Adicionar
         </button>
       </div>

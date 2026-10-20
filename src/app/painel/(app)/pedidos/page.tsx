@@ -2,7 +2,7 @@ import Link from "next/link";
 import { requireStore } from "@/lib/panel";
 import { formatBRL } from "@/lib/money";
 import { formatDateTime } from "@/lib/format";
-import { ORDER_STATUSES, statusLabel, type OrderStatus } from "@/lib/order-status";
+import { ORDER_STATUSES, statusLabel, statusTone, type OrderStatus } from "@/lib/order-status";
 
 const PAGE_SIZE = 30;
 
@@ -68,7 +68,7 @@ export default async function OrdersPage({
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-semibold">Pedidos</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">Pedidos</h1>
         <form action="/painel/pedidos" className="flex gap-2">
           {status && <input type="hidden" name="status" value={status} />}
           <input
@@ -86,7 +86,7 @@ export default async function OrdersPage({
           <Link
             key={f.label}
             href={href({ status: f.value })}
-            className={`rounded-full border px-3 py-1 ${status === f.value ? "border-neutral-900 bg-neutral-900 text-white" : "bg-white"}`}
+            className={`rounded-full border px-3 py-1 ${status === f.value ? "border-primary-600 bg-primary-600 text-white" : "bg-white"}`}
           >
             {f.label}
           </Link>
@@ -94,11 +94,11 @@ export default async function OrdersPage({
       </nav>
 
       {orders.length === 0 ? (
-        <p className="rounded-md border bg-white px-4 py-8 text-center text-neutral-500">Nenhum pedido encontrado.</p>
+        <p className="rounded-xl border bg-white shadow-sm px-4 py-8 text-center text-neutral-500">Nenhum pedido encontrado.</p>
       ) : (
-        <div className="overflow-x-auto rounded-md border bg-white">
+        <div className="overflow-x-auto rounded-xl border bg-white shadow-sm">
           <table className="w-full text-sm">
-            <thead className="border-b text-left text-neutral-500">
+            <thead className="border-b bg-neutral-50 text-left text-xs uppercase tracking-wide text-neutral-500">
               <tr>
                 <th className="px-4 py-2 font-medium">Pedido</th>
                 <th className="px-4 py-2 font-medium">Data</th>
@@ -111,12 +111,12 @@ export default async function OrdersPage({
               {orders.map((o) => (
                 <tr key={o.id} className="hover:bg-neutral-50">
                   <td className="px-4 py-2 font-mono">
-                    <Link href={`/painel/pedidos/${o.id}`} className="underline">{o.code}</Link>
+                    <Link href={`/painel/pedidos/${o.id}`} className="font-medium text-primary-700 hover:underline">{o.code}</Link>
                   </td>
                   <td className="whitespace-nowrap px-4 py-2">{formatDateTime(o.created_at)}</td>
                   <td className="px-4 py-2">{o.customer_name}</td>
                   <td className="whitespace-nowrap px-4 py-2">
-                    {statusLabel(o.status, o.shipping_method)}
+                    <span className={statusTone(o.status)}>{statusLabel(o.status, o.shipping_method)}</span>
                     {o.stock_issue && <span className="ml-2 rounded bg-red-100 px-1.5 py-0.5 text-xs text-red-800">sem estoque</span>}
                   </td>
                   <td className="whitespace-nowrap px-4 py-2 text-right">{formatBRL(o.total_cents)}</td>
@@ -129,9 +129,9 @@ export default async function OrdersPage({
 
       {pages > 1 && (
         <div className="flex items-center justify-between text-sm">
-          {page > 1 ? <Link href={href({ page: page - 1 })} className="underline">← Anteriores</Link> : <span />}
+          {page > 1 ? <Link href={href({ page: page - 1 })} className="font-medium text-primary-700 hover:underline">← Anteriores</Link> : <span />}
           <span className="text-neutral-500">Página {page} de {pages}</span>
-          {page < pages ? <Link href={href({ page: page + 1 })} className="underline">Próximos →</Link> : <span />}
+          {page < pages ? <Link href={href({ page: page + 1 })} className="font-medium text-primary-700 hover:underline">Próximos →</Link> : <span />}
         </div>
       )}
     </div>

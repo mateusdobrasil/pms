@@ -30,23 +30,23 @@ export default async function ProductsPage({ searchParams }: { searchParams: Pro
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-semibold">Produtos</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">Produtos</h1>
         <div className="flex gap-2">
           <form action="/painel/produtos" className="flex gap-2">
             <input name="q" defaultValue={q} placeholder="Buscar produto" className="w-44 rounded-md border bg-white px-3 py-1.5 text-sm" />
           </form>
-          <Link href="/painel/produtos/novo" className="rounded-md bg-neutral-900 px-4 py-1.5 text-sm font-medium text-white">
+          <Link href="/painel/produtos/novo" className="rounded-md bg-primary-600 hover:bg-primary-700 px-4 py-1.5 text-sm font-medium text-white">
             Novo produto
           </Link>
         </div>
       </div>
 
       {products.length === 0 ? (
-        <p className="rounded-md border bg-white px-4 py-8 text-center text-neutral-500">
+        <p className="rounded-xl border bg-white shadow-sm px-4 py-8 text-center text-neutral-500">
           {q ? "Nenhum produto encontrado." : "Nenhum produto cadastrado ainda."}
         </p>
       ) : (
-        <ul className="divide-y rounded-md border bg-white">
+        <ul className="divide-y rounded-xl border bg-white shadow-sm">
           {products.map((p) => {
             const variants = p.product_variants.filter((v) => v.active);
             const prices = variants.map((v) => v.price_cents);

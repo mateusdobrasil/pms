@@ -2,6 +2,7 @@ import Link from "next/link";
 import { createPublicClient } from "@/lib/supabase/public";
 import { productImageUrl } from "@/lib/store";
 import { formatBRL } from "@/lib/money";
+import { NoPhoto } from "./no-photo";
 
 type Row = {
   id: string;
@@ -42,24 +43,26 @@ export function ProductGrid({ products }: { products: Row[] }) {
         return (
           <li key={p.id}>
             <Link href={`/p/${p.slug}`} className="group block">
-              <div className="relative aspect-square overflow-hidden rounded-md bg-neutral-100">
-                {cover && (
+              <div className="relative aspect-square overflow-hidden rounded-xl bg-neutral-100 ring-1 ring-neutral-200 transition group-hover:shadow-md">
+                {cover ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={productImageUrl(cover.path)}
                     alt={p.name}
                     loading="lazy"
-                    className="h-full w-full object-cover transition group-hover:scale-105"
+                    className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
                   />
+                ) : (
+                  <NoPhoto />
                 )}
                 {soldOut && (
-                  <span className="absolute left-2 top-2 rounded bg-white/90 px-2 py-0.5 text-xs font-medium">Esgotado</span>
+                  <span className="absolute left-2 top-2 rounded-full bg-neutral-900/80 px-2.5 py-0.5 text-xs font-medium text-white">Esgotado</span>
                 )}
               </div>
-              <p className="mt-2 text-sm">{p.name}</p>
-              <p className="text-sm">
+              <p className="mt-3 line-clamp-2 text-sm font-medium text-neutral-800">{p.name}</p>
+              <p className="mt-1 text-sm">
                 {new Set(prices).size > 1 && <span className="text-neutral-500">a partir de </span>}
-                <span className="font-semibold">{formatBRL(minPrice)}</span>
+                <span className="text-base font-bold">{formatBRL(minPrice)}</span>
                 {cheapest?.compare_at_cents && new Set(prices).size === 1 && (
                   <span className="ml-2 text-neutral-400 line-through">{formatBRL(cheapest.compare_at_cents)}</span>
                 )}
@@ -71,3 +74,4 @@ export function ProductGrid({ products }: { products: Row[] }) {
     </ul>
   );
 }
+

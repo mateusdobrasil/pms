@@ -26,7 +26,7 @@ export default async function CategoryPage(props: Params) {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-semibold">{found.category.name}</h1>
+      <h1 className="text-2xl font-bold tracking-tight">{found.category.name}</h1>
       {products.length === 0 ? (
         <p className="text-neutral-600">Nenhum produto nesta categoria por enquanto.</p>
       ) : (

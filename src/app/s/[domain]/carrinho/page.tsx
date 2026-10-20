@@ -5,7 +5,7 @@ export const metadata = { title: "Carrinho", robots: { index: false } };
 export default function CartPage() {
   return (
     <div className="mx-auto max-w-3xl">
-      <h1 className="mb-6 text-2xl font-semibold">Carrinho</h1>
+      <h1 className="mb-6 text-2xl font-bold tracking-tight">Carrinho</h1>
       <CartView />
     </div>
   );

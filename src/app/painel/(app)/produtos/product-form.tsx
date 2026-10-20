@@ -29,7 +29,7 @@ export function ProductForm({
   const [slugTouched, setSlugTouched] = useState(!!product);
 
   return (
-    <form action={action} className="space-y-4 rounded-md border bg-white p-4">
+    <form action={action} className="space-y-4 rounded-xl border bg-white shadow-sm p-4">
       {product && <input type="hidden" name="id" value={product.id} />}
 
       <label className="block space-y-1 text-sm">
@@ -111,7 +111,7 @@ export function ProductForm({
       {state?.error && <p className="text-sm text-red-700">{state.error}</p>}
       {state?.ok && <p className="text-sm text-green-700">{state.ok}</p>}
 
-      <button type="submit" disabled={pending} className="rounded-md bg-neutral-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50">
+      <button type="submit" disabled={pending} className="rounded-md bg-primary-600 hover:bg-primary-700 px-4 py-2 text-sm font-medium text-white disabled:opacity-50">
         {pending ? "Salvando…" : product ? "Salvar produto" : "Criar produto"}
       </button>
     </form>

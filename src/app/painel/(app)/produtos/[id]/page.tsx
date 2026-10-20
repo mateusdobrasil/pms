@@ -57,7 +57,7 @@ export default async function EditProductPage({
     <div className="max-w-4xl space-y-6">
       <div>
         <Link href="/painel/produtos" className="text-sm text-neutral-500 underline">← Produtos</Link>
-        <h1 className="mt-2 text-2xl font-semibold">{product.name}</h1>
+        <h1 className="mt-2 text-2xl font-semibold tracking-tight">{product.name}</h1>
         {criado && <p className="mt-1 text-sm text-green-700">Produto criado. Agora adicione fotos e variações.</p>}
       </div>
 

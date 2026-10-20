@@ -71,7 +71,7 @@ export function ImagesManager({
   }
 
   return (
-    <section className="space-y-3 rounded-md border bg-white p-4">
+    <section className="space-y-3 rounded-xl border bg-white shadow-sm p-4">
       <h2 className="font-medium">Fotos</h2>
 
       {images.length === 0 ? (

@@ -14,7 +14,7 @@ export default async function NewProductPage() {
   return (
     <div className="max-w-2xl space-y-4">
       <Link href="/painel/produtos" className="text-sm text-neutral-500 underline">← Produtos</Link>
-      <h1 className="text-2xl font-semibold">Novo produto</h1>
+      <h1 className="text-2xl font-semibold tracking-tight">Novo produto</h1>
       <ProductForm categories={categories ?? []} />
     </div>
   );

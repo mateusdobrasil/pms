@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import { readCart, writeCart, type CartItem } from "@/lib/cart";
 import { formatBRL } from "@/lib/money";
 import { productImageUrl } from "@/lib/images";
+import { NoPhoto } from "../no-photo";
 
 type Line = {
   variantId: string;
@@ -78,18 +79,20 @@ export function CartView() {
   return (
     <div className="space-y-6">
       {removedUnavailable && (
-        <p className="rounded-md bg-amber-50 px-4 py-3 text-sm text-amber-900">
+        <p className="rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-900">
           Alguns itens não estão mais disponíveis e foram retirados do carrinho.
         </p>
       )}
 
-      <ul className="divide-y rounded-md border">
+      <ul className="divide-y rounded-xl border bg-white shadow-sm">
         {quote.lines.map((l) => (
           <li key={l.variantId} className="flex gap-4 p-4">
             <Link href={`/p/${l.productSlug}`} className="h-20 w-20 shrink-0 overflow-hidden rounded bg-neutral-100">
-              {l.imagePath && (
+              {l.imagePath ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={productImageUrl(l.imagePath)} alt={l.productName} className="h-full w-full object-cover" />
+              ) : (
+                <NoPhoto />
               )}
             </Link>
             <div className="flex min-w-0 flex-1 flex-col justify-between gap-2 sm:flex-row sm:items-center">
@@ -104,7 +107,7 @@ export function CartView() {
                 )}
               </div>
               <div className="flex items-center gap-4">
-                <div className="flex items-center rounded-md border">
+                <div className="flex items-center rounded-lg border">
                   <button type="button" onClick={() => setQuantity(l.variantId, l.quantity - 1)} className="px-3 py-1" aria-label="Diminuir">−</button>
                   <span className="w-8 text-center text-sm">{l.quantity}</span>
                   <button
@@ -134,9 +137,9 @@ export function CartView() {
         <p className="text-sm text-neutral-500">Frete calculado no checkout.</p>
         {blocked && <p className="text-sm text-red-700">Ajuste as quantidades acima para continuar.</p>}
         {blocked ? (
-          <span className="rounded-md bg-neutral-300 px-6 py-3 font-medium text-white">Finalizar compra</span>
+          <span className="rounded-lg bg-neutral-300 px-6 py-3 font-medium text-white">Finalizar compra</span>
         ) : (
-          <Link href="/checkout" className="rounded-md px-6 py-3 font-medium text-white" style={{ background: "var(--brand)" }}>
+          <Link href="/checkout" className="rounded-lg px-6 py-3 font-semibold text-white shadow-sm transition hover:brightness-110" style={{ background: "var(--brand)" }}>
             Finalizar compra
           </Link>
         )}

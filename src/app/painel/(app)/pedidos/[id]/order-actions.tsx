@@ -26,7 +26,7 @@ export function OrderActions({
   const canCancel = transitions.includes("canceled");
 
   return (
-    <section className="space-y-4 rounded-md border bg-white px-4 py-3 text-sm">
+    <section className="space-y-4 rounded-xl border bg-white shadow-sm px-4 py-3 text-sm">
       <h2 className="font-medium">Andamento</h2>
 
       {nextSteps.length === 0 && !canTrack && !canCancel && (
@@ -43,7 +43,7 @@ export function OrderActions({
               name="status"
               value={s}
               disabled={statusPending}
-              className="rounded-md bg-neutral-900 px-3 py-2 font-medium text-white disabled:opacity-50"
+              className="rounded-md bg-primary-600 hover:bg-primary-700 px-3 py-2 font-medium text-white disabled:opacity-50"
             >
               Marcar como {statusLabel(s, shippingMethod).toLowerCase()}
             </button>

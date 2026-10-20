@@ -109,10 +109,10 @@ export function PaymentPanel({
   }
 
   const tabClass = (active: boolean) =>
-    `flex-1 rounded-md border px-4 py-2 text-sm ${active ? "border-neutral-900 font-medium" : "text-neutral-500"}`;
+    `flex-1 rounded-lg border px-4 py-2 text-sm ${active ? "border-neutral-900 font-medium" : "text-neutral-500"}`;
 
   return (
-    <section className="space-y-4 rounded-md border p-4">
+    <section className="space-y-4 rounded-xl border bg-white p-5 shadow-sm">
       <h2 className="font-medium">Pagamento</h2>
       <div className="flex gap-2">
         <button type="button" className={tabClass(method === "pix")} onClick={() => setMethod("pix")}>
@@ -130,7 +130,7 @@ export function PaymentPanel({
           type="button"
           onClick={generatePix}
           disabled={loading}
-          className="w-full rounded-md px-4 py-3 font-medium text-white disabled:opacity-50"
+          className="w-full rounded-lg px-4 py-3 font-semibold text-white shadow-sm transition hover:brightness-110 disabled:opacity-50"
           style={{ background: "var(--brand)" }}
         >
           {loading ? "Gerando Pix…" : "Gerar Pix"}
@@ -142,8 +142,8 @@ export function PaymentPanel({
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={`data:image/png;base64,${pix.qrCodeBase64}`} alt="QR code Pix" className="mx-auto h-56 w-56" />
           <p className="text-sm text-neutral-600">Escaneie o QR code ou use o Pix copia e cola:</p>
-          <textarea readOnly value={pix.qrCode} rows={3} className="w-full rounded-md border p-2 font-mono text-xs" />
-          <button type="button" onClick={copyPix} className="w-full rounded-md border px-4 py-2 text-sm">
+          <textarea readOnly value={pix.qrCode} rows={3} className="w-full rounded-lg border p-2 font-mono text-xs" />
+          <button type="button" onClick={copyPix} className="w-full rounded-lg border px-4 py-2 text-sm">
             {copied ? "Copiado!" : "Copiar código Pix"}
           </button>
           {pix.expiresAt && (

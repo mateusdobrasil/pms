@@ -41,3 +41,18 @@ export const MEMBER_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
   canceled: [],
   expired: [],
 };
+
+// Cor do selo de status (classes Tailwind).
+const TONES: Record<OrderStatus, string> = {
+  pending_payment: "bg-amber-100 text-amber-800 ring-amber-200",
+  paid: "bg-emerald-100 text-emerald-800 ring-emerald-200",
+  preparing: "bg-sky-100 text-sky-800 ring-sky-200",
+  shipped: "bg-indigo-100 text-indigo-800 ring-indigo-200",
+  delivered: "bg-neutral-100 text-neutral-700 ring-neutral-200",
+  canceled: "bg-red-100 text-red-800 ring-red-200",
+  expired: "bg-neutral-100 text-neutral-500 ring-neutral-200",
+};
+
+export function statusTone(status: OrderStatus) {
+  return `inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset ${TONES[status] ?? TONES.expired}`;
+}

@@ -13,7 +13,7 @@ type Quote = {
   problems: string[];
 };
 
-const inputClass = "w-full rounded-md border px-3 py-2 text-sm";
+const inputClass = "w-full rounded-lg border px-3 py-2.5 text-sm";
 
 export function CheckoutForm() {
   const router = useRouter();
@@ -87,7 +87,7 @@ export function CheckoutForm() {
     <form onSubmit={onSubmit} className="space-y-8">
       <section>
         <h2 className="mb-3 font-medium">Resumo</h2>
-        <ul className="divide-y rounded-md border text-sm">
+        <ul className="divide-y rounded-xl border bg-white shadow-sm text-sm">
           {quote.lines.map((l) => (
             <li key={l.variantId} className="flex justify-between gap-4 px-4 py-3">
               <span>
@@ -123,7 +123,7 @@ export function CheckoutForm() {
       <section className="space-y-2">
         <h2 className="font-medium">Entrega</h2>
         {quote.shippingOptions.map((o) => (
-          <label key={o.id} className="flex items-center justify-between rounded-md border px-4 py-3 text-sm">
+          <label key={o.id} className="flex items-center justify-between rounded-lg border px-4 py-3 text-sm">
             <span className="flex items-center gap-3">
               <input
                 type="radio"
@@ -156,7 +156,7 @@ export function CheckoutForm() {
       <button
         type="submit"
         disabled={submitting || blocked || !shipping}
-        className="w-full rounded-md px-4 py-3 font-medium text-white disabled:opacity-50"
+        className="w-full rounded-lg px-4 py-3 font-semibold text-white shadow-sm transition hover:brightness-110 disabled:opacity-50"
         style={{ background: "var(--brand)" }}
       >
         {submitting ? "Criando pedido…" : "Ir para o pagamento"}

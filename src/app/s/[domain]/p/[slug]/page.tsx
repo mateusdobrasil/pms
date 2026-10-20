@@ -76,7 +76,7 @@ export default async function ProductPage({ params }: Params) {
               {product.categories.name}
             </Link>
           )}
-          <h1 className="text-2xl font-semibold">{product.name}</h1>
+          <h1 className="mt-1 text-3xl font-bold tracking-tight">{product.name}</h1>
         </div>
 
         <AddToCart

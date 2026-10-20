@@ -49,7 +49,7 @@ export default async function OrderPage({ params }: { params: Promise<{ domain: 
     <div className="mx-auto max-w-2xl space-y-8">
       <header>
         <p className="text-sm text-neutral-500">Pedido {order.code}</p>
-        <h1 className="text-2xl font-semibold">{expired ? statusLabel("expired") : order.status === "paid" ? "Pagamento confirmado" : statusLabel(order.status, order.shipping_method)}</h1>
+        <h1 className="text-2xl font-bold tracking-tight">{expired ? statusLabel("expired") : order.status === "paid" ? "Pagamento confirmado" : statusLabel(order.status, order.shipping_method)}</h1>
         {order.status === "paid" && (
           <p className="mt-2 text-neutral-600">
             Obrigado! Enviamos a confirmação para {order.customer_email}. Guarde este link para acompanhar o pedido.
@@ -74,7 +74,7 @@ export default async function OrderPage({ params }: { params: Promise<{ domain: 
 
       <section>
         <h2 className="mb-3 font-medium">Itens</h2>
-        <ul className="divide-y rounded-md border text-sm">
+        <ul className="divide-y rounded-xl border bg-white shadow-sm text-sm">
           {(order.order_items as Item[]).map((i) => (
             <li key={i.id} className="flex justify-between gap-4 px-4 py-3">
               <span>

@@ -33,14 +33,14 @@ export default async function PanelHome() {
   const sum = (rows: { total_cents: number }[]) => rows.reduce((s, o) => s + o.total_cents, 0);
 
   const cards = [
-    { label: "Vendas hoje", value: formatBRL(sum(today)), detail: `${today.length} pedido(s)` },
-    { label: "Vendas no mês", value: formatBRL(sum(month)), detail: `${month.length} pedido(s)` },
-    { label: "Para enviar", value: String(toShip ?? 0), detail: "pagos ou em preparação", href: "/painel/pedidos?status=paid" },
+    { label: "Vendas hoje", value: formatBRL(sum(today)), detail: `${today.length} pedido(s)`, accent: "border-t-primary-500" },
+    { label: "Vendas no mês", value: formatBRL(sum(month)), detail: `${month.length} pedido(s)`, accent: "border-t-emerald-500" },
+    { label: "Para enviar", value: String(toShip ?? 0), detail: "pagos ou em preparação", href: "/painel/pedidos?status=paid", accent: "border-t-amber-500" },
   ];
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-semibold">Resumo</h1>
+      <h1 className="text-2xl font-semibold tracking-tight">Resumo</h1>
 
       {(stockIssues ?? 0) > 0 && (
         <p className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
@@ -53,16 +53,16 @@ export default async function PanelHome() {
           const body = (
             <>
               <p className="text-sm text-neutral-500">{c.label}</p>
-              <p className="mt-1 text-2xl font-semibold">{c.value}</p>
+              <p className="mt-1 text-3xl font-semibold tracking-tight">{c.value}</p>
               <p className="text-xs text-neutral-500">{c.detail}</p>
             </>
           );
           return c.href ? (
-            <Link key={c.label} href={c.href} className="rounded-md border bg-white p-4 hover:border-neutral-400">
+            <Link key={c.label} href={c.href} className={`rounded-xl border border-t-4 bg-white p-5 shadow-sm transition hover:shadow-md ${c.accent}`}>
               {body}
             </Link>
           ) : (
-            <div key={c.label} className="rounded-md border bg-white p-4">
+            <div key={c.label} className={`rounded-xl border border-t-4 bg-white p-5 shadow-sm ${c.accent}`}>
               {body}
             </div>
           );
