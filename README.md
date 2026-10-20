@@ -68,7 +68,9 @@ Pegue um `id` de `product_variants` no Supabase Studio, rode no console do naveg
 
    update stores set origin_zip = '01001000' where slug = 'loja-teste';
    ```
-4. Variáveis: `MELHOR_ENVIO_ENV=sandbox` (ou `production`) e `MELHOR_ENVIO_CONTACT` (e-mail técnico).
+4. Ambiente por loja: no `/admin` → loja → "Pagamento e frete", marque/desmarque "Melhor Envio em sandbox"
+   (coluna `store_secrets.melhor_envio_sandbox`). `MELHOR_ENVIO_ENV` só vale como padrão antes dessa migration.
+   `MELHOR_ENVIO_CONTACT` (e-mail técnico) continua global.
 
 Sem token ou sem CEP de origem, o checkout oferece só "Retirada na loja".
 O frete é recalculado no servidor ao criar o pedido: o preço nunca vem do navegador.

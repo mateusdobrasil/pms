@@ -15,7 +15,7 @@ export default async function AdminStorePage({ params }: { params: Promise<{ id:
     db.from("stores").select("id, name, slug, status, email, origin_zip, store_domains(domain, is_primary)").eq("id", id).maybeSingle(),
     db
       .from("store_secrets")
-      .select("gateway_access_token, gateway_public_key, gateway_webhook_secret, melhor_envio_token")
+      .select("*") // "*": tolera a coluna melhor_envio_sandbox ainda não existir
       .eq("store_id", id)
       .maybeSingle(),
     db.from("store_members").select("user_id, role, created_at").eq("store_id", id),
@@ -34,7 +34,10 @@ export default async function AdminStorePage({ params }: { params: Promise<{ id:
     (a, b) => Number(b.is_primary) - Number(a.is_primary),
   );
   // Só "configurado ou não": os valores nunca vão para a página.
-  const configured = Object.fromEntries(Object.entries(secret ?? {}).map(([k, v]) => [k, !!v]));
+  const SECRET_KEYS = ["gateway_access_token", "gateway_public_key", "gateway_webhook_secret", "melhor_envio_token"];
+  const configured = Object.fromEntries(SECRET_KEYS.map((k) => [k, !!secret?.[k]]));
+  const meSandbox: boolean = secret?.melhor_envio_sandbox ?? true;
+  const mpTest = String(secret?.gateway_access_token ?? "").startsWith("TEST-");
   const card = "space-y-4 rounded-xl border bg-white p-5 shadow-sm";
 
   return (
@@ -116,7 +119,12 @@ export default async function AdminStorePage({ params }: { params: Promise<{ id:
 
         <section className={card}>
           <h2 className="font-semibold">Pagamento e frete</h2>
-          <SecretsForm storeId={store.id} configured={configured} originZip={store.origin_zip} />
+          <SecretsForm storeId={store.id} configured={configured} originZip={store.origin_zip} meSandbox={meSandbox} />
+          {configured.gateway_access_token && (
+            <p className={`rounded-lg px-3 py-2 text-xs ${mpTest ? "bg-amber-50 text-amber-900" : "bg-emerald-50 text-emerald-800"}`}>
+              Mercado Pago em {mpTest ? "modo de TESTE (credenciais TEST-): nenhum dinheiro real é cobrado." : "PRODUÇÃO: cobranças reais."}
+            </p>
+          )}
         </section>
 
         <section className={card}>

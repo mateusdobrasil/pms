@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import Link from "next/link";
 import { requireStore } from "@/lib/panel";
 import { signOut } from "../actions";
 import { PanelNav } from "./panel-nav";
@@ -22,7 +23,10 @@ export default async function PanelLayout({ children }: { children: ReactNode })
             </div>
           </div>
           <form action={signOut} className="flex items-center gap-3 text-sm text-neutral-300 sm:order-last">
-            <span className="hidden md:inline">{email}</span>
+            <Link href="/painel/conta" className="hidden rounded-md px-2 py-1 hover:bg-white/10 hover:text-white md:inline" title="Minha conta">
+              {email}
+            </Link>
+            <Link href="/painel/conta" className="rounded-md px-2 py-1 hover:bg-white/10 hover:text-white md:hidden">Conta</Link>
             <button type="submit" className="rounded-md px-2 py-1 hover:bg-white/10 hover:text-white">Sair</button>
           </form>
           <div className="w-full sm:w-auto sm:flex-1">

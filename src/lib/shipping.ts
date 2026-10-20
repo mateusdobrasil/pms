@@ -22,8 +22,11 @@ const PICKUP: ShippingOption = {
   requiresAddress: false,
 };
 
-const ME_URL =
-  process.env.MELHOR_ENVIO_ENV === "production" ? "https://melhorenvio.com.br" : "https://sandbox.melhorenvio.com.br";
+// Ambiente por loja (store_secrets.melhor_envio_sandbox); sem a coluna, vale MELHOR_ENVIO_ENV.
+function meBaseUrl(sandbox: boolean | undefined) {
+  const useSandbox = typeof sandbox === "boolean" ? sandbox : process.env.MELHOR_ENVIO_ENV !== "production";
+  return useSandbox ? "https://sandbox.melhorenvio.com.br" : "https://melhorenvio.com.br";
+}
 // O Melhor Envio exige "Nome da aplicação (e-mail de contato técnico)".
 const ME_USER_AGENT = `PMS app (${process.env.MELHOR_ENVIO_CONTACT ?? "contato@pmsapp.com.br"})`;
 
@@ -47,7 +50,7 @@ export async function getShippingOptions(store: Store, lines: PricedLine[], zip?
   const from = onlyDigits(store.origin_zip ?? "");
   const { data: secret } = await createAdminClient()
     .from("store_secrets")
-    .select("melhor_envio_token")
+    .select("*") // "*" para funcionar antes e depois da migration melhor_envio_sandbox
     .eq("store_id", store.id)
     .maybeSingle();
   if (from.length !== 8 || !secret?.melhor_envio_token) {
@@ -56,7 +59,7 @@ export async function getShippingOptions(store: Store, lines: PricedLine[], zip?
   }
 
   try {
-    const res = await fetch(`${ME_URL}/api/v2/me/shipment/calculate`, {
+    const res = await fetch(`${meBaseUrl(secret.melhor_envio_sandbox)}/api/v2/me/shipment/calculate`, {
       method: "POST",
       headers: {
         Accept: "application/json",

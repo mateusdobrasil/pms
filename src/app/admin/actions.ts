@@ -166,11 +166,21 @@ export async function saveSecrets(_prev: AdminState, form: FormData): Promise<Ad
   const originZip = onlyDigits(String(form.get("origin_zip") ?? ""));
   if (originZip && originZip.length !== 8) return { error: "CEP de origem inválido." };
 
-  if (Object.keys(patch).length) {
-    const { error } = await db
-      .from("store_secrets")
-      .upsert({ store_id: storeId, ...patch, updated_at: new Date().toISOString() }, { onConflict: "store_id" });
-    if (error) return { error: "Não foi possível salvar as credenciais." };
+  const { error } = await db.from("store_secrets").upsert(
+    {
+      store_id: storeId,
+      ...patch,
+      melhor_envio_sandbox: form.get("melhor_envio_sandbox") === "on",
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "store_id" },
+  );
+  if (error) {
+    return {
+      error: error.message.includes("melhor_envio_sandbox")
+        ? "Rode a migration 20261021000000_melhor_envio_env_por_loja.sql antes de salvar."
+        : "Não foi possível salvar as credenciais.",
+    };
   }
   if (originZip) await db.from("stores").update({ origin_zip: originZip }).eq("id", storeId);
 

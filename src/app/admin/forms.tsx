@@ -17,7 +17,7 @@ function Feedback({ state }: { state: AdminState }) {
         <p className="rounded-lg bg-amber-50 px-3 py-2 text-amber-900">
           Senha temporária: <code className="rounded bg-white px-1.5 py-0.5 font-mono font-semibold">{state.password}</code>
           <br />
-          Anote e envie ao lojista agora: ela não será mostrada de novo. Ele pode trocar depois.
+          Anote e envie ao lojista agora: ela não será mostrada de novo. Ele troca em Painel → Minha conta.
         </p>
       )}
     </div>
@@ -91,10 +91,12 @@ export function SecretsForm({
   storeId,
   configured,
   originZip,
+  meSandbox,
 }: {
   storeId: string;
   configured: Record<string, boolean>;
   originZip: string | null;
+  meSandbox: boolean;
 }) {
   const [state, action, pending] = useActionState<AdminState, FormData>(saveSecrets, null);
   return (
@@ -124,6 +126,10 @@ export function SecretsForm({
           )}
         </label>
       ))}
+      <label className="flex items-center gap-2 text-sm">
+        <input type="checkbox" name="melhor_envio_sandbox" defaultChecked={meSandbox} />
+        <span>Melhor Envio em <strong>sandbox</strong> (testes). Desmarque quando o token for de produção.</span>
+      </label>
       <label className="block space-y-1 text-sm">
         <span className="font-medium text-neutral-700">CEP de origem (frete)</span>
         <input name="origin_zip" defaultValue={originZip ?? ""} inputMode="numeric" placeholder="00000-000" className={input} />
