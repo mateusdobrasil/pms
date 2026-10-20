@@ -4,36 +4,24 @@ Base multi-tenant de lojas virtuais com Next.js + Supabase + Vercel.
 
 ## Montando o projeto
 
-1. Crie o app Next.js:
+1. Instale as dependências:
    ```bash
-   npx create-next-app@latest pms-app --typescript --tailwind --eslint --app --src-dir --import-alias "@/*"
-   cd pms-app
+   npm install
    ```
-2. Inicialize o Supabase (precisa do Docker rodando para o ambiente local):
-   ```bash
-   npx supabase init
-   ```
-3. Copie os arquivos deste pacote para dentro da pasta `pms-app`, sobrescrevendo quando pedir.
-4. Instale as dependências:
-   ```bash
-   npm i @supabase/supabase-js @supabase/ssr server-only
-   ```
-5. Suba o banco local e aplique schema + seed:
-   ```bash
-   npx supabase start
-   npx supabase db reset
-   ```
-6. Copie `.env.example` para `.env.local` e preencha com as chaves que o `supabase start` mostrou.
-7. Rode:
+2. No Supabase (nuvem), abra o **SQL Editor** e rode, em ordem de nome, os arquivos de `supabase/executado/`
+   (banco novo) e depois os de `supabase/migrations/` (pendentes). Ao rodar um arquivo de `migrations/`, mova-o para `executado/`.
+3. Copie `.env.example` para `.env.local` e preencha com a URL e as chaves de **Project Settings → API Keys**.
+4. Rode:
    ```bash
    npm run dev
    ```
    Abra **http://loja-teste.localhost:3000** para ver a loja de teste.
-   O domínio raiz (http://localhost:3000) fica reservado para o painel e o site da plataforma.
+   O domínio raiz (http://localhost:3000) fica reservado para o painel (`/painel`) e o site da plataforma.
 
 ## Virando dono da loja de teste
 
-Depois de criar seu usuário pelo Supabase Auth, rode no SQL editor:
+Crie seu usuário em **Authentication → Users → Add user** (marque "Auto Confirm User"), rode no SQL Editor
+o comando abaixo e entre em http://localhost:3000/painel/login:
 ```sql
 insert into store_members (store_id, user_id)
 select s.id, u.id from stores s, auth.users u

@@ -13,7 +13,9 @@ Um único app Next.js atende todas as lojas; cada loja é identificada pelo dom�
 ## Arquitetura
 - `src/proxy.ts` (antigo middleware) reescreve `loja.com.br/x` → `/s/loja.com.br/x`. Domínios em `NEXT_PUBLIC_ROOT_DOMAINS` servem o painel/site da plataforma.
 - Vitrine em `src/app/s/[domain]/...`. Painel do lojista e super-admin ficam no domínio raiz (`/painel`, `/admin`).
-- Schema e políticas em `supabase/migrations/`.
+- Banco: Supabase na nuvem; SQL rodado à mão no SQL Editor, em ordem de nome.
+  - `supabase/migrations/`: SQL novo, ainda NÃO executado. Todo SQL novo vai aqui, com prefixo de data (`AAAAMMDDHHMMSS_nome.sql`).
+  - `supabase/executado/`: SQL já rodado no banco (o usuário move para cá depois de rodar). Nunca editar um arquivo daqui; mudanças vão num SQL novo em `migrations/`.
 
 ## Regras do projeto (não quebrar)
 - Toda tabela tem `store_id`, e toda consulta da vitrine filtra por ele.
@@ -43,5 +45,5 @@ Cupons, avaliações, carrinho abandonado, conta de cliente, marketplaces, ERP, 
 
 ## Comandos
 - `npm run dev` → loja de teste em http://loja-teste.localhost:3000
-- `npx supabase start` / `npx supabase db reset` (aplica migrations + seed)
-- `npx supabase gen types typescript --local > src/lib/database.types.ts`
+- SQL: rodar cada arquivo de `supabase/migrations/` no SQL Editor do Supabase e mover para `supabase/executado/`
+- `npx supabase gen types typescript --project-id <id> > src/lib/database.types.ts` (precisa de `npx supabase login`)

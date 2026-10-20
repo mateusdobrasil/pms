@@ -4,20 +4,11 @@ import { getStoreByDomain } from "@/lib/store";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { formatBRL } from "@/lib/money";
 import { isUuid } from "@/lib/validation";
+import { statusLabel } from "@/lib/order-status";
 import { PaymentPanel } from "./payment-panel";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Seu pedido", robots: { index: false } };
-
-const STATUS_LABEL: Record<string, string> = {
-  pending_payment: "Aguardando pagamento",
-  paid: "Pagamento confirmado",
-  preparing: "Em preparação",
-  shipped: "Enviado",
-  delivered: "Entregue",
-  canceled: "Cancelado",
-  expired: "Expirado",
-};
 
 type Item = { id: string; product_name: string; variant_name: string; unit_price_cents: number; quantity: number };
 
@@ -58,7 +49,7 @@ export default async function OrderPage({ params }: { params: Promise<{ domain: 
     <div className="mx-auto max-w-2xl space-y-8">
       <header>
         <p className="text-sm text-neutral-500">Pedido {order.code}</p>
-        <h1 className="text-2xl font-semibold">{expired ? STATUS_LABEL.expired : STATUS_LABEL[order.status]}</h1>
+        <h1 className="text-2xl font-semibold">{expired ? statusLabel("expired") : order.status === "paid" ? "Pagamento confirmado" : statusLabel(order.status, order.shipping_method)}</h1>
         {order.status === "paid" && (
           <p className="mt-2 text-neutral-600">
             Obrigado! Enviamos a confirmação para {order.customer_email}. Guarde este link para acompanhar o pedido.
