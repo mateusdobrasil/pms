@@ -4,6 +4,7 @@ import { randomBytes } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { normalizeDomain, requireAdmin } from "@/lib/admin";
+import { removeStoreLogo, uploadStoreLogo, validateLogo } from "@/lib/branding";
 import { slugify } from "@/lib/slug";
 import { isEmail, isUuid, onlyDigits } from "@/lib/validation";
 
@@ -28,6 +29,13 @@ async function findOrCreateUser(db: Db, email: string) {
   return { userId: data.user.id, password };
 }
 
+// "" (campo vazio) → null = manter padrão; inválida → undefined.
+function readColor(form: FormData): string | null | undefined {
+  const raw = String(form.get("primary_color") ?? "").trim().toLowerCase();
+  if (!raw) return null;
+  return /^#[0-9a-f]{6}$/.test(raw) ? raw : undefined;
+}
+
 function refresh(storeId?: string) {
   revalidatePath("/admin");
   if (storeId) revalidatePath(`/admin/lojas/${storeId}`);
@@ -39,8 +47,13 @@ export async function createStore(_prev: AdminState, form: FormData): Promise<Ad
   const slug = slugify(String(form.get("slug") ?? "") || name);
   const ownerEmail = String(form.get("ownerEmail") ?? "").trim().toLowerCase();
   const rawDomain = String(form.get("domain") ?? "").trim();
+  const color = readColor(form);
+  const logo = form.get("logo") instanceof File ? (form.get("logo") as File) : null;
 
   if (name.length < 2 || name.length > 80) return { error: "Informe o nome da loja." };
+  if (color === undefined) return { error: "Cor inválida." };
+  const logoError = validateLogo(logo);
+  if (logoError) return { error: logoError };
   if (!slug) return { error: "Identificador (slug) inválido." };
   if (!isEmail(ownerEmail)) return { error: "E-mail do dono inválido." };
   const domain = rawDomain ? normalizeDomain(rawDomain) : null;
@@ -48,12 +61,17 @@ export async function createStore(_prev: AdminState, form: FormData): Promise<Ad
 
   const { data: store, error } = await db
     .from("stores")
-    .insert({ name, slug, email: ownerEmail })
+    .insert({ name, slug, email: ownerEmail, ...(color ? { primary_color: color } : {}) })
     .select("id")
     .single();
   if (error) return { error: error.code === "23505" ? "Já existe uma loja com esse identificador." : "Não foi possível criar a loja." };
 
+  let logoUrl: string | null = null;
   try {
+    if (logo && logo.size > 0) {
+      logoUrl = await uploadStoreLogo(db, store.id, logo);
+      await db.from("stores").update({ logo_url: logoUrl }).eq("id", store.id);
+    }
     if (domain) {
       const { error: dErr } = await db.from("store_domains").insert({ domain, store_id: store.id, is_primary: true });
       if (dErr) throw new Error(dErr.code === "23505" ? "Esse domínio já pertence a outra loja." : "Não foi possível vincular o domínio.");
@@ -68,6 +86,7 @@ export async function createStore(_prev: AdminState, form: FormData): Promise<Ad
       return { ok: `Loja criada. Usuário ${ownerEmail} criado.`, password };
     }
   } catch (err) {
+    await removeStoreLogo(db, store.id, logoUrl);
     await db.from("stores").delete().eq("id", store.id); // desfaz (domínios e membros vão em cascata)
     return { error: err instanceof Error ? err.message : "Não foi possível criar a loja." };
   }
@@ -186,4 +205,41 @@ export async function saveSecrets(_prev: AdminState, form: FormData): Promise<Ad
 
   refresh(storeId);
   return { ok: "Configurações salvas." };
+}
+
+// Identidade da loja (nome, cor, logo) editada pelo super-admin.
+export async function updateBranding(_prev: AdminState, form: FormData): Promise<AdminState> {
+  const { db } = await requireAdmin();
+  const storeId = String(form.get("storeId") ?? "");
+  if (!isUuid(storeId)) return { error: "Loja inválida." };
+  const name = String(form.get("name") ?? "").trim().replace(/\s+/g, " ");
+  const color = readColor(form);
+  const logo = form.get("logo") instanceof File ? (form.get("logo") as File) : null;
+  const removeLogo = form.get("removeLogo") === "on";
+
+  if (name.length < 2 || name.length > 80) return { error: "Informe o nome da loja." };
+  if (!color) return { error: "Cor inválida." };
+  const logoError = validateLogo(logo);
+  if (logoError) return { error: logoError };
+
+  const { data: current } = await db.from("stores").select("logo_url").eq("id", storeId).single();
+  const patch: Record<string, string | null> = { name, primary_color: color };
+  try {
+    if (logo && logo.size > 0) patch.logo_url = await uploadStoreLogo(db, storeId, logo);
+    else if (removeLogo) patch.logo_url = null;
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Falha ao enviar o logo." };
+  }
+
+  const { error } = await db.from("stores").update(patch).eq("id", storeId);
+  if (error) {
+    if (patch.logo_url) await removeStoreLogo(db, storeId, patch.logo_url);
+    return { error: "Não foi possível salvar." };
+  }
+  // O logo anterior só sai do Storage depois que o novo foi gravado.
+  if ("logo_url" in patch) await removeStoreLogo(db, storeId, current?.logo_url ?? null);
+
+  refresh(storeId);
+  revalidatePath("/painel", "layout");
+  return { ok: "Identidade salva. A vitrine atualiza em até 1 minuto." };
 }

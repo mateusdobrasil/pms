@@ -4,7 +4,7 @@ import { requireAdmin } from "@/lib/admin";
 import { isUuid } from "@/lib/validation";
 import { storeBaseUrl } from "@/lib/urls";
 import { removeDomain, removeMember, setPrimaryDomain, setStoreStatus } from "../../actions";
-import { AddDomainForm, AddMemberForm, SecretsForm } from "../../forms";
+import { AddDomainForm, AddMemberForm, BrandingForm, SecretsForm } from "../../forms";
 
 export default async function AdminStorePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -12,7 +12,7 @@ export default async function AdminStorePage({ params }: { params: Promise<{ id:
   const { db } = await requireAdmin();
 
   const [{ data: store }, { data: secret }, { data: members }] = await Promise.all([
-    db.from("stores").select("id, name, slug, status, email, origin_zip, store_domains(domain, is_primary)").eq("id", id).maybeSingle(),
+    db.from("stores").select("id, name, slug, status, email, origin_zip, logo_url, primary_color, store_domains(domain, is_primary)").eq("id", id).maybeSingle(),
     db
       .from("store_secrets")
       .select("*") // "*": tolera a coluna melhor_envio_sandbox ainda não existir
@@ -58,6 +58,11 @@ export default async function AdminStorePage({ params }: { params: Promise<{ id:
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
+        <section className={card}>
+          <h2 className="font-semibold">Identidade</h2>
+          <BrandingForm storeId={store.id} name={store.name} color={store.primary_color} logoUrl={store.logo_url} />
+        </section>
+
         <section className={card}>
           <h2 className="font-semibold">Domínios</h2>
           {domains.length === 0 ? (

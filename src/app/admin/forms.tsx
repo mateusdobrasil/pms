@@ -1,7 +1,7 @@
 "use client";
 
-import { useActionState } from "react";
-import { addDomain, addMember, createStore, saveSecrets, type AdminState } from "./actions";
+import { useActionState, useEffect, useState } from "react";
+import { addDomain, addMember, createStore, saveSecrets, updateBranding, type AdminState } from "./actions";
 
 const input = "w-full rounded-lg border px-3 py-2 text-sm";
 const primaryButton =
@@ -44,6 +44,8 @@ export function CreateStoreForm() {
         <span className="font-medium text-neutral-700">Domínio (opcional)</span>
         <input name="domain" placeholder="www.minhaloja.com.br" className={input} />
       </label>
+      <ColorField defaultValue="#1f2937" />
+      <LogoField />
       <Feedback state={state} />
       <button type="submit" disabled={pending} className={primaryButton}>
         {pending ? "Criando…" : "Criar loja"}
@@ -137,6 +139,112 @@ export function SecretsForm({
       <Feedback state={state} />
       <button type="submit" disabled={pending} className={primaryButton}>
         {pending ? "Salvando…" : "Salvar configurações"}
+      </button>
+    </form>
+  );
+}
+
+// Cor principal com seletor + campo de texto sincronizados.
+function ColorField({ defaultValue }: { defaultValue: string }) {
+  const [color, setColor] = useState(defaultValue);
+  return (
+    <div className="space-y-1 text-sm">
+      <span className="font-medium text-neutral-700">Cor principal</span>
+      <div className="flex items-center gap-2">
+        <input type="color" value={color} onChange={(e) => setColor(e.target.value)} className="h-9 w-12 cursor-pointer rounded-lg border bg-white p-1" aria-label="Escolher cor" />
+        <input name="primary_color" value={color} onChange={(e) => setColor(e.target.value)} className="w-28 rounded-lg border px-3 py-2 font-mono text-sm" />
+        <span className="rounded-lg px-3 py-1.5 text-xs font-semibold text-white" style={{ background: color }}>Prévia</span>
+      </div>
+    </div>
+  );
+}
+
+// Arquivo do logo com prévia local; o servidor valida, otimiza e grava.
+function LogoField({ currentUrl, onRemoveChange }: { currentUrl?: string | null; onRemoveChange?: (remove: boolean) => void }) {
+  const [preview, setPreview] = useState<string | null>(currentUrl ?? null);
+  const [error, setError] = useState<string | null>(null);
+  const [remove, setRemove] = useState(false);
+
+  useEffect(() => () => {
+    if (preview?.startsWith("blob:")) URL.revokeObjectURL(preview);
+  }, [preview]);
+
+  return (
+    <div className="space-y-2 text-sm">
+      <span className="font-medium text-neutral-700">Logo {currentUrl === undefined && "(opcional)"}</span>
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="grid h-14 w-28 place-items-center overflow-hidden rounded-lg border bg-neutral-50">
+          {preview && !remove ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={preview} alt="Prévia do logo" className="max-h-12 max-w-24 object-contain" />
+          ) : (
+            <span className="text-xs text-neutral-400">sem logo</span>
+          )}
+        </div>
+        <input
+          name="logo"
+          type="file"
+          accept="image/png,image/jpeg,image/webp"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            setError(null);
+            if (!file) return;
+            if (file.size > 2 * 1024 * 1024) {
+              setError("Máximo de 2 MB.");
+              e.target.value = "";
+              return;
+            }
+            setRemove(false);
+            onRemoveChange?.(false);
+            setPreview(URL.createObjectURL(file));
+          }}
+          className="max-w-full text-xs file:mr-2 file:rounded-md file:border file:bg-white file:px-2 file:py-1"
+        />
+        {currentUrl && (
+          <label className="flex items-center gap-1 text-xs text-red-700">
+            <input
+              type="checkbox"
+              name="removeLogo"
+              checked={remove}
+              onChange={(e) => {
+                setRemove(e.target.checked);
+                onRemoveChange?.(e.target.checked);
+              }}
+            />
+            remover
+          </label>
+        )}
+      </div>
+      <p className="text-xs text-neutral-500">PNG com fundo transparente fica melhor. Até 2 MB; a plataforma otimiza o arquivo.</p>
+      {error && <p className="text-xs text-red-700">{error}</p>}
+    </div>
+  );
+}
+
+export function BrandingForm({
+  storeId,
+  name,
+  color,
+  logoUrl,
+}: {
+  storeId: string;
+  name: string;
+  color: string;
+  logoUrl: string | null;
+}) {
+  const [state, action, pending] = useActionState<AdminState, FormData>(updateBranding, null);
+  return (
+    <form action={action} className="space-y-4">
+      <input type="hidden" name="storeId" value={storeId} />
+      <label className="block space-y-1 text-sm">
+        <span className="font-medium text-neutral-700">Nome da loja</span>
+        <input name="name" required defaultValue={name} className={input} />
+      </label>
+      <ColorField defaultValue={color} />
+      <LogoField currentUrl={logoUrl} />
+      <Feedback state={state} />
+      <button type="submit" disabled={pending} className={primaryButton}>
+        {pending ? "Salvando…" : "Salvar identidade"}
       </button>
     </form>
   );
