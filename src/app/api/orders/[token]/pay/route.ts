@@ -112,7 +112,11 @@ export async function POST(req: Request, { params }: { params: Promise<{ token: 
 
     return fail("Forma de pagamento inválida.");
   } catch (err) {
-    console.error("Erro ao criar pagamento", { orderId: order.id, err, body: err instanceof MercadoPagoError ? err.body : undefined });
+    console.error(
+      "Erro ao criar pagamento",
+      { orderId: order.id, method: body.method },
+      err instanceof MercadoPagoError ? JSON.stringify(err.body) : err,
+    );
     return fail("Não foi possível processar o pagamento. Tente novamente.", 502);
   }
 }
