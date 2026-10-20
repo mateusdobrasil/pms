@@ -26,6 +26,8 @@ Um único app Next.js atende todas as lojas; cada loja é identificada pelo dom�
 - Credenciais de gateway/frete ficam em `store_secrets` (sem policy; só service role).
 - Leitura pública da vitrine usa `createPublicClient()`; painel usa `createSupabaseServerClient()`.
 - Textos de interface em português do Brasil.
+- E-mails só via `src/lib/email.ts`, disparados com `after()` e travados pelas colunas `orders.notified_*` (nunca enviar duas vezes).
+- Super-admin (`/admin`) usa `requireAdmin()` + service role; quem não é admin recebe 404.
 
 ## Escopo da v1
 Vitrine: home, categoria, busca simples, produto com variações e estoque, carrinho, checkout sem cadastro (nome, CPF, e-mail, telefone, endereço via ViaCEP), frete Melhor Envio + retirada, Pix e cartão, confirmação, e-mail de pedido, acompanhamento por link (`orders.public_token`), botão WhatsApp, SEO básico (metadata, sitemap, OG).

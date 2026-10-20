@@ -1,6 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
+import { notifyOrderShipped } from "@/lib/email";
 import { requireStore } from "@/lib/panel";
 import { isUuid } from "@/lib/validation";
 import { MEMBER_TRANSITIONS, statusLabel, type OrderStatus } from "@/lib/order-status";
@@ -45,7 +47,8 @@ export async function changeStatus(_prev: OrderActionState, form: FormData): Pro
     .select("id");
   if (error || !data?.length) return { error: "Não foi possível atualizar. Recarregue a página e tente de novo." };
 
-  // TODO (etapa 6): e-mail ao cliente quando o pedido for enviado / ficar pronto para retirada.
+  // E-mail ao cliente: enviado / pronto para retirada (uma vez só, trava em notified_shipped_at).
+  if (next === "shipped") after(() => notifyOrderShipped(order.id));
   return done(order.id, `Pedido marcado como "${statusLabel(next, order.shipping_method)}".`);
 }
 
@@ -71,6 +74,6 @@ export async function saveTracking(_prev: OrderActionState, form: FormData): Pro
     .select("id");
   if (error || !data?.length) return { error: "Não foi possível salvar. Recarregue a página e tente de novo." };
 
-  // TODO (etapa 6): e-mail ao cliente com o código de rastreio.
+  if (markShipped) after(() => notifyOrderShipped(order.id));
   return done(order.id, markShipped ? "Rastreio salvo e pedido marcado como enviado." : "Rastreio atualizado.");
 }

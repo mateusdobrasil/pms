@@ -73,3 +73,25 @@ Pegue um `id` de `product_variants` no Supabase Studio, rode no console do naveg
 Sem token ou sem CEP de origem, o checkout oferece só "Retirada na loja".
 O frete é recalculado no servidor ao criar o pedido: o preço nunca vem do navegador.
 Peso e medidas vêm de cada variação (painel → produto → "Mostrar peso e medidas").
+
+## E-mails (Resend)
+
+1. Crie uma conta em https://resend.com e gere uma API key.
+2. Na Vercel e no `.env.local`: `RESEND_API_KEY=...` e `EMAIL_FROM=...`.
+   - Teste: `EMAIL_FROM=onboarding@resend.dev` só entrega para o e-mail da sua conta Resend.
+   - Produção: verifique o domínio da plataforma no Resend (registros DNS) e use, por exemplo,
+     `pedidos@suaplataforma.com.br`. O nome do remetente é o da loja e as respostas vão para o e-mail da loja.
+3. E-mails enviados: pagamento confirmado (cliente + aviso de venda para a loja) e pedido enviado /
+   pronto para retirada (cliente). Cada um sai uma única vez (colunas `notified_*` em `orders`).
+
+## Super-admin
+
+Acesse `/admin` no domínio da plataforma. Para tornar um usuário super-admin, rode no SQL Editor:
+```sql
+insert into platform_admins (user_id) select id from auth.users where email = 'seu@email.com';
+```
+Lá dá para criar lojas (com o usuário dono e senha temporária), vincular domínios, ativar/suspender e
+cadastrar as credenciais do Mercado Pago e do Melhor Envio sem SQL.
+
+Domínio de loja: vincule no `/admin` **e** adicione em Vercel → Settings → Domains, apontando o DNS
+(CNAME `cname.vercel-dns.com` para `www`, registro A para o domínio raiz).

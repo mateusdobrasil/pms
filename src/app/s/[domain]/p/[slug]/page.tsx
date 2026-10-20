@@ -55,6 +55,7 @@ export async function generateMetadata({ params }: Params) {
   return {
     title: product.name,
     description,
+    alternates: { canonical: `/p/${product.slug}` },
     openGraph: { title: product.name, description, images: cover ? [productImageUrl(cover.path)] : undefined },
   };
 }
@@ -63,10 +64,37 @@ export default async function ProductPage({ params }: Params) {
   const { domain, slug } = await params;
   const found = await getProduct(domain, slug);
   if (!found) notFound();
-  const { product } = found;
+  const { product, store } = found;
+
+  // Dados estruturados (schema.org/Product): o Google mostra preço e disponibilidade na busca.
+  const prices = product.product_variants.map((v) => v.price_cents);
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    name: product.name,
+    description: product.description ?? undefined,
+    image: product.product_images.map((i) => productImageUrl(i.path)),
+    sku: product.id,
+    brand: { "@type": "Brand", name: store.name },
+    offers: {
+      "@type": "AggregateOffer",
+      priceCurrency: "BRL",
+      lowPrice: (Math.min(...prices) / 100).toFixed(2),
+      highPrice: (Math.max(...prices) / 100).toFixed(2),
+      offerCount: product.product_variants.length,
+      availability: product.product_variants.some((v) => v.stock > 0)
+        ? "https://schema.org/InStock"
+        : "https://schema.org/OutOfStock",
+    },
+  };
 
   return (
     <div className="grid gap-8 md:grid-cols-2">
+      <script
+        type="application/ld+json"
+        // JSON.stringify não escapa "<"; troca para não fechar a tag script por engano.
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replaceAll("<", String.fromCharCode(92) + "u003c") }}
+      />
       <Gallery name={product.name} images={product.product_images.map((i) => ({ url: productImageUrl(i.path), alt: i.alt }))} />
 
       <div className="space-y-6">

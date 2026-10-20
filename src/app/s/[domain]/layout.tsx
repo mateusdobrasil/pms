@@ -2,13 +2,22 @@ import type { CSSProperties, ReactNode } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getCategories, getStoreByDomain } from "@/lib/store";
+import { storeBaseUrl } from "@/lib/urls";
 import { CartLink } from "./cart-link";
 
 export async function generateMetadata({ params }: { params: Promise<{ domain: string }> }) {
   const { domain } = await params;
   const store = await getStoreByDomain(domain);
   const name = store?.name ?? "Loja";
-  return { title: { default: name, template: `%s · ${name}` } };
+  const description = `Compre na ${name} com Pix ou cartão. Entrega para todo o Brasil.`;
+  return {
+    // Torna absolutos os links canônicos e de compartilhamento (cada loja no seu domínio).
+    metadataBase: new URL(storeBaseUrl(decodeURIComponent(domain).toLowerCase())),
+    title: { default: name, template: `%s · ${name}` },
+    description,
+    alternates: { canonical: "/" },
+    openGraph: { siteName: name, type: "website", locale: "pt_BR", title: name, description },
+  };
 }
 
 export default async function StoreLayout({

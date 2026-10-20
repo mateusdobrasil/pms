@@ -16,7 +16,9 @@ async function load({ params }: Params) {
 
 export async function generateMetadata(props: Params) {
   const found = await load(props);
-  return { title: found?.category.name ?? "Categoria" };
+  return found
+    ? { title: found.category.name, alternates: { canonical: `/c/${found.category.slug}` } }
+    : { title: "Categoria" };
 }
 
 export default async function CategoryPage(props: Params) {

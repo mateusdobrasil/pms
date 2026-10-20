@@ -1,5 +1,7 @@
 import "server-only";
+import { after } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { notifyOrderPaid } from "@/lib/email";
 import { PROVIDER, type GatewayPayment } from "@/lib/payments/mercadopago";
 
 type OrderRef = { id: string; store_id: string; total_cents: number };
@@ -34,6 +36,8 @@ export async function recordPayment(db: SupabaseClient, order: OrderRef, payment
   if (payment.status === "approved") {
     const { error } = await db.rpc("confirm_order_payment", { p_order_id: order.id });
     if (error) throw error;
+    // E-mails depois da resposta (não atrasam o webhook). A trava em notified_paid_at evita duplicados.
+    after(() => notifyOrderPaid(order.id));
   }
   return true;
 }
