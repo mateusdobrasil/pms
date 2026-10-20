@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { requireAdmin } from "@/lib/admin";
 import { signOut } from "../painel/actions";
+import { PlatformMark } from "../painel/brand";
 
 export const metadata = { title: "Super-admin · PMS app", robots: { index: false } };
 
@@ -13,7 +14,7 @@ export default async function AdminLayout({ children }: { children: ReactNode })
       <header className="bg-primary-900 text-white">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3">
           <Link href="/admin" className="flex items-center gap-3">
-            <span className="grid h-8 w-8 place-items-center rounded-lg bg-white text-sm font-bold text-primary-800">P</span>
+            <PlatformMark size={36} />
             <span className="leading-tight">
               <span className="block font-semibold">PMS app</span>
               <span className="block text-xs text-primary-200">Super-admin</span>

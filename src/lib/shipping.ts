@@ -28,7 +28,7 @@ function meBaseUrl(sandbox: boolean | undefined) {
   return useSandbox ? "https://sandbox.melhorenvio.com.br" : "https://melhorenvio.com.br";
 }
 // O Melhor Envio exige "Nome da aplicação (e-mail de contato técnico)".
-const ME_USER_AGENT = `PMS app (${process.env.MELHOR_ENVIO_CONTACT ?? "contato@pmsapp.com.br"})`;
+const ME_USER_AGENT = `PMS app (${process.env.MELHOR_ENVIO_CONTACT ?? "contato@pmsapp.dev"})`;
 
 type MeQuote = {
   id: number;

@@ -1,16 +1,21 @@
 @import "tailwindcss";
 
-/* Cor da plataforma (painel e site): índigo. A vitrine usa a cor de cada loja (--brand). */
+/* Cores da marca PMS app (do logo): azul-marinho #0A2E82, laranja #FE8C2B, coral #FF6A4B.
+   A vitrine usa a cor de cada loja (--brand). */
 @theme {
-  --color-primary-50: oklch(96.2% 0.018 272.314);
-  --color-primary-100: oklch(93% 0.034 272.788);
-  --color-primary-200: oklch(87% 0.065 274.039);
-  --color-primary-300: oklch(78.5% 0.115 274.713);
-  --color-primary-500: oklch(58.5% 0.233 277.117);
-  --color-primary-600: oklch(51.1% 0.262 276.966);
-  --color-primary-700: oklch(45.7% 0.24 277.023);
-  --color-primary-800: oklch(39.8% 0.195 277.366);
-  --color-primary-900: oklch(35.9% 0.144 278.697);
+  --color-primary-50: #eef3fc;
+  --color-primary-100: #dce5f8;
+  --color-primary-200: #b9caf0;
+  --color-primary-300: #8ea6e3;
+  --color-primary-500: #2d55c0;
+  --color-primary-600: #0a2e82;
+  --color-primary-700: #08256b;
+  --color-primary-800: #061d55;
+  --color-primary-900: #04163f;
+
+  --color-accent-400: #fe8c2b;
+  --color-accent-500: #ff6a4b;
+  --color-accent-600: #e8502f;
 }
 
 @theme inline {

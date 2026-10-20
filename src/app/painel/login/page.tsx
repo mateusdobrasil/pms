@@ -14,7 +14,7 @@ export default async function LoginPage() {
     <main className="flex min-h-screen items-center justify-center bg-gradient-to-br from-primary-50 via-white to-primary-100 px-4 py-16">
       <div className="w-full max-w-sm">
         <div className="mb-6 text-center">
-          <PlatformBrand />
+          <PlatformBrand size="lg" />
         </div>
         <div className="rounded-2xl border bg-white p-8 shadow-lg shadow-primary-900/5">
           <h1 className="text-xl font-semibold tracking-tight">Painel da loja</h1>

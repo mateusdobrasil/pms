@@ -5,7 +5,7 @@ import { formatPhone } from "@/lib/format";
 import { storeBaseUrl } from "@/lib/urls";
 
 // E-mails transacionais via API do Resend. Sem RESEND_API_KEY, só registra no log (dev).
-// EMAIL_FROM: endereço de um domínio verificado no Resend, ex.: pedidos@suaplataforma.com.br
+// EMAIL_FROM: endereço de um domínio verificado no Resend, ex.: pedidos@pmsapp.dev
 // (para testes, "onboarding@resend.dev" envia só para o e-mail da sua conta Resend).
 
 type Email = { to: string; subject: string; html: string; replyTo?: string | null; fromName: string; idempotencyKey: string };

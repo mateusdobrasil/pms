@@ -46,7 +46,7 @@ on conflict (store_id) do update set
   gateway_webhook_secret = excluded.gateway_webhook_secret;
 ```
 
-- Em produção defina `PLATFORM_URL=https://suaplataforma.com.br`: cada pagamento é criado com
+- Em produção defina `PLATFORM_URL=https://pmsapp.dev`: cada pagamento é criado com
   `notification_url = PLATFORM_URL/api/webhooks/payments?store=<store_id>`.
 - Em dev local o Mercado Pago não alcança o webhook; a página do pedido consulta o pagamento a cada 5 s.
 - Cartão de teste: use os cartões da documentação do Mercado Pago com o nome do titular `APRO` (aprovado) ou `OTHE` (recusado).
@@ -82,7 +82,7 @@ Peso e medidas vêm de cada variação (painel → produto → "Mostrar peso e m
 2. Na Vercel e no `.env.local`: `RESEND_API_KEY=...` e `EMAIL_FROM=...`.
    - Teste: `EMAIL_FROM=onboarding@resend.dev` só entrega para o e-mail da sua conta Resend.
    - Produção: verifique o domínio da plataforma no Resend (registros DNS) e use, por exemplo,
-     `pedidos@suaplataforma.com.br`. O nome do remetente é o da loja e as respostas vão para o e-mail da loja.
+     `pedidos@pmsapp.dev`. O nome do remetente é o da loja e as respostas vão para o e-mail da loja.
 3. E-mails enviados: pagamento confirmado (cliente + aviso de venda para a loja) e pedido enviado /
    pronto para retirada (cliente). Cada um sai uma única vez (colunas `notified_*` em `orders`).
 

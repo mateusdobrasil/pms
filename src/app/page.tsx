@@ -32,7 +32,7 @@ export default function PlatformHome() {
               Lojas virtuais para pequenos lojistas
             </p>
             <h1 className="mt-6 max-w-3xl text-4xl font-semibold tracking-tight sm:text-5xl">
-              Sua loja virtual pronta, vendendo com Pix e cartão.
+              Sua loja virtual pronta, vendendo com <span className="text-accent-400">Pix e cartão</span>.
             </h1>
             <p className="mt-5 max-w-2xl text-lg text-primary-100">
               Nós montamos a loja com a sua marca. Você cadastra os produtos, acompanha os pedidos e recebe direto no
@@ -41,7 +41,7 @@ export default function PlatformHome() {
             <div className="mt-10 flex flex-wrap gap-3">
               <Link
                 href="/painel/login"
-                className="rounded-lg bg-white px-5 py-3 text-sm font-semibold text-primary-800 shadow-sm transition hover:bg-primary-50"
+                className="rounded-lg bg-accent-500 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-accent-600"
               >
                 Já sou lojista — entrar
               </Link>
@@ -52,9 +52,9 @@ export default function PlatformHome() {
         <section className="mx-auto max-w-6xl px-4 py-16 sm:py-20">
           <h2 className="text-2xl font-semibold tracking-tight">Tudo o que a sua loja precisa</h2>
           <ul className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {FEATURES.map((f) => (
+            {FEATURES.map((f, i) => (
               <li key={f.title} className="rounded-xl border bg-white p-6 shadow-sm">
-                <span className="mb-4 block h-1.5 w-10 rounded-full bg-primary-500" />
+                <span className={`mb-4 block h-1.5 w-10 rounded-full ${i % 2 ? "bg-accent-400" : "bg-accent-500"}`} />
                 <h3 className="font-semibold">{f.title}</h3>
                 <p className="mt-2 text-sm leading-relaxed text-neutral-600">{f.text}</p>
               </li>

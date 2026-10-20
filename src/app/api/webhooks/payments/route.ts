@@ -5,7 +5,7 @@ import { recordPayment } from "@/lib/payments/record";
 import { PROVIDER, getPayment, verifyWebhookSignature } from "@/lib/payments/mercadopago";
 
 // URL de notificação enviada em cada pagamento (notification_url):
-//   https://suaplataforma.com.br/api/webhooks/payments?store=<store_id>
+//   https://pmsapp.dev/api/webhooks/payments?store=<store_id>
 // Assim sabemos qual credencial usar para consultar o pagamento.
 //
 // Segurança: o status nunca vem do payload — sempre consultamos o pagamento com o token da loja,
