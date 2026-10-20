@@ -17,6 +17,8 @@ export default async function PanelLayout({ children }: { children: ReactNode })
             <nav className="flex gap-4 text-sm">
               <Link href="/painel">Resumo</Link>
               <Link href="/painel/pedidos">Pedidos</Link>
+              <Link href="/painel/produtos">Produtos</Link>
+              <Link href="/painel/categorias">Categorias</Link>
             </nav>
           </div>
           <form action={signOut} className="flex items-center gap-3 text-sm text-neutral-600">
