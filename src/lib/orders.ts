@@ -16,9 +16,47 @@ export type PricedLine = {
   stock: number; // disponível agora (exibição; a baixa só acontece no pagamento)
   productSlug: string;
   imagePath: string | null; // capa do produto
+  weightG: number;
+  heightCm: number;
+  widthCm: number;
+  lengthCm: number;
 };
 
 export type CustomerInput = { name: string; email: string; cpf: string; phone: string };
+
+export type ShippingAddress = {
+  cep: string;
+  street: string;
+  number: string;
+  complement: string;
+  district: string;
+  city: string;
+  state: string;
+};
+
+const UFS = new Set("AC AL AP AM BA CE DF ES GO MA MT MS MG PA PB PR PE PI RJ RN RS RO RR SC SP SE TO".split(" "));
+
+function parseAddress(raw: unknown): { address: ShippingAddress | null; errors: string[] } {
+  const r = (raw ?? {}) as Record<string, unknown>;
+  const str = (v: unknown, max = 120) => (typeof v === "string" ? v.trim().replace(/\s+/g, " ").slice(0, max) : "");
+  const address = {
+    cep: onlyDigits(str(r.cep)),
+    street: str(r.street),
+    number: str(r.number, 20),
+    complement: str(r.complement, 60),
+    district: str(r.district, 80),
+    city: str(r.city, 80),
+    state: str(r.state, 2).toUpperCase(),
+  };
+  const errors: string[] = [];
+  if (address.cep.length !== 8) errors.push("CEP inválido.");
+  if (!address.street) errors.push("Informe a rua.");
+  if (!address.number) errors.push("Informe o número (ou \"s/n\").");
+  if (!address.district) errors.push("Informe o bairro.");
+  if (!address.city) errors.push("Informe a cidade.");
+  if (!UFS.has(address.state)) errors.push("Estado (UF) inválido.");
+  return { address: errors.length ? null : address, errors };
+}
 
 const MAX_LINES = 50;
 const MAX_QUANTITY = 99;
@@ -29,6 +67,10 @@ type VariantRow = {
   name: string;
   price_cents: number;
   stock: number;
+  weight_g: number;
+  height_cm: number;
+  width_cm: number;
+  length_cm: number;
   active: boolean;
   products: { name: string; slug: string; active: boolean; product_images: { path: string; position: number }[] };
 };
@@ -49,7 +91,7 @@ export function parseCartItems(raw: unknown): CartItemInput[] | null {
 export async function priceCart(db: SupabaseClient, storeId: string, items: CartItemInput[]) {
   const { data, error } = await db
     .from("product_variants")
-    .select("id, name, price_cents, stock, active, products!inner(name, slug, active, product_images(path, position))")
+    .select("id, name, price_cents, stock, weight_g, height_cm, width_cm, length_cm, active, products!inner(name, slug, active, product_images(path, position))")
     .eq("store_id", storeId)
     .in(
       "id",
@@ -81,6 +123,10 @@ export async function priceCart(db: SupabaseClient, storeId: string, items: Cart
       stock: v.stock,
       productSlug: v.products.slug,
       imagePath: [...v.products.product_images].sort((a, b) => a.position - b.position)[0]?.path ?? null,
+      weightG: v.weight_g,
+      heightCm: Number(v.height_cm),
+      widthCm: Number(v.width_cm),
+      lengthCm: Number(v.length_cm),
     });
   }
 
@@ -122,9 +168,18 @@ export async function createOrder(db: SupabaseClient, store: Store, body: unknow
   const { lines, subtotalCents, problems } = await priceCart(db, store.id, items);
   if (problems.length || lines.length === 0) return { ok: false, errors: problems };
 
-  const options = await getShippingOptions(store, lines);
+  // Entrega: o endereço é exigido antes, porque o frete é cotado pelo CEP dele.
+  let address: ShippingAddress | null = null;
+  if (b.shippingOptionId !== "pickup") {
+    const parsed = parseAddress(b.address);
+    if (!parsed.address) return { ok: false, errors: parsed.errors };
+    address = parsed.address;
+  }
+
+  // Recalcula as opções no servidor e só aceita uma delas: o preço do frete nunca vem do navegador.
+  const { options } = await getShippingOptions(store, lines, address?.cep);
   const shipping = options.find((o) => o.id === b.shippingOptionId);
-  if (!shipping) return { ok: false, errors: ["Escolha uma forma de entrega."] };
+  if (!shipping) return { ok: false, errors: ["A forma de entrega escolhida não está mais disponível. Recalcule o frete."] };
 
   const { data: order, error } = await db
     .from("orders")
@@ -134,9 +189,9 @@ export async function createOrder(db: SupabaseClient, store: Store, body: unknow
       customer_email: customer.email,
       customer_cpf: customer.cpf,
       customer_phone: customer.phone,
-      shipping_address: null,
+      shipping_address: shipping.requiresAddress ? address : null,
       shipping_method: shipping.id === "pickup" ? "pickup" : shipping.name,
-      shipping_service_id: shipping.id === "pickup" ? null : shipping.id,
+      shipping_service_id: shipping.id === "pickup" ? null : shipping.id.replace(/^me:/, ""),
       subtotal_cents: subtotalCents,
       shipping_cents: shipping.priceCents,
       total_cents: subtotalCents + shipping.priceCents,

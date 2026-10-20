@@ -23,7 +23,7 @@ export default async function OrderPage({ params }: { params: Promise<{ domain: 
   const { data: order } = await db
     .from("orders")
     .select(
-      "id, code, status, customer_email, shipping_method, subtotal_cents, shipping_cents, total_cents, tracking_code, expires_at, order_items(id, product_name, variant_name, unit_price_cents, quantity)",
+      "id, code, status, customer_email, shipping_method, shipping_address, subtotal_cents, shipping_cents, total_cents, tracking_code, expires_at, order_items(id, product_name, variant_name, unit_price_cents, quantity)",
     )
     .eq("store_id", store.id)
     .eq("public_token", token)
@@ -93,6 +93,18 @@ export default async function OrderPage({ params }: { params: Promise<{ domain: 
           </p>
           <p className="flex justify-between text-base font-semibold"><span>Total</span><span>{formatBRL(order.total_cents)}</span></p>
         </div>
+        {order.shipping_address && (
+          <div className="mt-4 rounded-xl border bg-neutral-50 px-4 py-3 text-sm">
+            <p className="font-semibold">Entregar em</p>
+            <p className="mt-1 text-neutral-700">
+              {order.shipping_address.street}, {order.shipping_address.number}
+              {order.shipping_address.complement && ` - ${order.shipping_address.complement}`}
+              <br />
+              {order.shipping_address.district} · {order.shipping_address.city}/{order.shipping_address.state} · CEP{" "}
+              {String(order.shipping_address.cep).replace(/^(\d{5})(\d{3})$/, "$1-$2")}
+            </p>
+          </div>
+        )}
       </section>
     </div>
   );

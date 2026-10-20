@@ -1,49 +1,101 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { clearCart, readCart } from "@/lib/cart";
 import { formatBRL } from "@/lib/money";
 
+type Option = { id: string; name: string; priceCents: number; deliveryDays: number | null; requiresAddress: boolean };
 type Quote = {
   lines: { variantId: string; productName: string; variantName: string; quantity: number; totalCents: number }[];
   subtotalCents: number;
-  shippingOptions: { id: string; name: string; priceCents: number; deliveryDays: number | null }[];
+  shippingOptions: Option[];
+  shippingError: string | null;
   problems: string[];
 };
+type Address = { street: string; number: string; complement: string; district: string; city: string; state: string };
 
+const EMPTY_ADDRESS: Address = { street: "", number: "", complement: "", district: "", city: "", state: "" };
 const inputClass = "w-full rounded-lg border px-3 py-2.5 text-sm";
+const digits = (s: string) => s.replace(/\D/g, "");
+
+async function fetchQuote(zip: string | null): Promise<Quote> {
+  const res = await fetch("/api/cart/quote", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ items: readCart(), zip }),
+  });
+  return res.json();
+}
 
 export function CheckoutForm() {
   const router = useRouter();
   const [quote, setQuote] = useState<Quote | null>(null);
   const [empty, setEmpty] = useState(false);
   const [shippingId, setShippingId] = useState("");
+  const [cep, setCep] = useState("");
+  const [cepStatus, setCepStatus] = useState<"idle" | "loading" | "notfound">("idle");
+  const [address, setAddress] = useState<Address>(EMPTY_ADDRESS);
   const [errors, setErrors] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
+  const requestId = useRef(0); // ignora respostas de CEPs antigos
+
+  function applyQuote(q: Quote) {
+    setQuote(q);
+    if (q.lines.length === 0) setEmpty(true);
+    // Mantém a opção escolhida se ela ainda existir; senão, a primeira (a mais barata).
+    setShippingId((current) => (q.shippingOptions.some((o) => o.id === current) ? current : (q.shippingOptions[0]?.id ?? "")));
+  }
 
   useEffect(() => {
-    // Carrinho vazio: a rota devolve um resumo sem linhas e cai no "carrinho vazio".
-    fetch("/api/cart/quote", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ items: readCart() }),
-    })
-      .then((r) => r.json())
-      .then((q: Quote) => {
-        setQuote(q);
-        setShippingId(q.shippingOptions[0]?.id ?? "");
-        if (q.lines.length === 0) setEmpty(true);
-      })
+    fetchQuote(null)
+      .then(applyQuote)
       .catch(() => setErrors(["Não foi possível carregar o carrinho."]));
   }, []);
+
+  async function onCepChange(value: string) {
+    const masked = digits(value).slice(0, 8).replace(/^(\d{5})(\d)/, "$1-$2");
+    setCep(masked);
+    const zip = digits(masked);
+    if (zip.length !== 8) return;
+
+    const id = ++requestId.current;
+    setCepStatus("loading");
+    const [viaCep, q] = await Promise.all([
+      fetch(`https://viacep.com.br/ws/${zip}/json/`)
+        .then((r) => r.json())
+        .catch(() => null),
+      fetchQuote(zip).catch(() => null),
+    ]);
+    if (id !== requestId.current) return;
+
+    if (!viaCep || viaCep.erro) {
+      setCepStatus("notfound");
+    } else {
+      setCepStatus("idle");
+      setAddress((a) => ({
+        ...a,
+        street: viaCep.logradouro || a.street,
+        district: viaCep.bairro || a.district,
+        city: viaCep.localidade || a.city,
+        state: viaCep.uf || a.state,
+      }));
+    }
+    if (q) {
+      applyQuote(q);
+      // Com CEP informado, sugere a entrega mais barata em vez da retirada.
+      const firstDelivery = q.shippingOptions.find((o) => o.requiresAddress);
+      if (firstDelivery) setShippingId(firstDelivery.id);
+    }
+  }
 
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setSubmitting(true);
     setErrors([]);
     const form = new FormData(e.currentTarget);
+    const option = quote?.shippingOptions.find((o) => o.id === shippingId);
 
     const res = await fetch("/api/checkout", {
       method: "POST",
@@ -51,6 +103,7 @@ export function CheckoutForm() {
       body: JSON.stringify({
         items: readCart(),
         shippingOptionId: shippingId,
+        address: option?.requiresAddress ? { ...address, cep: digits(cep) } : null,
         customer: {
           name: form.get("name"),
           email: form.get("email"),
@@ -82,12 +135,15 @@ export function CheckoutForm() {
   const shipping = quote.shippingOptions.find((o) => o.id === shippingId);
   const total = quote.subtotalCents + (shipping?.priceCents ?? 0);
   const blocked = quote.problems.length > 0;
+  const zipReady = digits(cep).length === 8;
+  const setField = (field: keyof Address) => (e: { target: { value: string } }) =>
+    setAddress((a) => ({ ...a, [field]: e.target.value }));
 
   return (
     <form onSubmit={onSubmit} className="space-y-8">
       <section>
-        <h2 className="mb-3 font-medium">Resumo</h2>
-        <ul className="divide-y rounded-xl border bg-white shadow-sm text-sm">
+        <h2 className="mb-3 font-semibold">Resumo</h2>
+        <ul className="divide-y rounded-xl border bg-white text-sm shadow-sm">
           {quote.lines.map((l) => (
             <li key={l.variantId} className="flex justify-between gap-4 px-4 py-3">
               <span>
@@ -111,7 +167,7 @@ export function CheckoutForm() {
       </section>
 
       <section className="space-y-3">
-        <h2 className="font-medium">Seus dados</h2>
+        <h2 className="font-semibold">Seus dados</h2>
         <input name="name" required autoComplete="name" placeholder="Nome completo" className={inputClass} />
         <input name="email" type="email" required autoComplete="email" placeholder="E-mail" className={inputClass} />
         <div className="grid grid-cols-2 gap-3">
@@ -120,33 +176,80 @@ export function CheckoutForm() {
         </div>
       </section>
 
-      <section className="space-y-2">
-        <h2 className="font-medium">Entrega</h2>
-        {quote.shippingOptions.map((o) => (
-          <label key={o.id} className="flex items-center justify-between rounded-lg border px-4 py-3 text-sm">
-            <span className="flex items-center gap-3">
-              <input
-                type="radio"
-                name="shipping"
-                checked={shippingId === o.id}
-                onChange={() => setShippingId(o.id)}
-              />
-              {o.name}
-              {o.deliveryDays != null && <span className="text-neutral-500">até {o.deliveryDays} dias úteis</span>}
-            </span>
-            <span>{o.priceCents === 0 ? "Grátis" : formatBRL(o.priceCents)}</span>
-          </label>
-        ))}
+      <section className="space-y-3">
+        <h2 className="font-semibold">Entrega</h2>
+        <div className="flex flex-wrap items-center gap-3">
+          <input
+            value={cep}
+            onChange={(e) => onCepChange(e.target.value)}
+            inputMode="numeric"
+            autoComplete="postal-code"
+            placeholder="CEP"
+            aria-label="CEP"
+            className="w-36 rounded-lg border px-3 py-2.5 text-sm"
+          />
+          {cepStatus === "loading" && <span className="text-sm text-neutral-500">Calculando frete…</span>}
+          {cepStatus === "notfound" && <span className="text-sm text-red-700">CEP não encontrado.</span>}
+          {!zipReady && cepStatus === "idle" && (
+            <span className="text-sm text-neutral-500">Informe o CEP para ver as opções de entrega.</span>
+          )}
+          <a
+            href="https://buscacepinter.correios.com.br/app/endereco/index.php"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-sm text-neutral-500 underline"
+          >
+            Não sei meu CEP
+          </a>
+        </div>
+
+        {quote.shippingError && zipReady && <p className="text-sm text-amber-700">{quote.shippingError}</p>}
+
+        <div className="space-y-2">
+          {quote.shippingOptions.map((o) => (
+            <label
+              key={o.id}
+              className={`flex items-center justify-between gap-3 rounded-lg border px-4 py-3 text-sm transition ${
+                shippingId === o.id ? "border-2" : "hover:border-neutral-400"
+              }`}
+              style={shippingId === o.id ? { borderColor: "var(--brand)" } : undefined}
+            >
+              <span className="flex items-center gap-3">
+                <input type="radio" name="shipping" checked={shippingId === o.id} onChange={() => setShippingId(o.id)} />
+                <span>
+                  <span className="font-medium">{o.name}</span>
+                  {o.deliveryDays != null && (
+                    <span className="block text-neutral-500">
+                      até {o.deliveryDays} {o.deliveryDays === 1 ? "dia útil" : "dias úteis"}
+                    </span>
+                  )}
+                </span>
+              </span>
+              <span className="font-medium">{o.priceCents === 0 ? "Grátis" : formatBRL(o.priceCents)}</span>
+            </label>
+          ))}
+        </div>
+
+        {shipping?.requiresAddress && (
+          <div className="grid gap-3 rounded-xl border bg-neutral-50 p-4 sm:grid-cols-6">
+            <input value={address.street} onChange={setField("street")} required autoComplete="address-line1" placeholder="Rua" className={`${inputClass} sm:col-span-4`} />
+            <input value={address.number} onChange={setField("number")} required placeholder="Número" className={`${inputClass} sm:col-span-2`} />
+            <input value={address.complement} onChange={setField("complement")} autoComplete="address-line2" placeholder="Complemento (opcional)" className={`${inputClass} sm:col-span-3`} />
+            <input value={address.district} onChange={setField("district")} required placeholder="Bairro" className={`${inputClass} sm:col-span-3`} />
+            <input value={address.city} onChange={setField("city")} required autoComplete="address-level2" placeholder="Cidade" className={`${inputClass} sm:col-span-4`} />
+            <input value={address.state} onChange={(e) => setAddress((a) => ({ ...a, state: e.target.value.toUpperCase().slice(0, 2) }))} required autoComplete="address-level1" placeholder="UF" className={`${inputClass} sm:col-span-2`} />
+          </div>
+        )}
       </section>
 
       <section className="space-y-1 border-t pt-4 text-sm">
         <p className="flex justify-between"><span>Subtotal</span><span>{formatBRL(quote.subtotalCents)}</span></p>
-        <p className="flex justify-between"><span>Entrega</span><span>{formatBRL(shipping?.priceCents ?? 0)}</span></p>
+        <p className="flex justify-between"><span>Entrega</span><span>{shipping?.priceCents ? formatBRL(shipping.priceCents) : "Grátis"}</span></p>
         <p className="flex justify-between text-base font-semibold"><span>Total</span><span>{formatBRL(total)}</span></p>
       </section>
 
       {errors.length > 0 && (
-        <ul className="space-y-1 text-sm text-red-700">
+        <ul className="space-y-1 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">
           {errors.map((err) => (
             <li key={err}>{err}</li>
           ))}
@@ -155,7 +258,7 @@ export function CheckoutForm() {
 
       <button
         type="submit"
-        disabled={submitting || blocked || !shipping}
+        disabled={submitting || blocked || !shipping || cepStatus === "loading"}
         className="w-full rounded-lg px-4 py-3 font-semibold text-white shadow-sm transition hover:brightness-110 disabled:opacity-50"
         style={{ background: "var(--brand)" }}
       >

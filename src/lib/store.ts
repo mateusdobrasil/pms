@@ -9,6 +9,7 @@ export type Store = {
   primary_color: string;
   whatsapp: string | null;
   email: string | null;
+  origin_zip: string | null; // CEP de onde a loja envia (frete)
 };
 
 // Resolve a loja pelo domínio. cache() evita consultas repetidas no mesmo request.
@@ -25,7 +26,7 @@ export const getStoreByDomain = cache(async (domain: string): Promise<Store | nu
 
   const { data: store } = await supabase
     .from("stores")
-    .select("id, slug, name, logo_url, primary_color, whatsapp, email")
+    .select("id, slug, name, logo_url, primary_color, whatsapp, email, origin_zip")
     .eq("id", d.store_id)
     .eq("status", "active")
     .maybeSingle();

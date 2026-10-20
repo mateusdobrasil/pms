@@ -54,3 +54,22 @@ on conflict (store_id) do update set
 ### Testando antes de existir a página de produto
 Pegue um `id` de `product_variants` no Supabase Studio, rode no console do navegador (na loja de teste)
 `localStorage.setItem('cart', JSON.stringify([{ variantId: '<id>', quantity: 1 }]))` e abra `/checkout`.
+
+## Melhor Envio (frete)
+
+1. Crie uma conta no **sandbox** (https://sandbox.melhorenvio.com.br) para testes.
+2. Em **Integrações → Permissões de acesso → Gerar novo token**, gere um token com as permissões
+   `shipping-calculate` (e, para etiquetas no futuro, `shipping-*`/`cart-*`).
+3. Cadastre o token da loja e o CEP de origem (de onde a loja envia):
+   ```sql
+   insert into store_secrets (store_id, melhor_envio_token)
+   select id, 'TOKEN...' from stores where slug = 'loja-teste'
+   on conflict (store_id) do update set melhor_envio_token = excluded.melhor_envio_token;
+
+   update stores set origin_zip = '01001000' where slug = 'loja-teste';
+   ```
+4. Variáveis: `MELHOR_ENVIO_ENV=sandbox` (ou `production`) e `MELHOR_ENVIO_CONTACT` (e-mail técnico).
+
+Sem token ou sem CEP de origem, o checkout oferece só "Retirada na loja".
+O frete é recalculado no servidor ao criar o pedido: o preço nunca vem do navegador.
+Peso e medidas vêm de cada variação (painel → produto → "Mostrar peso e medidas").
