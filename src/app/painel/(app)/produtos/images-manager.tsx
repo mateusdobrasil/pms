@@ -3,7 +3,7 @@
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
-import { productImageUrl } from "@/lib/store";
+import { productImageUrl } from "@/lib/images";
 import { addImage, moveImage, removeImage } from "./actions";
 
 const MAX_BYTES = 5 * 1024 * 1024;

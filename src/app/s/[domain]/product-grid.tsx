@@ -1,0 +1,73 @@
+import Link from "next/link";
+import { createPublicClient } from "@/lib/supabase/public";
+import { productImageUrl } from "@/lib/store";
+import { formatBRL } from "@/lib/money";
+
+type Row = {
+  id: string;
+  name: string;
+  slug: string;
+  product_variants: { price_cents: number; compare_at_cents: number | null; stock: number }[];
+  product_images: { path: string; position: number }[];
+};
+
+type Filter = { categoryId?: string; search?: string; limit?: number };
+
+// Produtos ativos da loja (o RLS já esconde inativos e lojas suspensas; filtramos store_id mesmo assim).
+export async function fetchProducts(storeId: string, { categoryId, search, limit = 48 }: Filter = {}) {
+  let query = createPublicClient()
+    .from("products")
+    .select("id, name, slug, product_variants(price_cents, compare_at_cents, stock), product_images(path, position)")
+    .eq("store_id", storeId)
+    .order("featured", { ascending: false })
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (categoryId) query = query.eq("category_id", categoryId);
+  if (search) query = query.ilike("name", `%${search.replace(/[%_\\]/g, "")}%`);
+  const { data } = await query;
+  // Produto sem variação ativa não pode ser comprado: fica fora da vitrine.
+  return ((data ?? []) as Row[]).filter((p) => p.product_variants.length > 0);
+}
+
+export function ProductGrid({ products }: { products: Row[] }) {
+  return (
+    <ul className="grid grid-cols-2 gap-6 md:grid-cols-4">
+      {products.map((p) => {
+        const prices = p.product_variants.map((v) => v.price_cents);
+        const minPrice = Math.min(...prices);
+        const cheapest = p.product_variants.find((v) => v.price_cents === minPrice);
+        const soldOut = p.product_variants.every((v) => v.stock <= 0);
+        const cover = [...p.product_images].sort((a, b) => a.position - b.position)[0];
+
+        return (
+          <li key={p.id}>
+            <Link href={`/p/${p.slug}`} className="group block">
+              <div className="relative aspect-square overflow-hidden rounded-md bg-neutral-100">
+                {cover && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={productImageUrl(cover.path)}
+                    alt={p.name}
+                    loading="lazy"
+                    className="h-full w-full object-cover transition group-hover:scale-105"
+                  />
+                )}
+                {soldOut && (
+                  <span className="absolute left-2 top-2 rounded bg-white/90 px-2 py-0.5 text-xs font-medium">Esgotado</span>
+                )}
+              </div>
+              <p className="mt-2 text-sm">{p.name}</p>
+              <p className="text-sm">
+                {new Set(prices).size > 1 && <span className="text-neutral-500">a partir de </span>}
+                <span className="font-semibold">{formatBRL(minPrice)}</span>
+                {cheapest?.compare_at_cents && new Set(prices).size === 1 && (
+                  <span className="ml-2 text-neutral-400 line-through">{formatBRL(cheapest.compare_at_cents)}</span>
+                )}
+              </p>
+            </Link>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}

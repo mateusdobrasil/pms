@@ -13,6 +13,9 @@ export type PricedLine = {
   unitPriceCents: number;
   quantity: number;
   totalCents: number;
+  stock: number; // disponível agora (exibição; a baixa só acontece no pagamento)
+  productSlug: string;
+  imagePath: string | null; // capa do produto
 };
 
 export type CustomerInput = { name: string; email: string; cpf: string; phone: string };
@@ -27,7 +30,7 @@ type VariantRow = {
   price_cents: number;
   stock: number;
   active: boolean;
-  products: { name: string; active: boolean };
+  products: { name: string; slug: string; active: boolean; product_images: { path: string; position: number }[] };
 };
 
 export function parseCartItems(raw: unknown): CartItemInput[] | null {
@@ -46,7 +49,7 @@ export function parseCartItems(raw: unknown): CartItemInput[] | null {
 export async function priceCart(db: SupabaseClient, storeId: string, items: CartItemInput[]) {
   const { data, error } = await db
     .from("product_variants")
-    .select("id, name, price_cents, stock, active, products!inner(name, active)")
+    .select("id, name, price_cents, stock, active, products!inner(name, slug, active, product_images(path, position))")
     .eq("store_id", storeId)
     .in(
       "id",
@@ -75,6 +78,9 @@ export async function priceCart(db: SupabaseClient, storeId: string, items: Cart
       unitPriceCents: v.price_cents,
       quantity: item.quantity,
       totalCents: v.price_cents * item.quantity,
+      stock: v.stock,
+      productSlug: v.products.slug,
+      imagePath: [...v.products.product_images].sort((a, b) => a.position - b.position)[0]?.path ?? null,
     });
   }
 

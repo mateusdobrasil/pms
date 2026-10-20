@@ -33,6 +33,16 @@ export const getStoreByDomain = cache(async (domain: string): Promise<Store | nu
   return (store as Store | null) ?? null;
 });
 
-export function productImageUrl(path: string) {
-  return `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/product-images/${path}`;
-}
+export { productImageUrl } from "@/lib/images";
+
+export type Category = { id: string; name: string; slug: string };
+
+export const getCategories = cache(async (storeId: string): Promise<Category[]> => {
+  const { data } = await createPublicClient()
+    .from("categories")
+    .select("id, name, slug")
+    .eq("store_id", storeId)
+    .order("position")
+    .order("name");
+  return (data ?? []) as Category[];
+});
