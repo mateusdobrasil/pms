@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { PlatformBrand } from "./painel/brand";
+import { PLATFORM_CONTACT, platformWhatsappUrl } from "@/lib/platform";
+import { PlatformWhatsappButton, WhatsappIcon } from "./whatsapp-button";
 
 const FEATURES = [
   { title: "Pix e cartão", text: "Pagamento pelo Mercado Pago, com confirmação automática e o dinheiro direto na sua conta." },
@@ -16,12 +18,17 @@ export default function PlatformHome() {
       <header className="sticky top-0 z-10 border-b bg-white/80 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
           <PlatformBrand />
-          <Link
+          <div className="flex items-center gap-2">
+            <a href="#contato" className="rounded-lg px-3 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-100">
+              Contato
+            </a>
+            <Link
             href="/painel/login"
             className="rounded-lg bg-primary-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-primary-700"
           >
             Entrar no painel
           </Link>
+          </div>
         </div>
       </header>
 
@@ -61,14 +68,49 @@ export default function PlatformHome() {
             ))}
           </ul>
         </section>
+
+        <section id="contato" className="scroll-mt-20 bg-primary-50">
+          <div className="mx-auto grid max-w-6xl items-center gap-8 px-4 py-16 sm:py-20 md:grid-cols-2">
+            <div>
+              <h2 className="text-2xl font-semibold tracking-tight">Quer uma loja virtual para o seu negócio?</h2>
+              <p className="mt-3 text-neutral-600">
+                Fale com a gente pelo WhatsApp: tiramos suas dúvidas, mostramos como funciona e montamos a sua loja
+                com a sua marca.
+              </p>
+            </div>
+            <div className="flex flex-col gap-3 sm:flex-row md:justify-end">
+              <a
+                href={platformWhatsappUrl()}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#25D366] px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:brightness-95"
+              >
+                <WhatsappIcon />
+                Chamar no WhatsApp
+              </a>
+              <a
+                href={`tel:${PLATFORM_CONTACT.phoneTel}`}
+                className="inline-flex items-center justify-center rounded-lg border border-primary-200 bg-white px-5 py-3 text-sm font-semibold text-primary-700 shadow-sm transition hover:border-primary-300"
+              >
+                Ligar: {PLATFORM_CONTACT.phoneDisplay}
+              </a>
+            </div>
+          </div>
+        </section>
       </main>
 
       <footer className="border-t bg-neutral-50">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-6 text-sm text-neutral-500">
           <span>PMS app</span>
-          <Link href="/painel/login" className="hover:text-neutral-900">Acesso do lojista</Link>
+          <div className="flex flex-wrap items-center gap-4">
+            <a href={platformWhatsappUrl()} target="_blank" rel="noopener noreferrer" className="hover:text-neutral-900">
+              WhatsApp {PLATFORM_CONTACT.phoneDisplay}
+            </a>
+            <Link href="/painel/login" className="hover:text-neutral-900">Acesso do lojista</Link>
+          </div>
         </div>
       </footer>
+      <PlatformWhatsappButton />
     </div>
   );
 }

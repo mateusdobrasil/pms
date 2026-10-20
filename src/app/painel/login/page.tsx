@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { PlatformBrand } from "../brand";
 import { LoginForm } from "./login-form";
+import { PlatformWhatsappButton } from "../../whatsapp-button";
 
 export const metadata = { title: "Entrar · PMS app", robots: { index: false } };
 
@@ -22,6 +23,7 @@ export default async function LoginPage() {
           <LoginForm />
         </div>
       </div>
+      <PlatformWhatsappButton />
     </main>
   );
 }
