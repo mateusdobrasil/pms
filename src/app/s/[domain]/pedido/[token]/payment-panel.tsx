@@ -210,7 +210,7 @@ function CardBrick({
           initialization: { amount: amountCents / 100, payer: { email } },
           customization: { paymentMethods: { maxInstallments: 12 } },
           callbacks: {
-            onReady: () => {},
+            onReady: () => focusCardNumber(),
             onSubmit: (data: CardFormData) => submitRef.current(data),
             onError: (err: unknown) => console.error("Card Brick", err),
           },
@@ -228,4 +228,25 @@ function CardBrick({
 
   if (failed) return <p className="text-sm text-red-700">Não foi possível carregar o pagamento com cartão. Tente o Pix.</p>;
   return <div id="card-brick" />;
+}
+
+// Coloca o cursor no número do cartão quando o formulário do Mercado Pago fica pronto.
+// Os campos ficam em iframes do Mercado Pago (domínio dele), então não dá para chamar .focus() no campo:
+// mandamos o mesmo comando "focus" que o SDK deles envia aos campos seguros. Se um dia o formato mudar,
+// a mensagem é só ignorada. Não rouba o foco se o cliente já clicou em outro campo do formulário.
+function focusCardNumber() {
+  const attempt = () => {
+    const brick = document.getElementById("card-brick");
+    const frame = brick?.querySelector<HTMLIFrameElement>("iframe[name='cardNumber']");
+    if (!brick || !frame?.contentWindow) return;
+    const active = document.activeElement;
+    if (active && active !== frame && brick.contains(active)) return; // cliente já está em outro campo
+    frame.focus();
+    frame.contentWindow.postMessage(
+      { message: "focus", field: "cardNumber", options: {}, createdFields: ["cardNumber", "expirationDate", "securityCode"] },
+      "https://secure-fields.mercadopago.com",
+    );
+  };
+  // Os campos terminam de carregar logo depois do onReady: tenta de novo por pouco tempo.
+  [0, 400, 1200].forEach((ms) => setTimeout(attempt, ms));
 }
