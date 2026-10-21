@@ -13,6 +13,7 @@ Um único app Next.js atende todas as lojas; cada loja é identificada pelo dom�
 ## Arquitetura
 - `src/proxy.ts` (antigo middleware) reescreve `loja.com.br/x` → `/s/loja.com.br/x`. Domínios em `NEXT_PUBLIC_ROOT_DOMAINS` servem o painel/site da plataforma.
 - Vitrine em `src/app/s/[domain]/...`. Painel do lojista e super-admin ficam no domínio raiz (`/painel`, `/admin`).
+- Manuais em `docs/manuais/` (HTML): `manual-lojista.html` (Painel → Ajuda) e `manual-operacao.html` (/admin → Ajuda, só super-admin). Ao mudar um fluxo que eles descrevem, atualize o manual junto.
 - Banco: Supabase na nuvem; SQL rodado à mão no SQL Editor, em ordem de nome.
   - `supabase/migrations/`: SQL novo, ainda NÃO executado. Todo SQL novo vai aqui, com prefixo de data (`AAAAMMDDHHMMSS_nome.sql`).
   - `supabase/executado/`: SQL já rodado no banco (o usuário move para cá depois de rodar). Nunca editar um arquivo daqui; mudanças vão num SQL novo em `migrations/`.
