@@ -7,6 +7,11 @@ const nextConfig: NextConfig = {
     // Logo da loja enviado pelo super-admin passa pela server action (até 2 MB + campos).
     serverActions: { bodySizeLimit: "3mb" },
   },
+  // Manuais lidos do disco pelas rotas de ajuda: precisam ir junto no deploy.
+  outputFileTracingIncludes: {
+    "/painel/manual-lojista": ["./docs/manuais/manual-lojista.html"],
+    "/admin/manual-operacao": ["./docs/manuais/manual-operacao.html"],
+  },
   turbopack: {
     rules: {
       "*.css": {

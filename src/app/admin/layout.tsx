@@ -20,6 +20,10 @@ export default async function AdminLayout({ children }: { children: ReactNode })
               <span className="block text-xs text-primary-200">Super-admin</span>
             </span>
           </Link>
+          <div className="flex items-center gap-1 text-sm text-primary-100">
+            <Link href="/admin" className="rounded-md px-2 py-1 hover:bg-white/10">Lojas</Link>
+            <Link href="/admin/ajuda" className="rounded-md px-2 py-1 hover:bg-white/10">Ajuda</Link>
+          </div>
           <form action={signOut} className="flex items-center gap-3 text-sm text-primary-100">
             <span className="hidden sm:inline">{email}</span>
             <button type="submit" className="rounded-md px-2 py-1 hover:bg-white/10">Sair</button>

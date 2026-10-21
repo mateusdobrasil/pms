@@ -1,0 +1,247 @@
+<title>Manual do Lojista PMS app</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&display=swap">
+<style>
+/* Layout: guia de leitura em uma coluna, com índice em cartões no topo; cada tarefa vira um passo a passo numerado. */
+:root {
+  --bg: #f8f6f2; --surface: #ffffff; --fg: #161a2c; --muted: #5b6177; --line: #e5e1da;
+  --navy: #0a2e82; --accent-text: #0a2e82; --coral: #e2492a; --orange: #c2650f; --band: #0a2e82; --band-fg: #ffffff;
+  --ok: #12795a; --warn: #a45a00; --bad: #b42318; --muted-pill: #5b6177;
+  --ok-bg: #e6f4ee; --warn-bg: #fdf1df; --bad-bg: #fbeae8; --info-bg: #eaf0fb; --muted-bg: #efede8;
+  --display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --body: "Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0c1122; --surface: #141a30; --fg: #e9ecf5; --muted: #a0a8c2; --line: #262d47;
+  --navy: #8fb0ff; --accent-text: #a9c2ff; --coral: #ff8466; --orange: #ffad5c; --band: #10204f; --band-fg: #eef2ff;
+  --ok: #5ed3a6; --warn: #ffbf66; --bad: #ff8a7a; --muted-pill: #b8bfd6;
+  --ok-bg: #12302a; --warn-bg: #3a2a12; --bad-bg: #3b1a19; --info-bg: #17234a; --muted-bg: #1c2340; color-scheme: dark;
+} }
+:root[data-theme="dark"] {
+  --bg: #0c1122; --surface: #141a30; --fg: #e9ecf5; --muted: #a0a8c2; --line: #262d47;
+  --navy: #8fb0ff; --accent-text: #a9c2ff; --coral: #ff8466; --orange: #ffad5c; --band: #10204f; --band-fg: #eef2ff;
+  --ok: #5ed3a6; --warn: #ffbf66; --bad: #ff8a7a; --muted-pill: #b8bfd6;
+  --ok-bg: #12302a; --warn-bg: #3a2a12; --bad-bg: #3b1a19; --info-bg: #17234a; --muted-bg: #1c2340; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--fg); font: 17px/1.65 var(--body); }
+a { color: var(--accent-text); text-underline-offset: 2px; }
+a:focus-visible, button:focus-visible { outline: 2px solid var(--coral); outline-offset: 2px; border-radius: 4px; }
+.band { background: var(--band); color: var(--band-fg); }
+.inner { max-width: 820px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.hero { padding-block: 40px 36px; display: flex; gap: 20px; align-items: center; flex-wrap: wrap; }
+.hero img { width: 64px; height: 64px; border-radius: 14px; background: #f8f4f1; }
+.hero .eyebrow { font: 700 13px/1 var(--body); letter-spacing: .1em; text-transform: uppercase; color: #ffb27a; }
+.hero h1 { font: 700 clamp(30px, 5vw, 44px)/1.08 var(--display); margin: 8px 0 6px; text-wrap: balance; }
+.hero p { margin: 0; max-width: 56ch; opacity: .9; }
+.hero > div { min-width: 0; flex: 1 1 320px; }
+main.inner { padding-block: 32px 80px; display: grid; gap: 52px; }
+.toc { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; list-style: none; padding: 0; margin: 0; }
+.toc a { display: block; height: 100%; padding: 12px 14px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; text-decoration: none; color: var(--fg); font-weight: 700; }
+.toc a span { display: block; font-weight: 400; font-size: 14px; color: var(--muted); }
+.toc a:hover { border-color: var(--navy); }
+section { min-width: 0; scroll-margin-top: 20px; }
+h2 { font: 700 28px/1.2 var(--display); margin: 0 0 14px; text-wrap: balance; }
+h3 { font: 700 19px/1.3 var(--display); margin: 24px 0 8px; }
+p, li { max-width: 66ch; }
+p { margin: 0 0 12px; }
+ul { margin: 0 0 12px; padding-left: 22px; }
+li { margin: 5px 0; }
+.where { display: inline-block; font-size: 14px; font-weight: 700; color: var(--accent-text); background: var(--info-bg); padding: 2px 9px; border-radius: 6px; }
+ol.steps { list-style: none; padding: 0; margin: 0 0 14px; counter-reset: s; display: grid; gap: 10px; }
+ol.steps > li { counter-increment: s; display: grid; grid-template-columns: 32px minmax(0, 1fr); gap: 12px; max-width: none; margin: 0; }
+ol.steps > li::before { content: counter(s); font: 700 15px/32px var(--display); text-align: center; width: 32px; height: 32px; border-radius: 50%; background: var(--navy); color: var(--surface); }
+ol.steps > li > div { min-width: 0; padding-top: 3px; }
+.tip { border-left: 4px solid var(--orange); background: var(--warn-bg); padding: 12px 16px; border-radius: 0 8px 8px 0; margin: 0 0 14px; }
+.tip.info { border-color: var(--navy); background: var(--info-bg); }
+.tip.bad { border-color: var(--bad); background: var(--bad-bg); }
+.tip strong:first-child { display: block; font-family: var(--display); margin-bottom: 2px; }
+.flow { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; list-style: none; padding: 0; margin: 0 0 14px; counter-reset: f; }
+.flow li { counter-increment: f; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; margin: 0; font-size: 15px; }
+.flow li::before { content: "Passo " counter(f); display: block; font: 700 12px/1 var(--body); letter-spacing: .08em; text-transform: uppercase; color: var(--coral); margin-bottom: 6px; }
+.flow b { display: block; font-family: var(--display); font-size: 16px; }
+.table { overflow-x: auto; margin: 0 0 16px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+table { border-collapse: collapse; width: 100%; font-size: 15.5px; }
+th, td { text-align: left; padding: 11px 14px; vertical-align: top; border-bottom: 1px solid var(--line); }
+th { font: 700 13px/1.3 var(--body); letter-spacing: .04em; text-transform: uppercase; color: var(--muted); background: var(--bg); }
+tr:last-child td { border-bottom: 0; }
+.pill { display: inline-block; white-space: nowrap; font: 700 13px/1 var(--body); padding: 5px 9px; border-radius: 999px; }
+.p-wait { background: var(--warn-bg); color: var(--warn); } .p-ok { background: var(--ok-bg); color: var(--ok); }
+.p-info { background: var(--info-bg); color: var(--accent-text); } .p-bad { background: var(--bad-bg); color: var(--bad); }
+.p-mute { background: var(--muted-bg); color: var(--muted-pill); }
+details { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 0 16px; margin: 0 0 10px; }
+summary { cursor: pointer; font-weight: 700; padding: 14px 0; list-style-position: outside; }
+details[open] summary { border-bottom: 1px solid var(--line); margin-bottom: 12px; }
+details > :last-child { margin-bottom: 14px; }
+.contact { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 18px 20px; }
+.contact .num { font: 700 24px/1.2 var(--display); user-select: all; }
+.contact button { font: 700 15px var(--body); padding: 9px 14px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); color: var(--fg); cursor: pointer; }
+.contact a.wa { font-weight: 700; color: var(--ok); }
+footer { color: var(--muted); font-size: 14px; border-top: 1px solid var(--line); padding-top: 16px; }
+@media (prefers-reduced-motion: no-preference) { html { scroll-behavior: smooth; } }
+</style>
+
+<div class="band">
+  <div class="inner hero">
+    <img src="/brand/icon-96.png" alt="PMS app">
+    <div>
+      <div class="eyebrow">Guia da sua loja virtual</div>
+      <h1>Manual do Lojista</h1>
+      <p>Tudo o que você precisa para cadastrar produtos, receber pagamentos e entregar pedidos. Leia uma vez do começo ao fim e depois volte só na parte que precisar.</p>
+    </div>
+  </div>
+</div>
+
+<main class="inner">
+  <section aria-label="Índice">
+    <ul class="toc">
+      <li><a href="#acesso">Primeiro acesso<span>Entrar e trocar a senha</span></a></li>
+      <li><a href="#configurar">Configurar a loja<span>Logo, cor, WhatsApp, CEP</span></a></li>
+      <li><a href="#produtos">Produtos<span>Fotos, tamanhos, estoque</span></a></li>
+      <li><a href="#compra">Como o cliente compra<span>O caminho da venda</span></a></li>
+      <li><a href="#pagamentos">Pagamentos<span>Pix, cartão e o seu dinheiro</span></a></li>
+      <li><a href="#pedidos">Pedidos<span>O que fazer em cada etapa</span></a></li>
+      <li><a href="#entrega">Entrega e frete<span>Etiqueta e rastreio</span></a></li>
+      <li><a href="#duvidas">Dúvidas frequentes<span>Respostas rápidas</span></a></li>
+    </ul>
+  </section>
+
+  <section id="acesso">
+    <h2>Primeiro acesso</h2>
+    <p>Sua loja tem dois endereços: o da <strong>vitrine</strong>, que você divulga para os clientes (o domínio da sua marca), e o do <strong>painel</strong>, onde só você entra para administrar.</p>
+    <p>Painel: <strong>www.pmsapp.dev/painel</strong></p>
+    <ol class="steps">
+      <li><div>Entre com o <strong>e-mail</strong> e a <strong>senha temporária</strong> que a PMS app te enviou.</div></li>
+      <li><div>Clique no seu e-mail, no topo do painel, para abrir <span class="where">Minha conta</span>.</div></li>
+      <li><div>Em "Trocar senha", digite a senha temporária, escolha uma nova (pelo menos 8 caracteres) e confirme.</div></li>
+    </ol>
+    <div class="tip"><strong>Guarde bem a sua senha</strong>Quem tem a senha vê seus pedidos e os dados dos clientes. Não compartilhe e não anote em lugar visível.</div>
+  </section>
+
+  <section id="configurar">
+    <h2>Configurar a loja</h2>
+    <p><span class="where">Painel → Configurações</span></p>
+    <ul>
+      <li><strong>Nome da loja</strong>: aparece no topo da vitrine e nos e-mails para os clientes.</li>
+      <li><strong>Cor principal</strong>: usada nos botões, na faixa de boas-vindas e nos destaques. A prévia mostra como fica.</li>
+      <li><strong>Logo</strong>: prefira PNG com <strong>fundo transparente</strong>. Com JPG, aparece um retângulo de fundo em volta do logo.</li>
+      <li><strong>WhatsApp</strong>: DDD + número. Cria o botão verde "WhatsApp" em todas as páginas da loja. Deixe vazio para esconder.</li>
+      <li><strong>E-mail da loja</strong>: recebe o aviso de <strong>cada venda</strong> e as respostas dos clientes aos e-mails do pedido.</li>
+      <li><strong>CEP de origem</strong>: de onde os pedidos saem. <strong>Sem ele não há cálculo de frete</strong>, e a loja oferece só retirada.</li>
+    </ul>
+    <p>As mudanças aparecem na vitrine em até 1 minuto.</p>
+  </section>
+
+  <section id="produtos">
+    <h2>Produtos</h2>
+    <h3>Organize por categorias</h3>
+    <p><span class="where">Painel → Categorias</span> Crie as categorias (por exemplo "Shampoos", "Tratamento", "Acessórios"). Elas viram o menu da loja. Use as setas para definir a ordem do menu. Excluir uma categoria não apaga os produtos: eles só ficam sem categoria.</p>
+
+    <h3>Cadastre um produto</h3>
+    <ol class="steps">
+      <li><div><span class="where">Painel → Produtos → Novo produto</span> Preencha nome, descrição, categoria, <strong>preço</strong> (ex.: <strong>79,90</strong>) e <strong>estoque</strong>.</div></li>
+      <li><div>Clique em <strong>Criar produto</strong>. A página do produto abre para você completar o cadastro.</div></li>
+      <li><div>Em <strong>Fotos</strong>, envie as imagens (JPG, PNG ou WebP, até 5 MB cada). <strong>A primeira é a capa.</strong> Use ← → para mudar a ordem.</div></li>
+      <li><div>Em <strong>Variações e estoque</strong>, crie uma linha para cada opção do produto (tamanho, cor, volume) com preço e estoque próprios. Clique em <strong>Salvar variações</strong>.</div></li>
+      <li><div>Marque <strong>Mostrar peso e medidas</strong> e preencha o peso (gramas) e as medidas da embalagem (cm) de cada variação.</div></li>
+    </ol>
+    <div class="tip bad"><strong>Peso e medidas definem o frete</strong>O valor do frete é calculado com o peso e as medidas que você cadastra. Se estiverem errados, o cliente paga menos frete do que custa enviar, e a diferença sai do seu bolso. Pese o produto <strong>já embalado</strong>.</div>
+    <h3>Outras opções do produto</h3>
+    <ul>
+      <li><strong>Preço "de"</strong>: mostra o preço antigo riscado ao lado do atual (promoção). Precisa ser maior que o preço.</li>
+      <li><strong>Visível na loja</strong>: desmarque para tirar o produto da vitrine sem apagar.</li>
+      <li><strong>Destaque na página inicial</strong>: o produto aparece primeiro na home.</li>
+      <li><strong>Variação "Ativa"</strong>: desmarque uma opção que acabou de vez. Para algo que já vendeu, prefira desativar em vez de remover.</li>
+      <li>Produto com <strong>estoque zero</strong> aparece como "Esgotado", e ninguém consegue comprar.</li>
+    </ul>
+  </section>
+
+  <section id="compra">
+    <h2>Como o cliente compra</h2>
+    <p>O cliente compra sem precisar criar conta:</p>
+    <ol class="flow">
+      <li><b>Escolhe</b>Abre o produto, escolhe a opção (tamanho, cor) e adiciona ao carrinho.</li>
+      <li><b>Carrinho</b>Ajusta as quantidades e clica em "Finalizar compra".</li>
+      <li><b>Dados</b>Nome, e-mail, CPF e celular.</li>
+      <li><b>Entrega</b>Digita o CEP: o endereço se completa sozinho e aparecem as opções de frete com preço e prazo, ou a retirada na loja.</li>
+      <li><b>Paga</b>Pix (QR code ou copia e cola) ou cartão de crédito.</li>
+      <li><b>Acompanha</b>Recebe o e-mail de confirmação com o link do pedido.</li>
+    </ol>
+    <p>O sistema não deixa o cliente comprar mais unidades do que você tem em estoque, e confere preço e frete na hora de fechar o pedido.</p>
+  </section>
+
+  <section id="pagamentos">
+    <h2>Pagamentos</h2>
+    <ul>
+      <li>Os pagamentos passam pelo <strong>Mercado Pago</strong>, e o dinheiro cai <strong>na sua conta do Mercado Pago</strong>, não na da PMS app. Prazos de liberação e taxas são os do seu plano no Mercado Pago.</li>
+      <li><strong>Pix</strong>: o código vale <strong>30 minutos</strong>. Quando o cliente paga, a página do pedido muda sozinha para "Pagamento confirmado", em poucos segundos.</li>
+      <li><strong>Cartão de crédito</strong>: aprovado na hora, ou recusado com uma explicação para o cliente, que pode tentar outro cartão ou o Pix no mesmo pedido.</li>
+      <li>O <strong>estoque só diminui quando o pagamento é confirmado</strong>. Pedido sem pagamento não segura estoque.</li>
+    </ul>
+    <div class="tip info"><strong>Estorno (devolver o dinheiro)</strong>O estorno é feito <strong>no aplicativo ou site do Mercado Pago</strong>: abra o pagamento e escolha "Devolver dinheiro". Depois, cancele o pedido no painel.</div>
+  </section>
+
+  <section id="pedidos">
+    <h2>Pedidos</h2>
+    <p><span class="where">Painel → Pedidos</span> Use os filtros no topo e a busca pelo código do pedido. O <span class="where">Resumo</span> mostra as vendas de hoje e do mês, e quantos pedidos estão esperando envio.</p>
+    <div class="table"><table>
+      <thead><tr><th>Situação</th><th>O que significa</th><th>O que você faz</th></tr></thead>
+      <tbody>
+        <tr><td><span class="pill p-wait">Aguardando pagamento</span></td><td>O cliente fechou o pedido, mas ainda não pagou</td><td>Nada. Se não pagar, o pedido expira</td></tr>
+        <tr><td><span class="pill p-ok">Pago</span></td><td>Pagamento confirmado. Você recebeu o e-mail "Nova venda"</td><td>Separe os produtos e marque "Em preparação"</td></tr>
+        <tr><td><span class="pill p-info">Em preparação</span></td><td>Você está separando ou embalando</td><td>Gere a etiqueta e informe o rastreio</td></tr>
+        <tr><td><span class="pill p-info">Enviado</span> / <span class="pill p-info">Pronto para retirada</span></td><td>Saiu para entrega, ou está esperando o cliente buscar</td><td>O cliente recebe um e-mail automático. Quando chegar, marque "Entregue"</td></tr>
+        <tr><td><span class="pill p-mute">Entregue</span></td><td>Pedido concluído</td><td>Nada</td></tr>
+        <tr><td><span class="pill p-bad">Cancelado</span></td><td>Você cancelou</td><td>Se já estava pago, faça o estorno no Mercado Pago e devolva o estoque em Produtos</td></tr>
+        <tr><td><span class="pill p-mute">Expirado</span></td><td>O cliente não pagou a tempo</td><td>Nada. Às vezes vale chamar o cliente no WhatsApp</td></tr>
+      </tbody>
+    </table></div>
+    <p>Dentro de cada pedido você vê os itens, o histórico de tentativas de pagamento, os dados do cliente (com atalho para o WhatsApp dele) e o endereço de entrega.</p>
+    <div class="tip bad"><strong>Selo "sem estoque"</strong>Se duas pessoas pagarem a última unidade ao mesmo tempo, um dos pedidos aparece pago com o selo vermelho "sem estoque". Fale com o cliente e combine uma troca, uma espera ou o estorno.</div>
+  </section>
+
+  <section id="entrega">
+    <h2>Entrega e frete</h2>
+    <p>O frete é cobrado do cliente automaticamente, pelas transportadoras do <strong>Melhor Envio</strong> (Correios, Jadlog e outras). Quando chega um pedido pago com entrega:</p>
+    <ol class="steps">
+      <li><div>No <strong>site do Melhor Envio</strong>, gere a etiqueta do serviço que o cliente escolheu (está no pedido, por exemplo "Correios SEDEX") com o endereço do pedido.</div></li>
+      <li><div>Embale, cole a etiqueta e poste, ou agende a coleta.</div></li>
+      <li><div>No painel, abra o pedido, cole o <strong>código de rastreio</strong> e clique em <strong>Salvar</strong>. O pedido passa a "Enviado", e o cliente recebe um e-mail com o rastreio.</div></li>
+    </ol>
+    <p><strong>Retirada na loja</strong>: quando o pedido estiver separado, clique em "Marcar como pronto para retirada". O cliente recebe um e-mail avisando.</p>
+  </section>
+
+  <section id="duvidas">
+    <h2>Dúvidas frequentes</h2>
+    <details><summary>O cliente diz que pagou, mas o pedido continua "Aguardando pagamento".</summary><p>Pix leva alguns segundos e, raramente, alguns minutos. Peça para ele manter a página do pedido aberta: ela atualiza sozinha. Se passar de 30 minutos, confira o pagamento no seu Mercado Pago e fale com o suporte.</p></details>
+    <details><summary>Vendi pela loja física. Como ajusto o estoque?</summary><p>Painel → Produtos → abra o produto → Variações e estoque → altere o número → Salvar variações. Se aparecer o aviso de que o estoque mudou enquanto você editava, é porque saiu uma venda online nesse meio-tempo. O valor atual já aparece na tela: ajuste e salve de novo.</p></details>
+    <details><summary>Posso mudar o preço de um produto que já tem pedidos?</summary><p>Pode. Pedidos já feitos mantêm o preço da época da compra.</p></details>
+    <details><summary>O frete não aparece no checkout, só a retirada.</summary><p>Confira se o CEP de origem está preenchido em Configurações. Se estiver, fale com o suporte: pode faltar configurar o frete da sua loja.</p></details>
+    <details><summary>O cliente não recebeu o e-mail do pedido.</summary><p>Peça para ele olhar a caixa de spam. O link de acompanhamento também aparece na tela logo depois da compra. Você vê os dados de contato dele no pedido.</p></details>
+    <details><summary>Como tiro um produto da loja sem apagar?</summary><p>Abra o produto e desmarque "Visível na loja". Para voltar, marque de novo.</p></details>
+  </section>
+
+  <section id="suporte">
+    <h2>Fale com a PMS app</h2>
+    <div class="contact">
+      <div>
+        <div class="num" id="num">(11) 97336-7502</div>
+        <div>WhatsApp e telefone · <a class="wa" href="https://wa.me/5511973367502" target="_blank" rel="noopener noreferrer">abrir o WhatsApp</a></div>
+      </div>
+      <button type="button" id="copy">Copiar número</button>
+    </div>
+  </section>
+
+  <footer>PMS app · Manual do Lojista · atualizado em outubro de 2026</footer>
+</main>
+
+<script>
+  document.getElementById("copy").addEventListener("click", function () {
+    var btn = this, text = document.getElementById("num").textContent;
+    function done() { btn.textContent = "Número copiado"; setTimeout(function () { btn.textContent = "Copiar número"; }, 2000); }
+    function selectIt() { var r = document.createRange(); r.selectNodeContents(document.getElementById("num")); var s = getSelection(); s.removeAllRanges(); s.addRange(r); btn.textContent = "Selecionado: use Ctrl+C"; }
+    try { navigator.clipboard.writeText(text).then(done, selectIt); } catch (e) { selectIt(); }
+  });
+</script>

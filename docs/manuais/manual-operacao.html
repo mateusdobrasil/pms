@@ -1,0 +1,366 @@
+<title>Manual de Operação PMS app</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: índice fixo à esquerda (desktop) + coluna de leitura; no celular, índice vira bloco no topo. */
+:root {
+  --bg: #f7f6f3; --surface: #ffffff; --fg: #151a2e; --muted: #596079; --line: #e3e1dc;
+  --navy: #0a2e82; --accent-text: #0a2e82; --coral: #e8502f; --orange: #c96a12;
+  --code-bg: #efeee9; --ok: #12795a; --warn: #a45a00; --bad: #b42318;
+  --ok-bg: #e6f4ee; --warn-bg: #fdf1df; --bad-bg: #fbeae8; --info-bg: #eaf0fb;
+  --display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --body: "Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0c1122; --surface: #141a30; --fg: #e8ebf4; --muted: #9ca4be; --line: #262d47;
+  --navy: #8fb0ff; --accent-text: #a9c2ff; --coral: #ff8466; --orange: #ffad5c;
+  --code-bg: #1b2240; --ok: #5ed3a6; --warn: #ffbf66; --bad: #ff8a7a;
+  --ok-bg: #12302a; --warn-bg: #3a2a12; --bad-bg: #3b1a19; --info-bg: #17234a; color-scheme: dark;
+} }
+:root[data-theme="dark"] {
+  --bg: #0c1122; --surface: #141a30; --fg: #e8ebf4; --muted: #9ca4be; --line: #262d47;
+  --navy: #8fb0ff; --accent-text: #a9c2ff; --coral: #ff8466; --orange: #ffad5c;
+  --code-bg: #1b2240; --ok: #5ed3a6; --warn: #ffbf66; --bad: #ff8a7a;
+  --ok-bg: #12302a; --warn-bg: #3a2a12; --bad-bg: #3b1a19; --info-bg: #17234a; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.6 var(--body); }
+a { color: var(--accent-text); text-underline-offset: 2px; }
+a:focus-visible, summary:focus-visible { outline: 2px solid var(--coral); outline-offset: 2px; border-radius: 4px; }
+.wrap { max-width: 1180px; margin: 0 auto; padding-block: 32px 80px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: grid; grid-template-columns: 250px minmax(0, 1fr); gap: 48px; }
+header.top { grid-column: 1 / -1; display: flex; align-items: center; gap: 16px; padding-bottom: 24px; border-bottom: 1px solid var(--line); }
+header.top img { width: 52px; height: 52px; border-radius: 12px; }
+.eyebrow { font: 600 12px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--coral); }
+h1 { font: 700 clamp(28px, 4vw, 40px)/1.1 var(--display); margin: 6px 0 0; text-wrap: balance; letter-spacing: -.01em; }
+.lede { color: var(--muted); margin: 6px 0 0; max-width: 62ch; }
+nav.toc { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 24px); align-self: start; font-size: 14px; }
+nav.toc p { font: 600 12px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin: 0 0 12px; }
+nav.toc ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; counter-reset: t; }
+nav.toc li { counter-increment: t; }
+nav.toc a { display: flex; gap: 10px; padding: 5px 8px; border-radius: 6px; color: var(--fg); text-decoration: none; }
+nav.toc a::before { content: counter(t, decimal-leading-zero); font: 12px/1.7 var(--mono); color: var(--muted); }
+nav.toc a:hover { background: var(--surface); }
+main { min-width: 0; display: grid; gap: 56px; }
+section { min-width: 0; scroll-margin-top: 24px; }
+h2 { font: 700 26px/1.2 var(--display); margin: 0 0 14px; text-wrap: balance; display: flex; align-items: baseline; gap: 12px; }
+h2 .n { font: 600 13px/1 var(--mono); color: var(--coral); }
+h3 { font: 700 18px/1.3 var(--display); margin: 26px 0 8px; }
+p, li { max-width: 70ch; }
+p { margin: 0 0 12px; }
+ul, ol { margin: 0 0 12px; padding-left: 22px; }
+li { margin: 4px 0; }
+code, kbd { font: 14px/1.4 var(--mono); background: var(--code-bg); padding: 1px 5px; border-radius: 4px; overflow-wrap: anywhere; }
+pre { font: 13.5px/1.55 var(--mono); background: var(--code-bg); padding: 14px 16px; border-radius: 8px; overflow-x: auto; margin: 0 0 14px; }
+pre code { background: none; padding: 0; }
+.table { overflow-x: auto; margin: 0 0 16px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+table { border-collapse: collapse; width: 100%; font-size: 14.5px; }
+th, td { text-align: left; padding: 10px 14px; vertical-align: top; border-bottom: 1px solid var(--line); }
+th { font: 600 12px/1.3 var(--mono); letter-spacing: .05em; text-transform: uppercase; color: var(--muted); background: var(--bg); }
+tr:last-child td { border-bottom: 0; }
+td code { white-space: nowrap; }
+.note { border-left: 4px solid var(--navy); background: var(--info-bg); padding: 12px 16px; border-radius: 0 8px 8px 0; margin: 0 0 14px; }
+.note.warn { border-color: var(--warn); background: var(--warn-bg); }
+.note.bad { border-color: var(--bad); background: var(--bad-bg); }
+.note.ok { border-color: var(--ok); background: var(--ok-bg); }
+.note strong:first-child { display: block; font-family: var(--display); margin-bottom: 2px; }
+ol.steps { list-style: none; padding: 0; counter-reset: s; display: grid; gap: 12px; }
+ol.steps > li { counter-increment: s; display: grid; grid-template-columns: 34px minmax(0, 1fr); gap: 12px; max-width: none; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; }
+ol.steps > li::before { content: counter(s); font: 700 15px/34px var(--display); text-align: center; width: 34px; height: 34px; border-radius: 50%; background: var(--navy); color: var(--surface); }
+ol.steps > li > div { min-width: 0; }
+ol.steps strong { font-family: var(--display); }
+.pill { display: inline-block; font: 600 11.5px/1 var(--mono); padding: 4px 7px; border-radius: 999px; letter-spacing: .03em; }
+.pill.ok { background: var(--ok-bg); color: var(--ok); } .pill.warn { background: var(--warn-bg); color: var(--warn); } .pill.bad { background: var(--bad-bg); color: var(--bad); }
+pre.mermaid { background: var(--surface); border: 1px solid var(--line); text-align: center; }
+footer { grid-column: 1 / -1; color: var(--muted); font-size: 13px; border-top: 1px solid var(--line); padding-top: 16px; }
+@media (max-width: 860px) {
+  .wrap { grid-template-columns: minmax(0, 1fr); gap: 28px; }
+  nav.toc { position: static; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px; }
+  nav.toc ol { grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); }
+}
+@media (prefers-reduced-motion: no-preference) { html { scroll-behavior: smooth; } }
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <img src="/brand/icon-96.png" alt="PMS app">
+    <div>
+      <div class="eyebrow">Uso interno · plataforma</div>
+      <h1>Manual de Operação</h1>
+      <p class="lede">Como a plataforma PMS app funciona, como implantar e manter lojas, e o que fazer quando algo dá errado. Para o dono da plataforma e para quem desenvolve nela.</p>
+    </div>
+  </header>
+
+  <nav class="toc" aria-label="Índice">
+    <p>Índice</p>
+    <ol>
+      <li><a href="#visao">Visão geral</a></li>
+      <li><a href="#arquitetura">Arquitetura</a></li>
+      <li><a href="#regras">Regras que não se quebram</a></li>
+      <li><a href="#ambiente">Variáveis de ambiente</a></li>
+      <li><a href="#banco">Banco e migrations</a></li>
+      <li><a href="#implantar">Implantar uma loja</a></li>
+      <li><a href="#pagamentos">Pagamentos</a></li>
+      <li><a href="#frete">Frete</a></li>
+      <li><a href="#emails">E-mails</a></li>
+      <li><a href="#dev">Desenvolvimento e deploy</a></li>
+      <li><a href="#testes">Como testar</a></li>
+      <li><a href="#problemas">Problemas conhecidos</a></li>
+      <li><a href="#rotinas">Rotinas de operação</a></li>
+      <li><a href="#pendencias">Pendências</a></li>
+    </ol>
+  </nav>
+
+  <main>
+    <section id="visao">
+      <h2><span class="n">01</span>Visão geral</h2>
+      <p>A PMS app vende lojas virtuais prontas para pequenos lojistas, cobrando taxa de implantação e mensalidade. Um único aplicativo atende todas as lojas: cada loja é identificada pelo <strong>domínio</strong> pelo qual o visitante chega.</p>
+      <div class="table"><table>
+        <thead><tr><th>Endereço</th><th>O que abre</th><th>Quem usa</th></tr></thead>
+        <tbody>
+          <tr><td><code>www.pmsapp.dev</code></td><td>Site da plataforma, com contato por WhatsApp</td><td>Interessados</td></tr>
+          <tr><td><code>www.pmsapp.dev/painel</code></td><td>Painel do lojista: pedidos, produtos, configurações</td><td>Lojistas</td></tr>
+          <tr><td><code>www.pmsapp.dev/admin</code></td><td>Super-admin: lojas, domínios, credenciais</td><td>Dono da plataforma</td></tr>
+          <tr><td><code>www.kadosh.hair</code> (e cada domínio de loja)</td><td>Vitrine da loja</td><td>Clientes finais</td></tr>
+        </tbody>
+      </table></div>
+      <h3>Stack</h3>
+      <ul>
+        <li><strong>Next.js 16</strong> (App Router, TypeScript, Tailwind 4), hospedado na <strong>Vercel</strong>. Código em <code>github.com/mateusdobrasil/pms</code>.</li>
+        <li><strong>Supabase</strong> na nuvem: Postgres com RLS, Auth (login do painel) e Storage (fotos e logos).</li>
+        <li><strong>Mercado Pago</strong>: Pix pela Payments API e cartão pelo Card Payment Brick. Cada loja usa as credenciais da própria conta, então o dinheiro cai direto para o lojista.</li>
+        <li><strong>Melhor Envio</strong> para frete, além da opção de retirada na loja.</li>
+        <li><strong>Resend</strong> para e-mails transacionais.</li>
+      </ul>
+    </section>
+
+    <section id="arquitetura">
+      <h2><span class="n">02</span>Arquitetura</h2>
+      <p>O <code>src/proxy.ts</code> (o antigo middleware) olha o domínio de cada requisição. Se for um domínio da plataforma, a requisição segue normal. Se for qualquer outro, ela é reescrita para a rota interna da loja:</p>
+      <pre><code>www.kadosh.hair/p/escova   →   /s/www.kadosh.hair/p/escova   (rota interna, invisível ao cliente)</code></pre>
+      <p>A plataforma reconhece como dela os domínios em <code>NEXT_PUBLIC_ROOT_DOMAINS</code> (aceita curinga, como <code>*.vercel.app</code>) e também os domínios que a própria Vercel informa no deploy. Rotas <code>/api</code> não são reescritas: nelas, a loja é descoberta pelo cabeçalho <code>Host</code>.</p>
+      <div class="table"><table>
+        <thead><tr><th>Pasta</th><th>Conteúdo</th></tr></thead>
+        <tbody>
+          <tr><td><code>src/app/s/[domain]/</code></td><td>Vitrine: home, produto, categoria, busca, carrinho, checkout, página do pedido, sitemap e robots</td></tr>
+          <tr><td><code>src/app/painel/</code></td><td>Painel do lojista (login, resumo, pedidos, produtos, categorias, configurações, minha conta)</td></tr>
+          <tr><td><code>src/app/admin/</code></td><td>Super-admin</td></tr>
+          <tr><td><code>src/app/api/</code></td><td>Cotação do carrinho, criação do pedido, pagamento, status e webhook do Mercado Pago</td></tr>
+          <tr><td><code>src/lib/</code></td><td>Regras de negócio: <code>orders.ts</code>, <code>shipping.ts</code>, <code>email.ts</code>, <code>payments/</code>, <code>branding.ts</code>, clientes Supabase</td></tr>
+          <tr><td><code>supabase/</code></td><td>SQL: <code>migrations/</code> (pendente) e <code>executado/</code> (já rodado)</td></tr>
+          <tr><td><code>design/</code></td><td>Arquivo-fonte do logo da PMS app</td></tr>
+        </tbody>
+      </table></div>
+      <h3>Clientes do Supabase</h3>
+      <ul>
+        <li><code>createPublicClient()</code>: leitura pública da vitrine, respeitando o RLS.</li>
+        <li><code>createSupabaseServerClient()</code>: painel, com a sessão do lojista logado.</li>
+        <li><code>createAdminClient()</code>: service role, que <strong>ignora o RLS</strong>. Usado só no servidor: checkout, pagamentos, webhook, e-mails e super-admin.</li>
+      </ul>
+    </section>
+
+    <section id="regras">
+      <h2><span class="n">03</span>Regras que não se quebram</h2>
+      <p>Estão no <code>CLAUDE.md</code> do repositório e valem para qualquer mudança:</p>
+      <ul>
+        <li>Toda tabela tem <code>store_id</code>, e toda consulta da vitrine filtra por ele.</li>
+        <li>Dinheiro sempre em <strong>centavos</strong> (inteiro), formatado só na exibição (<code>formatBRL</code>).</li>
+        <li>Pedidos, itens e pagamentos são criados <strong>só no servidor</strong>, e o preço é sempre recalculado a partir de <code>product_variants</code>. O frete também é recotado no servidor.</li>
+        <li>O estoque só baixa quando o pagamento é confirmado (<code>confirm_order_payment</code>), nunca na criação do pedido.</li>
+        <li>O webhook é idempotente (<code>webhook_events</code>) e sempre consulta o Mercado Pago, em vez de confiar no que chegou.</li>
+        <li>Credenciais ficam em <code>store_secrets</code>, tabela sem nenhuma policy: só a service role lê. Elas nunca vão para a tela.</li>
+        <li>E-mails só via <code>src/lib/email.ts</code>, disparados com <code>after()</code> e travados por <code>orders.notified_*</code>, para nunca enviar duas vezes.</li>
+        <li>O <code>/admin</code> usa <code>requireAdmin()</code>, e quem não é admin recebe 404.</li>
+        <li>Textos de interface em português do Brasil.</li>
+      </ul>
+      <div class="note"><strong>Fora da v1 (só com pedido explícito)</strong>Cupons, avaliações, carrinho abandonado, conta de cliente, marketplaces, ERP, NF-e e mais de um gateway de pagamento.</div>
+    </section>
+
+    <section id="ambiente">
+      <h2><span class="n">04</span>Variáveis de ambiente</h2>
+      <p>Ficam no <code>.env.local</code> (desenvolvimento, nunca vai para o git) e em <strong>Vercel → Settings → Environment Variables</strong> (produção). Modelo: <code>.env.example</code>.</p>
+      <div class="table"><table>
+        <thead><tr><th>Variável</th><th>Para quê</th><th>Produção</th></tr></thead>
+        <tbody>
+          <tr><td><code>NEXT_PUBLIC_SUPABASE_URL</code></td><td>Endereço do projeto Supabase</td><td>Project Settings → API</td></tr>
+          <tr><td><code>NEXT_PUBLIC_SUPABASE_ANON_KEY</code></td><td>Chave pública (respeita RLS)</td><td>Project Settings → API</td></tr>
+          <tr><td><code>SUPABASE_SERVICE_ROLE_KEY</code></td><td>Chave de serviço: ignora RLS. Nunca no navegador</td><td>Project Settings → API</td></tr>
+          <tr><td><code>NEXT_PUBLIC_ROOT_DOMAINS</code></td><td>Domínios que abrem a plataforma (e não uma loja)</td><td><code>localhost,pmsapp.dev,*.vercel.app</code></td></tr>
+          <tr><td><code>PLATFORM_URL</code></td><td>Base do webhook do Mercado Pago. Precisa ser https e o endereço final, sem redirecionamento</td><td><code>https://www.pmsapp.dev</code></td></tr>
+          <tr><td><code>MELHOR_ENVIO_ENV</code></td><td>Padrão antigo do ambiente de frete. Hoje o ambiente é escolhido por loja no <code>/admin</code></td><td><code>sandbox</code></td></tr>
+          <tr><td><code>MELHOR_ENVIO_CONTACT</code></td><td>E-mail técnico exigido pelo Melhor Envio</td><td>e-mail de contato</td></tr>
+          <tr><td><code>RESEND_API_KEY</code></td><td>Envio de e-mails (chave só de envio)</td><td>resend.com → API Keys</td></tr>
+          <tr><td><code>EMAIL_FROM</code></td><td>Remetente dos e-mails</td><td><code>pedidos@pmsapp.dev</code> (com o domínio verificado)</td></tr>
+        </tbody>
+      </table></div>
+      <div class="note warn"><strong>Variáveis <code>NEXT_PUBLIC_</code> entram no código na hora do build</strong>Depois de mudar qualquer uma delas na Vercel, faça <strong>Redeploy</strong> (Deployments → ⋯ → Redeploy). Sem isso, o site continua com o valor antigo.</div>
+    </section>
+
+    <section id="banco">
+      <h2><span class="n">05</span>Banco e migrations</h2>
+      <p>O banco é o Supabase na nuvem. O SQL é rodado à mão no <strong>SQL Editor</strong>, sempre em ordem de nome:</p>
+      <ul>
+        <li><code>supabase/migrations/</code>: SQL novo, <strong>ainda não executado</strong>. Todo arquivo novo vai aqui, com prefixo <code>AAAAMMDDHHMMSS_nome.sql</code>.</li>
+        <li><code>supabase/executado/</code>: SQL que já rodou no banco. Depois de rodar, mova o arquivo para cá. <strong>Nunca edite um arquivo daqui</strong>: qualquer correção vai num SQL novo.</li>
+      </ul>
+      <h3>Tabelas principais</h3>
+      <div class="table"><table>
+        <thead><tr><th>Tabela</th><th>Conteúdo</th></tr></thead>
+        <tbody>
+          <tr><td><code>stores</code>, <code>store_domains</code></td><td>Lojas (nome, cor, logo, WhatsApp, CEP de origem, status) e seus domínios</td></tr>
+          <tr><td><code>store_members</code>, <code>platform_admins</code></td><td>Quem acessa o painel de cada loja; quem é super-admin</td></tr>
+          <tr><td><code>store_secrets</code></td><td>Credenciais do Mercado Pago e do Melhor Envio, mais <code>melhor_envio_sandbox</code></td></tr>
+          <tr><td><code>categories</code>, <code>products</code>, <code>product_variants</code>, <code>product_images</code></td><td>Catálogo. Preço, estoque, peso e medidas ficam na variação</td></tr>
+          <tr><td><code>orders</code>, <code>order_items</code>, <code>payments</code></td><td>Pedidos (com <code>public_token</code> do link de acompanhamento), itens com preço copiado e pagamentos</td></tr>
+          <tr><td><code>webhook_events</code></td><td>Trava de idempotência do webhook</td></tr>
+        </tbody>
+      </table></div>
+      <p>Um trigger (<code>orders_guard_member_update</code>) só deixa o lojista mover o pedido pelas transições válidas. Ele não consegue, por exemplo, marcar um pedido como "pago" à mão.</p>
+      <p>Para gerar os tipos do banco: <code>npx supabase gen types typescript --project-id &lt;id&gt; &gt; src/lib/database.types.ts</code> (precisa de <code>npx supabase login</code>).</p>
+    </section>
+
+    <section id="implantar">
+      <h2><span class="n">06</span>Implantar uma loja nova</h2>
+      <p>O roteiro abaixo é o que usamos na <strong>Kadosh Cabelos</strong>. A loja nasce em <strong>modo de teste</strong> e só vira produção depois de uma compra de teste completa.</p>
+      <ol class="steps">
+        <li><div><strong>Criar no <code>/admin</code></strong><br>"Nova loja": nome, identificador, e-mail do dono, domínio, cor e logo (PNG transparente de até 2 MB; a plataforma otimiza). Se o dono ainda não tem usuário, aparece uma <strong>senha temporária, uma única vez</strong>: envie a ele, que troca em Painel → Minha conta.</div></li>
+        <li><div><strong>Domínio na Vercel</strong><br>Vercel → projeto → Settings → Domains: adicione <code>dominio.com.br</code> e <code>www.dominio.com.br</code>. A Vercel costuma redirecionar o domínio raiz para o <code>www</code>, então no <code>/admin</code> vincule os dois e deixe o <code>www</code> como <strong>principal</strong>, porque ele vai nos links dos e-mails.</div></li>
+        <li><div><strong>DNS no registrador</strong><br>Cadastre os registros que a Vercel mostrar. Normalmente: <code>A @ 76.76.21.21</code> e <code>CNAME www cname.vercel-dns.com</code>. A propagação leva de minutos a horas.</div></li>
+        <li><div><strong>Credenciais de teste</strong><br>Em "Pagamento e frete": Access Token e Public Key <code>TEST-</code> do Mercado Pago, token do Melhor Envio do sandbox com a opção "sandbox" marcada, e o CEP de origem.</div></li>
+        <li><div><strong>Lojista configura</strong><br>Configurações (WhatsApp, e-mail da loja, CEP), categorias e produtos com fotos, peso e medidas.</div></li>
+        <li><div><strong>Compra de teste completa</strong><br>No domínio real: frete por CEP, Pix (gera o QR), cartão APRO (aprova) e OTHE (recusa). Confira no painel e no Resend.</div></li>
+        <li><div><strong>Virada para produção</strong><br>Troque para as credenciais de <strong>produção</strong> do Mercado Pago do lojista (<code>APP_USR-</code>, ativadas na conta dele) e o token de produção do Melhor Envio, desmarcando "sandbox". O <code>/admin</code> avisa se o Mercado Pago ainda está em TESTE. Depois, uma compra real de valor baixo, com estorno.</div></li>
+      </ol>
+    </section>
+
+    <section id="pagamentos">
+      <h2><span class="n">07</span>Pagamentos (Mercado Pago)</h2>
+      <pre class="mermaid">
+flowchart TD
+  A[Checkout] -->|cria pedido no servidor| B[Pedido aguardando pagamento]
+  B --> C{Forma}
+  C -->|Pix| D[QR code por 30 min]
+  C -->|Cartão| E[Card Payment Brick]
+  D --> F[Mercado Pago]
+  E --> F
+  F -->|webhook ou consulta de status| G[recordPayment]
+  G -->|aprovado| H[confirm_order_payment: pago e estoque baixa]
+  H --> I[E-mails: cliente e Nova venda]
+      </pre>
+      <ul>
+        <li>O pedido nasce em <span class="pill warn">aguardando pagamento</span> e vale <strong>60 minutos</strong>. Ao gerar um Pix, o prazo passa a ser o do Pix (30 min, o mínimo do Mercado Pago). Um Pix pago depois de expirar ainda confirma o pedido.</li>
+        <li>O webhook chega em <code>PLATFORM_URL/api/webhooks/payments?store=&lt;id&gt;</code>. Ele confere a assinatura <code>x-signature</code> quando a loja tem o segredo cadastrado e <strong>sempre consulta o pagamento</strong> com o token da loja antes de confirmar.</li>
+        <li>A página do pedido consulta o status a cada 5 s. Isso confirma o pagamento mesmo sem webhook (desenvolvimento local) ou com webhook atrasado.</li>
+        <li>Se o valor pago for diferente do total do pedido, o pagamento não confirma o pedido, e o caso fica registrado no log.</li>
+      </ul>
+      <div class="note bad"><strong>Credenciais: o que funciona para testar</strong>Use as credenciais <code>TEST-</code> da aplicação da conta real. <strong>Contas de teste (vendedor de teste, <code>APP_USR-</code> dele) não servem para Checkout Bricks</strong>: dão <code>401 Unauthorized use of live credentials</code>. A documentação oficial confirma.</div>
+    </section>
+
+    <section id="frete">
+      <h2><span class="n">08</span>Frete (Melhor Envio)</h2>
+      <ul>
+        <li>A cotação usa o CEP de origem da loja, o CEP do cliente e o peso e as medidas de cada variação. Sem token ou sem CEP de origem, o checkout oferece só a retirada.</li>
+        <li>O ambiente é escolhido <strong>por loja</strong> no <code>/admin</code> (sandbox ou produção). Um token do sandbox não funciona em produção, nem o contrário.</li>
+        <li>O preço do frete nunca vem do navegador: ao criar o pedido, o servidor cota de novo e só aceita uma opção que esteja na cotação.</li>
+        <li>A etiqueta é comprada pelo lojista no site do Melhor Envio, que depois informa o rastreio no painel. A compra de etiqueta pela API não está na v1.</li>
+      </ul>
+    </section>
+
+    <section id="emails">
+      <h2><span class="n">09</span>E-mails (Resend)</h2>
+      <div class="table"><table>
+        <thead><tr><th>E-mail</th><th>Quando sai</th><th>Para</th></tr></thead>
+        <tbody>
+          <tr><td>Pagamento confirmado</td><td>Pagamento aprovado</td><td>Cliente</td></tr>
+          <tr><td>Nova venda</td><td>Pagamento aprovado</td><td>E-mail da loja (Configurações)</td></tr>
+          <tr><td>Pedido enviado / Pronto para retirada</td><td>Lojista marca como enviado ou salva o rastreio</td><td>Cliente</td></tr>
+        </tbody>
+      </table></div>
+      <p>O nome do remetente é o da loja, e as respostas vão para o e-mail da loja. A trava é feita pelas colunas <code>notified_paid_at</code> e <code>notified_shipped_at</code>: só quem consegue preenchê-las envia, e se o envio falhar, a trava é liberada.</p>
+      <div class="note warn"><strong>Hoje os e-mails só chegam para você</strong>Com <code>EMAIL_FROM=onboarding@resend.dev</code>, o Resend só entrega no e-mail da conta Resend. Para clientes reais, verifique <code>pmsapp.dev</code> em Resend → Domains (registros DNS) e troque para <code>pedidos@pmsapp.dev</code>, no <code>.env.local</code> e na Vercel.</div>
+    </section>
+
+    <section id="dev">
+      <h2><span class="n">10</span>Desenvolvimento e deploy</h2>
+      <pre><code>npm install
+npm run dev            # loja de teste: http://loja-teste.localhost:3000
+                       # plataforma:    http://localhost:3000
+npx next typegen       # tipos das rotas (se o tsc reclamar de LayoutProps/rotas)
+npx tsc --noEmit       # tipos
+npm run lint           # lint
+npx next build         # build de produção (rode antes de subir)</code></pre>
+      <ul>
+        <li><strong>Deploy</strong>: um <code>git push</code> na <code>main</code> publica na Vercel automaticamente.</li>
+        <li>O Next 16 tem mudanças grandes. Antes de usar uma API, consulte <code>node_modules/next/dist/docs/</code>. O <code>cacheComponents</code> está <strong>desligado</strong>, de propósito (multi-tenant), e usamos <code>revalidate</code>.</li>
+        <li>Toda mudança de <code>next.config.ts</code> exige <strong>reiniciar</strong> o <code>npm run dev</code>.</li>
+        <li>Mensagens de commit em português, terminando com a linha de coautoria quando houver.</li>
+      </ul>
+    </section>
+
+    <section id="testes">
+      <h2><span class="n">11</span>Como testar</h2>
+      <h3>Compra com cartão (sandbox)</h3>
+      <div class="table"><table>
+        <thead><tr><th>Campo</th><th>Valor</th></tr></thead>
+        <tbody>
+          <tr><td>Cartão</td><td>Visa <code>4235 6477 2802 5682</code> ou Mastercard <code>5480 8328 0103 3311</code></td></tr>
+          <tr><td>CVV / validade</td><td><code>123</code> / <code>11/30</code></td></tr>
+          <tr><td>Nome do titular</td><td><code>APRO</code> aprova · <code>OTHE</code> recusa · <code>CONT</code> pendente</td></tr>
+          <tr><td>CPF do titular</td><td><code>12345678909</code></td></tr>
+          <tr><td>E-mail do comprador</td><td>Qualquer um real, diferente do e-mail da conta MP. <strong>Nunca <code>@example.com</code></strong></td></tr>
+        </tbody>
+      </table></div>
+      <p>CPF válido para o checkout: <code>529.982.247-25</code>. CEP para testar frete: <code>20040-020</code> (Rio de Janeiro).</p>
+      <h3>E-mails sem incomodar ninguém</h3>
+      <p>Use <code>delivered@resend.dev</code> como e-mail do cliente: o Resend simula a entrega, e o e-mail aparece no painel do Resend com o botão funcionando.</p>
+      <h3>Testes automatizados de ponta a ponta</h3>
+      <p>Criamos usuário temporário com a service role, montamos o cookie de sessão, chamamos as server actions por HTTP (ID no <code>server-reference-manifest.json</code>, corpo com <code>encodeReply</code>) e usamos o Chrome via puppeteer para as telas e o Card Payment Brick. Tudo é apagado no fim de cada teste.</p>
+    </section>
+
+    <section id="problemas">
+      <h2><span class="n">12</span>Problemas conhecidos</h2>
+      <div class="table"><table>
+        <thead><tr><th>Sintoma</th><th>Causa</th><th>Solução</th></tr></thead>
+        <tbody>
+          <tr><td>Domínio da loja dá 404</td><td>A Vercel redireciona para <code>www</code>, mas só o domínio sem <code>www</code> está vinculado</td><td>Vincular <code>www.…</code> no <code>/admin</code> e torná-lo principal</td></tr>
+          <tr><td>Site inteiro dá 404 na Vercel</td><td>Domínio da plataforma não reconhecido como raiz</td><td>Conferir <code>NEXT_PUBLIC_ROOT_DOMAINS</code> e fazer Redeploy</td></tr>
+          <tr><td>Cartão recusado: <code>excludes_by_rule</code></td><td>E-mail do comprador <code>@example.com</code> (bloqueado pelo antifraude)</td><td>Usar um e-mail real ou <code>delivered@resend.dev</code></td></tr>
+          <tr><td><code>401 Unauthorized use of live credentials</code></td><td>Credenciais de conta de teste do MP, ou de produção ainda não ativadas</td><td>Para testar: <code>TEST-</code> da conta real. Para produção: ativar as credenciais na conta do lojista</td></tr>
+          <tr><td>Frete só mostra retirada</td><td>Loja sem token do Melhor Envio, sem CEP de origem, ou token de outro ambiente</td><td>Conferir no <code>/admin</code> o token, o CEP e a opção "sandbox"</td></tr>
+          <tr><td>Remover foto não apaga o arquivo</td><td>Faltava a policy de leitura no Storage</td><td>Já corrigido (migration <code>…030000</code>)</td></tr>
+          <tr><td>Função "não existe" no dev depois de editar</td><td>Turbopack com módulo antigo em cache</td><td>Encerrar o processo do <code>npm run dev</code> (não só o terminal) e subir de novo</td></tr>
+          <tr><td>Regex quebrada depois de editar</td><td>Ferramentas de edição engoliram barras invertidas (<code>\s</code>, <code>\d</code>)</td><td>Conferir com busca no arquivo depois de editar</td></tr>
+        </tbody>
+      </table></div>
+    </section>
+
+    <section id="rotinas">
+      <h2><span class="n">13</span>Rotinas de operação</h2>
+      <h3>Suspender ou reativar uma loja</h3>
+      <p><code>/admin</code> → loja → Situação. Suspensa, a vitrine dá 404, e o painel continua acessível, com um aviso.</p>
+      <h3>Trocar uma credencial</h3>
+      <p><code>/admin</code> → loja → Pagamento e frete. Campo vazio mantém o valor atual, e "remover" apaga. Os valores nunca são exibidos, só "✓ configurado".</p>
+      <h3>Pedido pago sem estoque</h3>
+      <p>Acontece quando duas pessoas pagam a última unidade ao mesmo tempo. O pedido fica pago com o selo "sem estoque" e aparece um aviso no resumo do painel. O lojista combina com o cliente: troca, espera ou estorno no Mercado Pago.</p>
+      <h3>Cancelar um pedido pago</h3>
+      <p>O lojista cancela no painel, mas o <strong>estorno é feito no Mercado Pago</strong> e o estoque <strong>não volta sozinho</strong>: ajuste em Produtos.</p>
+      <h3>Novo super-admin</h3>
+      <pre><code>insert into platform_admins (user_id) select id from auth.users where email = 'pessoa@email.com';</code></pre>
+    </section>
+
+    <section id="pendencias">
+      <h2><span class="n">14</span>Pendências</h2>
+      <ul>
+        <li><span class="pill warn">e-mail</span> Verificar <code>pmsapp.dev</code> no Resend e trocar o <code>EMAIL_FROM</code>.</li>
+        <li><span class="pill warn">Vercel</span> Conferir as variáveis de produção (Resend, Melhor Envio, <code>PLATFORM_URL</code>) e fazer Redeploy.</li>
+        <li><span class="pill warn">Kadosh</span> CEP de origem, produtos, compra de teste no domínio e virada para produção.</li>
+        <li><span class="pill bad">banco</span> Agendar <code>expire_pending_orders()</code> no pg_cron. Até isso ser feito, pedidos vencidos continuam como "aguardando pagamento" no painel (a página do cliente já mostra "Expirado").</li>
+        <li><span class="pill bad">segurança</span> Trocar a senha de <code>admin@pms.com</code>, que foi exposta em conversa.</li>
+      </ul>
+    </section>
+  </main>
+
+  <footer>PMS app · Manual de Operação · atualizado em outubro de 2026</footer>
+</div>
