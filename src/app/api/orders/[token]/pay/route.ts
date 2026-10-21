@@ -117,6 +117,11 @@ export async function POST(req: Request, { params }: { params: Promise<{ token: 
       { orderId: order.id, method: body.method },
       err instanceof MercadoPagoError ? JSON.stringify(err.body) : err,
     );
+    // Falha do lado do Mercado Pago (5xx): avisa o cliente que é temporário e oferece a outra forma.
+    if (err instanceof MercadoPagoError && err.status >= 500) {
+      const other = body.method === "pix" ? "pague com cartão" : "pague com Pix";
+      return fail(`O Mercado Pago está instável no momento. Tente de novo em alguns minutos ou ${other}.`, 503);
+    }
     return fail("Não foi possível processar o pagamento. Tente novamente.", 502);
   }
 }
