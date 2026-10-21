@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { getCategories, getStoreByDomain } from "@/lib/store";
 import { storeBaseUrl } from "@/lib/urls";
 import { CartLink } from "./cart-link";
+import { StoreWhatsappButton } from "./store-whatsapp";
 
 export async function generateMetadata({ params }: { params: Promise<{ domain: string }> }) {
   const { domain } = await params;
@@ -60,7 +61,7 @@ export default async function StoreLayout({
               type="search"
               placeholder="Buscar produtos"
               aria-label="Buscar produtos"
-              className="w-full rounded-full border bg-neutral-50 px-4 py-2 text-sm"
+              className="w-full rounded-full border bg-neutral-50 px-4 py-2.5 text-sm"
             />
           </form>
           <CartLink />
@@ -71,7 +72,7 @@ export default async function StoreLayout({
               <Link
                 key={c.id}
                 href={`/c/${c.slug}`}
-                className="whitespace-nowrap rounded-full border px-3 py-1 font-medium text-neutral-700 transition hover:border-neutral-400 hover:text-neutral-900"
+                className="whitespace-nowrap rounded-full border px-4 py-2 font-medium text-neutral-700 transition hover:border-neutral-400 hover:text-neutral-900"
               >
                 {c.name}
               </Link>
@@ -82,7 +83,7 @@ export default async function StoreLayout({
 
       <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8">{children}</main>
 
-      <footer className="mt-12 bg-neutral-900 text-neutral-300">
+      <footer className="mt-12 bg-neutral-900 pb-16 text-neutral-300 sm:pb-0">
         <div className="mx-auto grid max-w-6xl gap-6 px-4 py-10 text-sm sm:grid-cols-3">
           <div>
             <p className="text-base font-semibold text-white">{store.name}</p>
@@ -91,18 +92,18 @@ export default async function StoreLayout({
           <div className="space-y-1">
             <p className="font-semibold text-white">Atendimento</p>
             {store.whatsapp && (
-              <a href={`https://wa.me/${store.whatsapp}`} target="_blank" rel="noopener noreferrer" className="block hover:text-white">
+              <a href={`https://wa.me/${store.whatsapp}`} target="_blank" rel="noopener noreferrer" className="block py-1.5 hover:text-white">
                 WhatsApp
               </a>
             )}
             {store.email && (
-              <a href={`mailto:${store.email}`} className="block hover:text-white">{store.email}</a>
+              <a href={`mailto:${store.email}`} className="block break-all py-1.5 hover:text-white">{store.email}</a>
             )}
           </div>
           <div className="space-y-1">
             <p className="font-semibold text-white">Navegue</p>
-            <Link href="/" className="block hover:text-white">Início</Link>
-            <Link href="/carrinho" className="block hover:text-white">Carrinho</Link>
+            <Link href="/" className="block py-1.5 hover:text-white">Início</Link>
+            <Link href="/carrinho" className="block py-1.5 hover:text-white">Carrinho</Link>
           </div>
         </div>
         <p className="border-t border-neutral-800 py-4 text-center text-xs text-neutral-500">
@@ -110,19 +111,7 @@ export default async function StoreLayout({
         </p>
       </footer>
 
-      {store.whatsapp && (
-        <a
-          href={`https://wa.me/${store.whatsapp}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="fixed bottom-5 right-5 z-30 flex items-center gap-2 rounded-full bg-[#25D366] px-5 py-3 text-sm font-semibold text-white shadow-lg transition hover:brightness-95"
-        >
-          <svg viewBox="0 0 24 24" aria-hidden="true" className="h-5 w-5 fill-current">
-            <path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2Zm0 18.2a8.2 8.2 0 0 1-4.2-1.2l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2Zm4.5-6.1c-.2-.1-1.5-.7-1.7-.8s-.4-.1-.6.1-.7.8-.8 1-.3.2-.5.1a6.7 6.7 0 0 1-3.3-2.9c-.3-.4.3-.4.7-1.4.1-.2 0-.3 0-.4l-.8-1.8c-.2-.5-.4-.4-.6-.4h-.5a1 1 0 0 0-.7.3 3 3 0 0 0-.9 2.2 5.2 5.2 0 0 0 1.1 2.8 11.9 11.9 0 0 0 4.6 4c1.7.7 2.3.8 3.2.6a2.7 2.7 0 0 0 1.8-1.3 2.2 2.2 0 0 0 .2-1.3c-.1-.1-.3-.2-.5-.3Z" />
-          </svg>
-          WhatsApp
-        </a>
-      )}
+      {store.whatsapp && <StoreWhatsappButton whatsapp={store.whatsapp} />}
     </div>
   );
 }

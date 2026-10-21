@@ -78,3 +78,13 @@
     height: 1rem;
   }
 }
+
+/* Celular: campos com letra de 16px. Abaixo disso o Safari do iPhone dá zoom ao tocar no campo.
+   Fora de @layer de propósito: estilos sem camada vencem os utilitários (text-sm) do Tailwind. */
+@media (max-width: 639px) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="color"]),
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}

@@ -96,7 +96,27 @@ export default async function OrdersPage({
       {orders.length === 0 ? (
         <p className="rounded-xl border bg-white shadow-sm px-4 py-8 text-center text-neutral-500">Nenhum pedido encontrado.</p>
       ) : (
-        <div className="overflow-x-auto rounded-xl border bg-white shadow-sm">
+        <>
+          {/* Celular: cartões (status e total sempre visíveis). Computador: tabela. */}
+          <ul className="divide-y rounded-xl border bg-white shadow-sm sm:hidden">
+            {orders.map((o) => (
+              <li key={o.id}>
+                <Link href={`/painel/pedidos/${o.id}`} className="flex items-start justify-between gap-3 px-4 py-3 active:bg-neutral-50">
+                  <div className="min-w-0">
+                    <p className="font-mono font-medium text-primary-700">{o.code}</p>
+                    <p className="truncate text-sm">{o.customer_name}</p>
+                    <p className="text-xs text-neutral-500">{formatDateTime(o.created_at)}</p>
+                  </div>
+                  <div className="flex shrink-0 flex-col items-end gap-1.5">
+                    <span className={statusTone(o.status)}>{statusLabel(o.status, o.shipping_method)}</span>
+                    <span className="font-semibold tabular-nums">{formatBRL(o.total_cents)}</span>
+                    {o.stock_issue && <span className="rounded bg-red-100 px-1.5 py-0.5 text-xs text-red-800">sem estoque</span>}
+                  </div>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        <div className="hidden overflow-x-auto rounded-xl border bg-white shadow-sm sm:block">
           <table className="w-full text-sm">
             <thead className="border-b bg-neutral-50 text-left text-xs uppercase tracking-wide text-neutral-500">
               <tr>
@@ -125,6 +145,7 @@ export default async function OrdersPage({
             </tbody>
           </table>
         </div>
+        </>
       )}
 
       {pages > 1 && (

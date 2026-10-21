@@ -106,22 +106,34 @@ export function CartView() {
                   </p>
                 )}
               </div>
-              <div className="flex items-center gap-4">
+              {/* Celular: quantidade e total numa linha, "Remover" logo abaixo; botões com 40px para o dedo. */}
+              <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 sm:flex-nowrap sm:justify-end">
                 <div className="flex items-center rounded-lg border">
-                  <button type="button" onClick={() => setQuantity(l.variantId, l.quantity - 1)} className="px-3 py-1" aria-label="Diminuir">−</button>
-                  <span className="w-8 text-center text-sm">{l.quantity}</span>
+                  <button
+                    type="button"
+                    onClick={() => setQuantity(l.variantId, l.quantity - 1)}
+                    className="grid h-10 w-10 place-items-center text-lg"
+                    aria-label="Diminuir"
+                  >
+                    −
+                  </button>
+                  <span className="w-8 text-center font-medium tabular-nums">{l.quantity}</span>
                   <button
                     type="button"
                     onClick={() => setQuantity(l.variantId, l.quantity + 1)}
                     disabled={l.quantity >= l.stock}
-                    className="px-3 py-1 disabled:opacity-30"
+                    className="grid h-10 w-10 place-items-center text-lg disabled:opacity-30"
                     aria-label="Aumentar"
                   >
                     +
                   </button>
                 </div>
-                <span className="w-24 text-right font-medium">{formatBRL(l.totalCents)}</span>
-                <button type="button" onClick={() => setQuantity(l.variantId, 0)} className="text-sm text-neutral-500 underline">
+                <span className="font-semibold tabular-nums sm:w-24 sm:text-right">{formatBRL(l.totalCents)}</span>
+                <button
+                  type="button"
+                  onClick={() => setQuantity(l.variantId, 0)}
+                  className="-mx-2 px-2 py-2 text-sm text-neutral-500 underline sm:mx-0"
+                >
                   Remover
                 </button>
               </div>
@@ -130,16 +142,16 @@ export function CartView() {
         ))}
       </ul>
 
-      <div className="flex flex-col items-end gap-3">
-        <p className="text-lg">
+      <div className="flex flex-col items-stretch gap-3 sm:items-end">
+        <p className="text-right text-lg">
           Subtotal: <span className="font-semibold">{formatBRL(quote.subtotalCents)}</span>
         </p>
-        <p className="text-sm text-neutral-500">Frete calculado no checkout.</p>
+        <p className="text-right text-sm text-neutral-500">Frete calculado no checkout.</p>
         {blocked && <p className="text-sm text-red-700">Ajuste as quantidades acima para continuar.</p>}
         {blocked ? (
-          <span className="rounded-lg bg-neutral-300 px-6 py-3 font-medium text-white">Finalizar compra</span>
+          <span className="rounded-lg bg-neutral-300 px-6 py-3 text-center font-medium text-white">Finalizar compra</span>
         ) : (
-          <Link href="/checkout" className="rounded-lg px-6 py-3 font-semibold text-white shadow-sm transition hover:brightness-110" style={{ background: "var(--brand)" }}>
+          <Link href="/checkout" className="rounded-lg px-6 py-3.5 text-center font-semibold text-white shadow-sm transition hover:brightness-110" style={{ background: "var(--brand)" }}>
             Finalizar compra
           </Link>
         )}

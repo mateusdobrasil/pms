@@ -112,7 +112,7 @@ export function PaymentPanel({
     `flex-1 rounded-lg border px-4 py-2 text-sm ${active ? "border-neutral-900 font-medium" : "text-neutral-500"}`;
 
   return (
-    <section className="space-y-4 rounded-xl border bg-white p-5 shadow-sm">
+    <section className="space-y-4 rounded-xl border bg-white p-3 shadow-sm sm:p-5">
       <h2 className="font-medium">Pagamento</h2>
       <div className="flex gap-2">
         <button type="button" className={tabClass(method === "pix")} onClick={() => setMethod("pix")}>
