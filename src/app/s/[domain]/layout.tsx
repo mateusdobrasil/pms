@@ -64,7 +64,21 @@ export default async function StoreLayout({
               className="w-full rounded-full border bg-neutral-50 px-4 py-2.5 text-sm"
             />
           </form>
-          <CartLink />
+          <div className="flex items-center gap-2">
+            <Link
+              href="/meus-pedidos"
+              aria-label="Meus pedidos"
+              className="flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium transition hover:border-neutral-400"
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true" className="h-5 w-5 fill-none stroke-current" strokeWidth={1.8}>
+                <path d="M21 8 12 3 3 8v8l9 5 9-5V8Z" strokeLinejoin="round" />
+                <path d="m3 8 9 5 9-5M12 13v8" strokeLinejoin="round" />
+              </svg>
+              <span className="sm:hidden">Pedidos</span>
+              <span className="hidden sm:inline">Meus pedidos</span>
+            </Link>
+            <CartLink />
+          </div>
         </div>
         {categories.length > 0 && (
           <nav className="mx-auto flex max-w-6xl gap-2 overflow-x-auto px-4 pb-3 text-sm">
@@ -104,6 +118,7 @@ export default async function StoreLayout({
             <p className="font-semibold text-white">Navegue</p>
             <Link href="/" className="block py-1.5 hover:text-white">Início</Link>
             <Link href="/carrinho" className="block py-1.5 hover:text-white">Carrinho</Link>
+            <Link href="/meus-pedidos" className="block py-1.5 hover:text-white">Meus pedidos</Link>
           </div>
         </div>
         <p className="border-t border-neutral-800 py-4 text-center text-xs text-neutral-500">
