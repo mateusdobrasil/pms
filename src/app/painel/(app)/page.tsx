@@ -3,12 +3,15 @@ import { requireStore } from "@/lib/panel";
 import { formatBRL } from "@/lib/money";
 import { saoPauloBoundaries } from "@/lib/format";
 import { SOLD_STATUSES } from "@/lib/order-status";
+import { LOW_STOCK } from "@/lib/stock";
+
+type LowStock = { id: string; name: string; stock: number; products: { id: string; name: string } };
 
 export default async function PanelHome() {
   const { supabase, store } = await requireStore();
   const { startOfDay, startOfMonth } = saoPauloBoundaries();
 
-  const [{ data: sold }, { count: toShip }, { count: stockIssues }] = await Promise.all([
+  const [{ data: sold }, { count: toShip }, { count: stockIssues }, { data: lowData, count: lowCount }] = await Promise.all([
     supabase
       .from("orders")
       .select("total_cents, paid_at")
@@ -26,7 +29,18 @@ export default async function PanelHome() {
       .eq("store_id", store.id)
       .eq("stock_issue", true)
       .in("status", ["paid", "preparing"]),
+    // Variações à venda (produto visível e variação ativa) com estoque baixo ou zerado.
+    supabase
+      .from("product_variants")
+      .select("id, name, stock, products!inner(id, name)", { count: "exact" })
+      .eq("store_id", store.id)
+      .eq("active", true)
+      .eq("products.active", true)
+      .lte("stock", LOW_STOCK)
+      .order("stock")
+      .limit(10),
   ]);
+  const lowStock = (lowData ?? []) as unknown as LowStock[];
 
   const month = (sold ?? []) as { total_cents: number; paid_at: string }[];
   const today = month.filter((o) => new Date(o.paid_at) >= startOfDay);
@@ -68,6 +82,39 @@ export default async function PanelHome() {
           );
         })}
       </div>
+
+      {lowStock.length > 0 && (
+        <section className="rounded-xl border bg-white shadow-sm">
+          <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 border-b px-4 py-3">
+            <h2 className="shrink-0 font-medium">Estoque baixo</h2>
+            <span className="text-xs text-neutral-500">
+              {(lowCount ?? lowStock.length) === 1 ? "1 opção" : `${lowCount ?? lowStock.length} opções`} com {LOW_STOCK} unidades ou menos
+            </span>
+          </div>
+          <ul className="divide-y text-sm">
+            {lowStock.map((v) => (
+              <li key={v.id}>
+                <Link
+                  href={`/painel/produtos/${v.products.id}`}
+                  className="flex items-center justify-between gap-4 px-4 py-2.5 hover:bg-neutral-50"
+                >
+                  <span className="min-w-0 truncate">
+                    {v.products.name}
+                    {v.name !== "Único" && <span className="text-neutral-500"> · {v.name}</span>}
+                  </span>
+                  <span
+                    className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                      v.stock === 0 ? "bg-red-100 text-red-800" : "bg-amber-100 text-amber-800"
+                    }`}
+                  >
+                    {v.stock === 0 ? "Esgotado" : `${v.stock} ${v.stock === 1 ? "unidade" : "unidades"}`}
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
     </div>
   );
 }
