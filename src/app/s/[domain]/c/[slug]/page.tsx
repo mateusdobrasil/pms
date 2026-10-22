@@ -1,10 +1,10 @@
 import { notFound } from "next/navigation";
 import { getCategories, getStoreByDomain } from "@/lib/store";
 import { ProductGrid, fetchProducts } from "../../product-grid";
+import { parseSort } from "../../sort-options";
+import { SortSelect } from "../../sort-select";
 
-export const revalidate = 60;
-
-type Params = { params: Promise<{ domain: string; slug: string }> };
+type Params = { params: Promise<{ domain: string; slug: string }>; searchParams: Promise<{ ordem?: string }> };
 
 async function load({ params }: Params) {
   const { domain, slug } = await params;
@@ -24,11 +24,15 @@ export async function generateMetadata(props: Params) {
 export default async function CategoryPage(props: Params) {
   const found = await load(props);
   if (!found) notFound();
-  const products = await fetchProducts(found.store.id, { categoryId: found.category.id });
+  const sort = parseSort((await props.searchParams).ordem);
+  const products = await fetchProducts(found.store.id, { categoryId: found.category.id, sort });
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold tracking-tight">{found.category.name}</h1>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-2xl font-bold tracking-tight">{found.category.name}</h1>
+        {products.length > 1 && <SortSelect value={sort} />}
+      </div>
       {products.length === 0 ? (
         <p className="text-neutral-600">Nenhum produto nesta categoria por enquanto.</p>
       ) : (

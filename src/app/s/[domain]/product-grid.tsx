@@ -3,6 +3,7 @@ import { createPublicClient } from "@/lib/supabase/public";
 import { productImageUrl } from "@/lib/store";
 import { formatBRL } from "@/lib/money";
 import { NoPhoto } from "./no-photo";
+import type { Sort } from "./sort-options";
 
 type Row = {
   id: string;
@@ -12,22 +13,30 @@ type Row = {
   product_images: { path: string; position: number }[];
 };
 
-type Filter = { categoryId?: string; search?: string; limit?: number };
+type Filter = { categoryId?: string; search?: string; limit?: number; sort?: Sort };
+
+const minPrice = (p: Row) => Math.min(...p.product_variants.map((v) => v.price_cents));
+const soldOut = (p: Row) => p.product_variants.every((v) => v.stock <= 0);
 
 // Produtos ativos da loja (o RLS já esconde inativos e lojas suspensas; filtramos store_id mesmo assim).
-export async function fetchProducts(storeId: string, { categoryId, search, limit = 48 }: Filter = {}) {
+// Preço e estoque estão nas variações, então a ordenação por preço é feita aqui (lojas pequenas: até 200 produtos).
+export async function fetchProducts(storeId: string, { categoryId, search, limit = 48, sort = "destaques" }: Filter = {}) {
   let query = createPublicClient()
     .from("products")
     .select("id, name, slug, product_variants(price_cents, compare_at_cents, stock), product_images(path, position)")
-    .eq("store_id", storeId)
-    .order("featured", { ascending: false })
-    .order("created_at", { ascending: false })
-    .limit(limit);
+    .eq("store_id", storeId);
+  if (sort === "destaques") query = query.order("featured", { ascending: false });
+  query = query.order("created_at", { ascending: false }).limit(200);
   if (categoryId) query = query.eq("category_id", categoryId);
   if (search) query = query.ilike("name", `%${search.replace(/[%_\\]/g, "")}%`);
   const { data } = await query;
   // Produto sem variação ativa não pode ser comprado: fica fora da vitrine.
-  return ((data ?? []) as Row[]).filter((p) => p.product_variants.length > 0);
+  const rows = ((data ?? []) as Row[]).filter((p) => p.product_variants.length > 0);
+  if (sort === "menor-preco") rows.sort((a, b) => minPrice(a) - minPrice(b));
+  if (sort === "maior-preco") rows.sort((a, b) => minPrice(b) - minPrice(a));
+  // Esgotados vão para o fim (sort é estável: mantém a ordem escolhida entre os demais).
+  rows.sort((a, b) => Number(soldOut(a)) - Number(soldOut(b)));
+  return rows.slice(0, limit);
 }
 
 export function ProductGrid({ products }: { products: Row[] }) {
