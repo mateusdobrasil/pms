@@ -24,6 +24,15 @@ const PICKUP: ShippingOption = {
   requiresAddress: false,
 };
 
+// Frete grátis acima do valor configurado: vale para a opção mais barata (as outras seguem pagas).
+// "delivery" vem ordenado do mais barato ao mais caro.
+export function applyFreeShipping(delivery: ShippingOption[], subtotalCents: number, freeShippingMinCents: number | null) {
+  if (!freeShippingMinCents || subtotalCents < freeShippingMinCents || !delivery[0] || delivery[0].priceCents === 0) {
+    return delivery;
+  }
+  return [{ ...delivery[0], originalPriceCents: delivery[0].priceCents, priceCents: 0 }, ...delivery.slice(1)];
+}
+
 // Ambiente por loja (store_secrets.melhor_envio_sandbox); sem a coluna, vale MELHOR_ENVIO_ENV.
 function meBaseUrl(sandbox: boolean | undefined) {
   const useSandbox = typeof sandbox === "boolean" ? sandbox : process.env.MELHOR_ENVIO_ENV !== "production";
@@ -108,13 +117,9 @@ export async function getShippingOptions(store: Store, lines: PricedLine[], zip?
       return { options: [PICKUP], error: "Nenhuma transportadora entrega neste CEP. Confira o CEP ou escolha a retirada." };
     }
 
-    // Frete grátis acima do valor configurado: vale para a opção mais barata (as outras seguem pagas).
     const { freeShippingMinCents } = await getPromotions(store.id);
     const subtotalCents = lines.reduce((sum, l) => sum + l.totalCents, 0);
-    if (freeShippingMinCents && subtotalCents >= freeShippingMinCents && delivery[0].priceCents > 0) {
-      delivery[0] = { ...delivery[0], originalPriceCents: delivery[0].priceCents, priceCents: 0 };
-    }
-    return { options: [...delivery, PICKUP], error: null };
+    return { options: [...applyFreeShipping(delivery, subtotalCents, freeShippingMinCents), PICKUP], error: null };
   } catch (err) {
     console.error("Erro ao cotar frete no Melhor Envio", err);
     return { options: [PICKUP], error: "Não foi possível calcular o frete agora. Tente de novo ou escolha a retirada." };

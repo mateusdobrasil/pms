@@ -1,0 +1,23 @@
+# Confere lint, tipos e testes a cada envio para a main e em cada pull request.
+# O deploy continua na Vercel; aqui é só a checagem (um X vermelho no GitHub avisa se algo quebrou).
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  checar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
