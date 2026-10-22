@@ -173,6 +173,7 @@ footer { grid-column: 1 / -1; color: var(--muted); font-size: 13px; border-top: 
         <li>Credenciais ficam em <code>store_secrets</code>, tabela sem nenhuma policy: só a service role lê. Elas nunca vão para a tela.</li>
         <li>E-mails só via <code>src/lib/email.ts</code>, disparados com <code>after()</code> e travados por <code>orders.notified_*</code>, para nunca enviar duas vezes.</li>
         <li>O <code>/admin</code> usa <code>requireAdmin()</code>, e quem não é admin recebe 404.</li>
+        <li><strong>Verificação em duas etapas obrigatória no <code>/admin</code></strong>: além da senha, o super-admin digita o código de 6 dígitos de um app autenticador (Supabase Auth MFA, TOTP). Sem o código nesta sessão (<code>aal2</code>), <code>requireAdmin()</code> manda para <code>/admin-verificacao</code>; isso vale para páginas, ações e o manual de operação. O painel do lojista não pede código.</li>
         <li>Textos de interface em português do Brasil.</li>
       </ul>
       <div class="note"><strong>Fora da v1 (só com pedido explícito)</strong>Cupons, avaliações, carrinho abandonado, conta de cliente, marketplaces, ERP, NF-e e mais de um gateway de pagamento.</div>
@@ -358,6 +359,11 @@ npx next build         # build de produção (rode antes de subir)</code></pre>
       <p>Se a função <code>rate_limit_hit</code> falhar, o site segue sem limite (a venda não para) e o log mostra <code>rate_limit_hit falhou</code>. A tabela é limpa todo dia pelo job <code>limpar-limites</code> do pg_cron.</p>
       <h3>Novo super-admin</h3>
       <pre><code>insert into platform_admins (user_id) select id from auth.users where email = 'pessoa@email.com';</code></pre>
+      <p>No primeiro acesso ao <code>/admin</code>, a pessoa cadastra o app autenticador lendo um QR code (Google Authenticator, Microsoft Authenticator ou o app Senhas do iPhone) e confirma com o primeiro código.</p>
+      <h3>Perdeu o celular do autenticador</h3>
+      <p>Sem o código não há como entrar no <code>/admin</code>. No SQL Editor do Supabase, apague o autenticador da conta; no próximo login, o <code>/admin</code> pede um cadastro novo:</p>
+      <pre><code>delete from auth.mfa_factors where user_id = (select id from auth.users where email = 'admin@pms.com');</code></pre>
+      <div class="note warn"><strong>Proteja o acesso ao Supabase</strong>Quem entra no painel do Supabase consegue tirar a verificação em duas etapas por esse SQL. Ative também a verificação em duas etapas na sua conta do Supabase (Account → Security).</div>
     </section>
 
     <section id="pendencias">
