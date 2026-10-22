@@ -110,7 +110,6 @@ footer { grid-column: 1 / -1; color: var(--muted); font-size: 13px; border-top: 
       <li><a href="#testes">Como testar</a></li>
       <li><a href="#problemas">Problemas conhecidos</a></li>
       <li><a href="#rotinas">Rotinas de operação</a></li>
-      <li><a href="#pendencias">Pendências</a></li>
     </ol>
   </nav>
 
@@ -396,15 +395,6 @@ npx next build         # build de produção (rode antes de subir)</code></pre>
       <p>Sem o código não há como entrar no <code>/admin</code>. No SQL Editor do Supabase, apague o autenticador da conta; no próximo login, o <code>/admin</code> pede um cadastro novo:</p>
       <pre><code>delete from auth.mfa_factors where user_id = (select id from auth.users where email = 'admin@pms.com');</code></pre>
       <div class="note warn"><strong>Proteja o acesso ao Supabase</strong>Quem entra no painel do Supabase consegue tirar a verificação em duas etapas por esse SQL. Ative também a verificação em duas etapas na sua conta do Supabase (Account → Security).</div>
-    </section>
-
-    <section id="pendencias">
-      <h2><span class="n">15</span>Pendências</h2>
-      <ul>
-        <li><span class="pill warn">Kadosh</span> Dados da empresa, CEP de origem, produtos, compra de teste no domínio e virada para produção.</li>
-        <li><span class="pill warn">segurança</span> Ativar a verificação em duas etapas na conta do Supabase (Account → Security).</li>
-        <li><span class="pill warn">monitoramento</span> UptimeRobot para <code>www.pmsapp.dev/painel/login</code> e o domínio de cada loja.</li>
-      </ul>
     </section>
   </main>
 
