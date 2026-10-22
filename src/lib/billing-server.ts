@@ -1,7 +1,7 @@
 import "server-only";
 import { after } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { notifyInvoice, notifyPlatformError } from "@/lib/email";
+import { type InvoiceNotice, notifyInvoice, notifyPlatformError } from "@/lib/email";
 import { platformUrl } from "@/lib/urls";
 import { createCheckoutPreference, type GatewayPayment } from "@/lib/payments/mercadopago";
 import { BILLING, addDays, invoiceStage, invoiceTitle, monthlyInvoiceToIssue, todayBR, type InvoiceKind } from "@/lib/billing";
@@ -84,12 +84,18 @@ export async function runBilling(db: Db, today = todayBR()) {
   if (error) throw error;
 
   const sent: Record<string, number> = { issued: 0, overdue: 0, warning: 0, suspended: 0 };
+  const failed: { invoice: string; notice: InvoiceNotice; error: string }[] = [];
+  const notify = async (invoice: string, notice: InvoiceNotice) => {
+    const r = await notifyInvoice(invoice, notice);
+    if (r.sent) sent[notice]++;
+    else if (r.error) failed.push({ invoice, notice, error: r.error });
+  };
   let suspended = 0;
   for (const inv of open ?? []) {
     const stage = invoiceStage(inv.due_date, today);
-    if (!inv.notified_issued_at && stage === "upcoming" && (await notifyInvoice(inv.id, "issued"))) sent.issued++;
-    if (stage === "overdue" && !inv.notified_overdue_at && (await notifyInvoice(inv.id, "overdue"))) sent.overdue++;
-    if (stage === "warning" && !inv.notified_warning_at && (await notifyInvoice(inv.id, "warning"))) sent.warning++;
+    if (!inv.notified_issued_at && stage === "upcoming") await notify(inv.id, "issued");
+    if (stage === "overdue" && !inv.notified_overdue_at) await notify(inv.id, "overdue");
+    if (stage === "warning" && !inv.notified_warning_at) await notify(inv.id, "warning");
     // Suspende uma vez por fatura: se o admin reativar a loja na mão, o job não suspende de novo.
     if (stage === "suspend" && !inv.notified_suspended_at) {
       const { data } = await db
@@ -99,10 +105,10 @@ export async function runBilling(db: Db, today = todayBR()) {
         .eq("status", "active")
         .select("id");
       if (data?.length) suspended++;
-      if (await notifyInvoice(inv.id, "suspended")) sent.suspended++;
+      await notify(inv.id, "suspended");
     }
   }
-  return { today, issued, suspended, emails: sent };
+  return { today, issued, suspended, emails: sent, failed };
 }
 
 // Pagamento aprovado no Mercado Pago da plataforma → baixa a fatura e reativa a loja. Idempotente.

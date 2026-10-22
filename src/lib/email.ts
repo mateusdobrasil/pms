@@ -12,11 +12,16 @@ import { type InvoiceKind, formatDay, invoiceTitle, lastPayDay } from "@/lib/bil
 type Email = { to: string; subject: string; html: string; replyTo?: string | null; fromName: string; idempotencyKey: string };
 
 async function sendEmail(email: Email) {
+  return (await trySendEmail(email)) === null;
+}
+
+// Devolve null se enviou, ou o motivo da falha (para diagnóstico).
+async function trySendEmail(email: Email): Promise<string | null> {
   const apiKey = process.env.RESEND_API_KEY;
   const fromAddress = process.env.EMAIL_FROM ?? "onboarding@resend.dev";
   if (!apiKey) {
     console.log(`[e-mail não enviado: RESEND_API_KEY ausente] para ${email.to}: ${email.subject}`);
-    return true;
+    return null;
   }
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",
@@ -34,10 +39,11 @@ async function sendEmail(email: Email) {
     }),
   });
   if (!res.ok) {
-    console.error("Resend recusou o e-mail", res.status, await res.text().catch(() => ""));
-    return false;
+    const body = await res.text().catch(() => "");
+    console.error("Resend recusou o e-mail", res.status, body);
+    return `Resend ${res.status}: ${body.slice(0, 300)}`;
   }
-  return true;
+  return null;
 }
 
 // ---------------------------------------------------------------- dados do pedido
@@ -203,8 +209,9 @@ async function ownerEmail(storeId: string) {
   return data.user?.email ?? null;
 }
 
-// Cada aviso sai uma vez por fatura (coluna notified_<aviso>_at). Devolve true se enviou.
-export async function notifyInvoice(invoiceId: string, notice: InvoiceNotice) {
+// Cada aviso sai uma vez por fatura (coluna notified_<aviso>_at).
+// Devolve sent=true se enviou agora; error explica a falha (já avisado antes não é erro).
+export async function notifyInvoice(invoiceId: string, notice: InvoiceNotice): Promise<{ sent: boolean; error?: string }> {
   const column = `notified_${notice}_at`;
   const db = createAdminClient();
   try {
@@ -216,7 +223,7 @@ export async function notifyInvoice(invoiceId: string, notice: InvoiceNotice) {
       .eq("status", notice === "paid" ? "paid" : "open")
       .select("id, store_id, kind, reference_month, amount_cents, due_date, stores(name, email)");
     const inv = data?.[0] as unknown as InvoiceForEmail | undefined;
-    if (!inv) return false;
+    if (!inv) return { sent: false };
 
     const title = invoiceTitle(inv);
     const value = formatBRL(inv.amount_cents);
@@ -258,18 +265,19 @@ export async function notifyInvoice(invoiceId: string, notice: InvoiceNotice) {
 
     const email = content[notice];
     const to = inv.stores.email || (await ownerEmail(inv.store_id));
-    const ok = to
-      ? await sendEmail({
+    const error = to
+      ? await trySendEmail({
           to,
           fromName: "PMS app",
           idempotencyKey: `invoice-${notice}-${inv.id}`,
           subject: email.subject,
           html: layout(PLATFORM_BRAND, email.body),
         })
-      : false;
-    if (!ok) {
-      console.error("Aviso de fatura não enviado", { invoiceId, notice, semEmail: !to });
+      : "loja sem e-mail e sem dono";
+    if (error) {
+      console.error("Aviso de fatura não enviado", { invoiceId, notice, error });
       await db.from("store_invoices").update({ [column]: null }).eq("id", invoiceId);
+      await notifyPlatformError(`fatura:email:${notice}`, "E-mail de cobrança não enviado", { loja: inv.stores.name, fatura: invoiceId, aviso: notice, motivo: error });
     }
 
     // Cópia para a plataforma: dinheiro que entrou e loja que saiu do ar.
@@ -283,10 +291,10 @@ export async function notifyInvoice(invoiceId: string, notice: InvoiceNotice) {
         html: layout(PLATFORM_BRAND, `<p style="margin:0">${esc(inv.stores.name)} · ${esc(title)} · ${value} · vencimento ${due}</p>`),
       });
     }
-    return ok;
+    return error ? { sent: false, error } : { sent: true };
   } catch (err) {
     console.error("Falha ao avisar fatura", { invoiceId, notice, err });
-    return false;
+    return { sent: false, error: String(err) };
   }
 }
 
