@@ -2,6 +2,7 @@ import Link from "next/link";
 import { PlatformBrand } from "./painel/brand";
 import { PLATFORM_CONTACT, platformWhatsappUrl } from "@/lib/platform";
 import { PlatformWhatsappButton, WhatsappIcon } from "./whatsapp-button";
+import { HowItWorks } from "./how-it-works";
 
 const FEATURES = [
   { title: "Pix e cartão", text: "Pagamento pelo Mercado Pago, com confirmação automática e o dinheiro direto na sua conta." },
@@ -52,7 +53,23 @@ export default function PlatformHome() {
               >
                 Já sou lojista — entrar
               </Link>
+              <a
+                href="#como-funciona"
+                className="rounded-lg bg-white/10 px-5 py-3 text-sm font-semibold text-white ring-1 ring-white/30 transition hover:bg-white/20"
+              >
+                Ver como funciona
+              </a>
             </div>
+          </div>
+        </section>
+
+        <section id="como-funciona" className="scroll-mt-20 border-b bg-white">
+          <div className="mx-auto max-w-6xl px-4 py-16 sm:py-20">
+            <h2 className="text-2xl font-semibold tracking-tight">Como funciona</h2>
+            <p className="mt-2 mb-8 max-w-2xl text-neutral-600">
+              Da vitrine ao pacote na casa do cliente: veja o caminho de uma venda na sua loja.
+            </p>
+            <HowItWorks />
           </div>
         </section>
 
