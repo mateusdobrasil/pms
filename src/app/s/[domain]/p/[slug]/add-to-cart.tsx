@@ -8,7 +8,17 @@ import { LOW_STOCK } from "@/lib/stock";
 
 type Variant = { id: string; name: string; priceCents: number; compareAtCents: number | null; stock: number };
 
-export function AddToCart({ productName, variants }: { productName: string; variants: Variant[] }) {
+type Installments = { max: number; interestFree: number } | null;
+
+export function AddToCart({
+  productName,
+  variants,
+  installments,
+}: {
+  productName: string;
+  variants: Variant[];
+  installments: Installments;
+}) {
   const single = variants.length === 1;
   const firstAvailable = variants.find((v) => v.stock > 0) ?? variants[0];
   const [selectedId, setSelectedId] = useState(single ? firstAvailable.id : null);
@@ -46,6 +56,7 @@ export function AddToCart({ productName, variants }: { productName: string; vari
           <span className="ml-3 text-lg text-neutral-400 line-through">{formatBRL(shown.compareAtCents)}</span>
         )}
       </p>
+      <InstallmentsHint installments={installments} priceCents={selected ? selected.priceCents : Math.min(...prices)} />
 
       {!single && (
         <fieldset className="space-y-2">
@@ -113,5 +124,24 @@ export function AddToCart({ productName, variants }: { productName: string; vari
         </p>
       )}
     </div>
+  );
+}
+
+// Parcelamento como o Mercado Pago da loja oferece: com parcelas sem juros, mostra o valor de cada uma;
+// com juros, só o número máximo (o valor com juros aparece no pagamento).
+function InstallmentsHint({ installments, priceCents }: { installments: Installments; priceCents: number }) {
+  if (!installments || installments.max < 2) return null;
+  const n = installments.interestFree;
+  return (
+    <p className="-mt-3 text-sm text-neutral-600">
+      {n > 1 ? (
+        <>
+          em até <strong>{n}x de {formatBRL(Math.ceil(priceCents / n))} sem juros</strong> no cartão
+        </>
+      ) : (
+        <>em até {installments.max}x no cartão</>
+      )}
+      <span className="text-neutral-400"> · ou Pix</span>
+    </p>
   );
 }

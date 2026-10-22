@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { cache } from "react";
 import { getStoreByDomain, productImageUrl } from "@/lib/store";
 import { createPublicClient } from "@/lib/supabase/public";
+import { getInstallmentsInfo } from "@/lib/payments/installments";
 import { AddToCart } from "./add-to-cart";
 import { Gallery } from "./gallery";
 
@@ -68,6 +69,7 @@ export default async function ProductPage({ params }: Params) {
 
   // Dados estruturados (schema.org/Product): o Google mostra preço e disponibilidade na busca.
   const prices = product.product_variants.map((v) => v.price_cents);
+  const installments = await getInstallmentsInfo(store.id, Math.min(...prices));
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "Product",
@@ -109,6 +111,7 @@ export default async function ProductPage({ params }: Params) {
 
         <AddToCart
           productName={product.name}
+          installments={installments}
           variants={product.product_variants.map((v) => ({
             id: v.id,
             name: v.name,
