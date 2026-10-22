@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { requireStore } from "@/lib/panel";
 import { formatDay, lastPayDay, todayBR } from "@/lib/billing";
+import { storeTestMode, testAccessUrl } from "@/lib/test-mode";
 import { signOut } from "../actions";
 import { PanelNav } from "./panel-nav";
 
@@ -19,6 +20,13 @@ export default async function PanelLayout({ children }: { children: ReactNode })
     .order("due_date")
     .limit(1);
   const oldestDue = overdue?.[0]?.due_date as string | undefined;
+
+  // Modo de teste (Mercado Pago TEST-): link que libera as compras de teste no domínio da loja.
+  const testMode = await storeTestMode(store.id);
+  const { data: domains } = testMode
+    ? await supabase.from("store_domains").select("domain, is_primary").eq("store_id", store.id)
+    : { data: null };
+  const testDomain = (domains?.find((d) => d.is_primary) ?? domains?.[0])?.domain;
 
   return (
     <div className="min-h-screen bg-neutral-100">
@@ -71,6 +79,20 @@ export default async function PanelLayout({ children }: { children: ReactNode })
             <Link href="/painel/assinatura" className="font-semibold underline">Pagar agora</Link>
           </p>
         )
+      )}
+      {testMode && store.status === "active" && (
+        <p className="bg-amber-50 px-4 py-2 text-center text-sm text-amber-900">
+          Sua loja está em <strong>modo de teste</strong>: os clientes veem &quot;Loja em preparação&quot; e não conseguem comprar.
+          {testDomain && (
+            <>
+              {" "}Para fazer compras de teste,{" "}
+              <a href={testAccessUrl(testDomain, store.id)} target="_blank" rel="noopener noreferrer" className="font-semibold underline">
+                abra a loja por este link
+              </a>
+              .
+            </>
+          )}
+        </p>
       )}
       <main className="mx-auto max-w-6xl px-4 py-8">{children}</main>
     </div>

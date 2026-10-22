@@ -4,6 +4,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getStoreFromRequest } from "@/lib/request-store";
 import { createOrder } from "@/lib/orders";
 import { rateLimit } from "@/lib/rate-limit";
+import { cookies } from "next/headers";
+import { TEST_ACCESS_COOKIE, isValidTestAccess, storeTestMode } from "@/lib/test-mode";
 
 // Cria o pedido (aguardando pagamento). O pagamento é feito depois em /pedido/<token>.
 export async function POST(req: Request) {
@@ -12,6 +14,11 @@ export async function POST(req: Request) {
 
   const limited = await rateLimit(req, store.id, "checkout");
   if (limited) return limited;
+
+  // Loja em modo de teste: só quem abriu o link de acesso consegue criar pedido (pagamento é simulado).
+  if ((await storeTestMode(store.id)) && !isValidTestAccess(store.id, (await cookies()).get(TEST_ACCESS_COOKIE)?.value)) {
+    return NextResponse.json({ errors: ["Esta loja ainda está em preparação e não aceita pedidos. Volte em breve!"] }, { status: 403 });
+  }
 
   const body = await req.json().catch(() => null);
   let result: Awaited<ReturnType<typeof createOrder>>;

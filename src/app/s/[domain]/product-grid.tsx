@@ -5,6 +5,7 @@ import { formatBRL } from "@/lib/money";
 import { NoPhoto } from "./no-photo";
 import type { Sort } from "./sort-options";
 import { LOW_STOCK } from "@/lib/stock";
+import { searchTerms } from "@/lib/search";
 
 type Row = {
   id: string;
@@ -22,15 +23,21 @@ const soldOut = (p: Row) => p.product_variants.every((v) => v.stock <= 0);
 // Produtos ativos da loja (o RLS já esconde inativos e lojas suspensas; filtramos store_id mesmo assim).
 // Preço e estoque estão nas variações, então a ordenação por preço é feita aqui (lojas pequenas: até 200 produtos).
 export async function fetchProducts(storeId: string, { categoryId, search, limit = 48, sort = "destaques" }: Filter = {}) {
-  let query = createPublicClient()
-    .from("products")
-    .select("id, name, slug, product_variants(price_cents, compare_at_cents, stock), product_images(path, position)")
-    .eq("store_id", storeId);
-  if (sort === "destaques") query = query.order("featured", { ascending: false });
-  query = query.order("created_at", { ascending: false }).limit(200);
-  if (categoryId) query = query.eq("category_id", categoryId);
-  if (search) query = query.ilike("name", `%${search.replace(/[%_\\]/g, "")}%`);
-  const { data } = await query;
+  const build = (accentless: boolean) => {
+    let query = createPublicClient()
+      .from("products")
+      .select("id, name, slug, product_variants(price_cents, compare_at_cents, stock), product_images(path, position)")
+      .eq("store_id", storeId);
+    if (sort === "destaques") query = query.order("featured", { ascending: false });
+    query = query.order("created_at", { ascending: false }).limit(200);
+    if (categoryId) query = query.eq("category_id", categoryId);
+    if (search && accentless) for (const term of searchTerms(search)) query = query.ilike("search_name", `%${term}%`);
+    else if (search) query = query.ilike("name", `%${search.replace(/[%_\\]/g, "")}%`);
+    return query;
+  };
+  const first = await build(true);
+  // Sem o SQL 20261025000000 a coluna search_name não existe: busca simples pelo nome.
+  const { data } = first.error && search ? await build(false) : first;
   // Produto sem variação ativa não pode ser comprado: fica fora da vitrine.
   const rows = ((data ?? []) as Row[]).filter((p) => p.product_variants.length > 0);
   if (sort === "menor-preco") rows.sort((a, b) => minPrice(a) - minPrice(b));

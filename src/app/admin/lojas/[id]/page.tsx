@@ -7,6 +7,7 @@ import { formatBRL } from "@/lib/money";
 import { formatDateTime } from "@/lib/format";
 import { daysLate, dueDateOptions, formatDay, invoiceTitle, todayBR } from "@/lib/billing";
 import { INVOICE_FIELDS, type InvoiceRow } from "@/lib/billing-server";
+import { isTestToken, testAccessUrl } from "@/lib/test-mode";
 import { cancelInvoice, markInvoicePaid, removeDomain, removeMember, setPrimaryDomain, setStoreStatus } from "../../actions";
 import { AddDomainForm, AddMemberForm, BillingForm, BrandingForm, SecretsForm } from "../../forms";
 
@@ -142,6 +143,20 @@ export default async function AdminStorePage({ params }: { params: Promise<{ id:
           {configured.gateway_access_token && (
             <p className={`rounded-lg px-3 py-2 text-xs ${mpTest ? "bg-amber-50 text-amber-900" : "bg-emerald-50 text-emerald-800"}`}>
               Mercado Pago em {mpTest ? "modo de TESTE (credenciais TEST-): nenhum dinheiro real é cobrado." : "PRODUÇÃO: cobranças reais."}
+            </p>
+          )}
+          {isTestToken(secret?.gateway_access_token) && (
+            <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-900">
+              Loja em modo de teste: a vitrine mostra &quot;Loja em preparação&quot; e recusa pedidos.
+              {domains[0] && (
+                <>
+                  {" "}Compras de teste:{" "}
+                  <a href={testAccessUrl(domains[0].domain, store.id)} target="_blank" rel="noopener noreferrer" className="font-semibold underline">
+                    abrir a loja com acesso de teste
+                  </a>
+                  .
+                </>
+              )}
             </p>
           )}
         </section>

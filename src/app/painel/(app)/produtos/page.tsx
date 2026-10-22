@@ -3,6 +3,7 @@ import { requireStore } from "@/lib/panel";
 import { formatBRL } from "@/lib/money";
 import { ThumbImage } from "@/lib/thumb-image";
 import { isUuid } from "@/lib/validation";
+import { searchTerms } from "@/lib/search";
 
 const PAGE_SIZE = 30;
 
@@ -36,23 +37,32 @@ export default async function ProductsPage({
   const category = sp.categoria && (sp.categoria === "sem" || isUuid(sp.categoria)) ? sp.categoria : null;
   const page = Math.max(1, Number.parseInt(sp.page ?? "1", 10) || 1);
 
-  let query = supabase
-    .from("products")
-    .select("id, name, active, featured, categories(name), product_variants(price_cents, stock, active), product_images(path, position)", {
-      count: "exact",
-    })
-    .eq("store_id", store.id)
-    .order("created_at", { ascending: false })
-    .range((page - 1) * PAGE_SIZE, page * PAGE_SIZE - 1);
-  if (q) query = query.ilike("name", `%${q.replace(/[%_]/g, "")}%`);
-  if (filter === "visiveis") query = query.eq("active", true);
-  if (filter === "ocultos") query = query.eq("active", false);
-  if (filter === "destaques") query = query.eq("featured", true);
-  if (category === "sem") query = query.is("category_id", null);
-  else if (category) query = query.eq("category_id", category);
+  const build = (accentless: boolean) => {
+    let query = supabase
+      .from("products")
+      .select("id, name, active, featured, categories(name), product_variants(price_cents, stock, active), product_images(path, position)", {
+        count: "exact",
+      })
+      .eq("store_id", store.id)
+      .order("created_at", { ascending: false })
+      .range((page - 1) * PAGE_SIZE, page * PAGE_SIZE - 1);
+    if (q && accentless) for (const term of searchTerms(q)) query = query.ilike("search_name", `%${term}%`);
+    else if (q) query = query.ilike("name", `%${q.replace(/[%_]/g, "")}%`);
+    if (filter === "visiveis") query = query.eq("active", true);
+    if (filter === "ocultos") query = query.eq("active", false);
+    if (filter === "destaques") query = query.eq("featured", true);
+    if (category === "sem") query = query.is("category_id", null);
+    else if (category) query = query.eq("category_id", category);
+    return query;
+  };
+  // Sem o SQL 20261025000000 a coluna search_name não existe: busca simples pelo nome.
+  const search = async () => {
+    const result = await build(true);
+    return result.error && q ? build(false) : result;
+  };
 
   const [{ data, count }, { data: categories }] = await Promise.all([
-    query,
+    search(),
     supabase.from("categories").select("id, name").eq("store_id", store.id).order("position").order("name"),
   ]);
   const products = (data ?? []) as unknown as Row[];

@@ -12,6 +12,8 @@ import { formatBRL } from "@/lib/money";
 import { storeBaseUrl } from "@/lib/urls";
 import { CartLink } from "./cart-link";
 import { StoreWhatsappButton } from "./store-whatsapp";
+import { TestModeBanner } from "./test-mode-banner";
+import { storeTestMode } from "@/lib/test-mode";
 
 export async function generateMetadata({ params }: { params: Promise<{ domain: string }> }) {
   const { domain } = await params;
@@ -41,11 +43,12 @@ export default async function StoreLayout({
   const { domain } = await params;
   const store = await getStoreByDomain(domain);
   if (!store) notFound();
-  const [categories, promotions, marketing, legal] = await Promise.all([
+  const [categories, promotions, marketing, legal, testMode] = await Promise.all([
     getCategories(store.id),
     getPromotions(store.id),
     getStoreMarketing(store.id),
     getStoreLegal(store.id),
+    storeTestMode(store.id),
   ]);
   // Identificação exigida no comércio eletrônico (Decreto 7.962/2013): nome empresarial, CPF/CNPJ e endereço.
   const identification = [
@@ -69,6 +72,7 @@ export default async function StoreLayout({
 
   return (
     <div style={theme} className="flex min-h-screen flex-col bg-white">
+      {testMode && <TestModeBanner />}
       {promoText ? (
         <p className="px-4 py-1.5 text-center text-xs font-medium text-white sm:text-sm" style={{ background: "var(--brand)" }}>
           {promoText}
