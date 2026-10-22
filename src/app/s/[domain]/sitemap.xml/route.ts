@@ -2,7 +2,9 @@ import { getCategories, getStoreByDomain } from "@/lib/store";
 import { createPublicClient } from "@/lib/supabase/public";
 import { storeBaseUrl } from "@/lib/urls";
 
-export const revalidate = 3600;
+// Dinâmico (como o robots.txt): com revalidate, o Next tentava gerar a rota de forma estática e,
+// sem saber os domínios, respondia 404 em produção. O cache fica na CDN, por 1 hora.
+export const dynamic = "force-dynamic";
 
 const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
@@ -36,5 +38,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ domain:
 ${urls.map((u) => `  <url><loc>${esc(u.loc)}</loc><priority>${u.priority}</priority></url>`).join("\n")}
 </urlset>`;
 
-  return new Response(xml, { headers: { "Content-Type": "application/xml; charset=utf-8" } });
+  return new Response(xml, {
+    headers: { "Content-Type": "application/xml; charset=utf-8", "Cache-Control": "public, s-maxage=3600, stale-while-revalidate=86400" },
+  });
 }
