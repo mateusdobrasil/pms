@@ -4,14 +4,21 @@ import { formatBRL } from "@/lib/money";
 import { saoPauloBoundaries } from "@/lib/format";
 import { SOLD_STATUSES } from "@/lib/order-status";
 import { LOW_STOCK } from "@/lib/stock";
+import { todayBR } from "@/lib/billing";
+import { dailySales, topProducts, windowStart } from "@/lib/sales";
+import { SalesChart, TopProducts } from "./sales-chart";
+
+const CHART_DAYS = 30;
 
 type LowStock = { id: string; name: string; stock: number; products: { id: string; name: string } };
 
 export default async function PanelHome() {
   const { supabase, store } = await requireStore();
   const { startOfDay, startOfMonth } = saoPauloBoundaries();
+  const today = todayBR();
+  const chartFrom = new Date(`${windowStart(today, CHART_DAYS)}T00:00:00-03:00`).toISOString();
 
-  const [{ data: sold }, { count: toShip }, { count: stockIssues }, { data: lowData, count: lowCount }] = await Promise.all([
+  const [{ data: sold }, { count: toShip }, { count: stockIssues }, { data: lowData, count: lowCount }, { data: recent }, { data: recentItems }] = await Promise.all([
     supabase
       .from("orders")
       .select("total_cents, paid_at")
@@ -39,15 +46,32 @@ export default async function PanelHome() {
       .lte("stock", LOW_STOCK)
       .order("stock")
       .limit(10),
+    // Últimos 30 dias: vendas por dia e itens vendidos (mais vendidos).
+    supabase
+      .from("orders")
+      .select("total_cents, paid_at")
+      .eq("store_id", store.id)
+      .in("status", SOLD_STATUSES)
+      .gte("paid_at", chartFrom),
+    supabase
+      .from("order_items")
+      .select("product_name, unit_price_cents, quantity, orders!inner(status, paid_at)")
+      .eq("store_id", store.id)
+      .in("orders.status", SOLD_STATUSES)
+      .gte("orders.paid_at", chartFrom),
   ]);
+  const days = dailySales((recent ?? []) as { total_cents: number; paid_at: string }[], today, CHART_DAYS);
+  const best = topProducts((recentItems ?? []) as { product_name: string; unit_price_cents: number; quantity: number }[]);
+  const periodCents = days.reduce((s, d) => s + d.cents, 0);
+  const periodOrders = days.reduce((s, d) => s + d.orders, 0);
   const lowStock = (lowData ?? []) as unknown as LowStock[];
 
   const month = (sold ?? []) as { total_cents: number; paid_at: string }[];
-  const today = month.filter((o) => new Date(o.paid_at) >= startOfDay);
+  const todays = month.filter((o) => new Date(o.paid_at) >= startOfDay);
   const sum = (rows: { total_cents: number }[]) => rows.reduce((s, o) => s + o.total_cents, 0);
 
   const cards = [
-    { label: "Vendas hoje", value: formatBRL(sum(today)), detail: `${today.length} pedido(s)`, accent: "border-t-primary-500" },
+    { label: "Vendas hoje", value: formatBRL(sum(todays)), detail: `${todays.length} pedido(s)`, accent: "border-t-primary-500" },
     { label: "Vendas no mês", value: formatBRL(sum(month)), detail: `${month.length} pedido(s)`, accent: "border-t-emerald-500" },
     { label: "Para enviar", value: String(toShip ?? 0), detail: "pagos ou em preparação", href: "/painel/pedidos?status=paid", accent: "border-t-amber-500" },
   ];
@@ -81,6 +105,32 @@ export default async function PanelHome() {
             </div>
           );
         })}
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-3">
+        <section className="rounded-xl border bg-white p-5 shadow-sm lg:col-span-2">
+          <div className="mb-6 flex flex-wrap items-end justify-between gap-x-6 gap-y-2">
+            <div>
+              <h2 className="font-medium">Vendas dos últimos {CHART_DAYS} dias</h2>
+              <p className="text-sm text-neutral-500">
+                {periodOrders === 1 ? "1 pedido" : `${periodOrders} pedidos`}
+                {periodOrders > 0 && ` · ticket médio ${formatBRL(Math.round(periodCents / periodOrders))}`}
+              </p>
+            </div>
+            <p className="text-2xl font-semibold tracking-tight">{formatBRL(periodCents)}</p>
+          </div>
+          {periodOrders > 0 ? (
+            <SalesChart points={days} />
+          ) : (
+            <p className="py-12 text-center text-sm text-neutral-500">Nenhuma venda nos últimos {CHART_DAYS} dias. Quando chegarem, o gráfico aparece aqui.</p>
+          )}
+        </section>
+
+        <section className="rounded-xl border bg-white p-5 shadow-sm">
+          <h2 className="font-medium">Mais vendidos</h2>
+          <p className="mb-4 text-sm text-neutral-500">Últimos {CHART_DAYS} dias, pelo valor vendido</p>
+          {best.length > 0 ? <TopProducts products={best} /> : <p className="py-8 text-center text-sm text-neutral-500">Nenhuma venda ainda.</p>}
+        </section>
       </div>
 
       {lowStock.length > 0 && (
