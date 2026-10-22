@@ -12,7 +12,7 @@ export default async function AdminLayout({ children }: { children: ReactNode })
   return (
     <div className="min-h-screen bg-neutral-100">
       <header className="bg-primary-900 text-white">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3">
+        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-3">
           <Link href="/admin" className="flex items-center gap-3">
             <PlatformMark size={36} />
             <span className="leading-tight">
@@ -20,13 +20,15 @@ export default async function AdminLayout({ children }: { children: ReactNode })
               <span className="block text-xs text-primary-200">Super-admin</span>
             </span>
           </Link>
-          <div className="flex items-center gap-1 text-sm text-primary-100">
+          {/* No celular, o menu desce para uma linha própria (rola de lado se precisar). */}
+          <nav className="order-last flex w-full items-center gap-1 overflow-x-auto whitespace-nowrap text-sm text-primary-100 sm:order-none sm:w-auto">
             <Link href="/admin" className="rounded-md px-2 py-1 hover:bg-white/10">Lojas</Link>
             <Link href="/admin/propostas" className="rounded-md px-2 py-1 hover:bg-white/10">Propostas</Link>
+            <Link href="/admin/financeiro" className="rounded-md px-2 py-1 hover:bg-white/10">Financeiro</Link>
             <Link href="/admin/ajuda" className="rounded-md px-2 py-1 hover:bg-white/10">Ajuda</Link>
-          </div>
+          </nav>
           <form action={signOut} className="flex items-center gap-3 text-sm text-primary-100">
-            <span className="hidden sm:inline">{email}</span>
+            <span className="hidden lg:inline">{email}</span>
             <button type="submit" className="rounded-md px-2 py-1 hover:bg-white/10">Sair</button>
           </form>
         </div>

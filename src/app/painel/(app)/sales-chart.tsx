@@ -1,91 +1,28 @@
 "use client";
 
-import { useState } from "react";
 import { formatBRL } from "@/lib/money";
-import { type DayPoint, type TopProduct, axisTop, compactBRL } from "@/lib/sales";
+import { type DayPoint, type TopProduct } from "@/lib/sales";
+import { ColumnChart } from "@/lib/column-chart";
 
 const WEEKDAYS = ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"];
 const shortDate = (date: string) => `${date.slice(8, 10)}/${date.slice(5, 7)}`;
 const weekday = (date: string) => WEEKDAYS[new Date(`${date}T12:00:00Z`).getUTCDay()];
 const ordersLabel = (n: number) => (n === 1 ? "1 pedido" : `${n} pedidos`);
 
-// Colunas de vendas por dia (uma série: cor da marca, sem legenda; o título diz o que é).
+// Vendas por dia: colunas (ColumnChart) + a mesma informação em tabela.
 export function SalesChart({ points }: { points: DayPoint[] }) {
-  const [active, setActive] = useState<number | null>(null);
-  const max = Math.max(...points.map((p) => p.cents));
-  const top = axisTop(max);
-  const best = max > 0 ? points.findIndex((p) => p.cents === max) : -1;
+  const columns = points.map((p, i) => ({
+    key: p.date,
+    cents: p.cents,
+    // Datas: uma a cada 7 dias e o último dia ("hoje"), sem encavalar.
+    axisLabel: i === points.length - 1 ? "hoje" : i % 7 === 0 && i < points.length - 4 ? shortDate(p.date) : undefined,
+    title: `${weekday(p.date)}, ${shortDate(p.date)}`,
+    detail: ordersLabel(p.orders),
+  }));
 
   return (
     <div>
-      <div className="relative h-48 pl-16">
-        {/* Eixo e linhas de grade: discretos (hairline), 0 · metade · topo */}
-        {[1, 0.5, 0].map((f) => (
-          <div key={f} className="absolute left-16 right-0 border-t border-neutral-200" style={{ bottom: `${f * 100}%` }}>
-            <span className="absolute -left-16 w-14 -translate-y-1/2 text-right text-[11px] tabular-nums text-neutral-500">{compactBRL(top * f)}</span>
-          </div>
-        ))}
-
-        <div className="relative flex h-full items-end gap-[2px]" onPointerLeave={() => setActive(null)}>
-          {points.map((p, i) => {
-            const h = (p.cents / top) * 100;
-            return (
-              <button
-                key={p.date}
-                type="button"
-                aria-label={`${weekday(p.date)} ${shortDate(p.date)}: ${formatBRL(p.cents)}, ${ordersLabel(p.orders)}`}
-                onPointerEnter={() => setActive(i)}
-                onFocus={() => setActive(i)}
-                onBlur={() => setActive(null)}
-                className="group relative flex h-full flex-1 items-end justify-center outline-none"
-              >
-                {p.cents > 0 && (
-                  <span
-                    className={`block w-full max-w-6 rounded-t-[4px] bg-primary-500 transition ${active === i ? "opacity-75" : ""} group-focus-visible:ring-2 group-focus-visible:ring-primary-300`}
-                    style={{ height: `${Math.max(h, 1.5)}%` }}
-                  />
-                )}
-                {/* Rótulo direto só no melhor dia (os outros ficam na dica e na tabela) */}
-                {i === best && active === null && (
-                  <span className="pointer-events-none absolute whitespace-nowrap text-[11px] font-medium text-neutral-700" style={{ bottom: `calc(${h}% + 4px)` }}>
-                    {formatBRL(p.cents)}
-                  </span>
-                )}
-              </button>
-            );
-          })}
-
-          {active !== null && (
-            <div
-              role="status"
-              className="pointer-events-none absolute z-10 -translate-x-1/2 whitespace-nowrap rounded-lg bg-neutral-900 px-3 py-2 text-xs text-white shadow-lg"
-              // Logo acima da coluna (dentro da área do gráfico), sem sair pelas laterais.
-              style={{
-                left: `clamp(60px, ${((active + 0.5) / points.length) * 100}%, calc(100% - 60px))`,
-                bottom: `min(calc(${(points[active].cents / top) * 100}% + 8px), calc(100% - 52px))`,
-              }}
-            >
-              <p className="text-sm font-semibold">{formatBRL(points[active].cents)}</p>
-              <p className="text-neutral-300">
-                {weekday(points[active].date)}, {shortDate(points[active].date)} · {ordersLabel(points[active].orders)}
-              </p>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Datas: uma a cada 7 dias e o último dia */}
-      <div className="mt-1.5 flex gap-[2px] pl-16">
-        {points.map((p, i) => (
-          <div key={p.date} className="relative flex-1">
-            {((i % 7 === 0 && i < points.length - 4) || i === points.length - 1) && (
-              <span className="absolute left-1/2 -translate-x-1/2 whitespace-nowrap text-[11px] text-neutral-500">
-                {i === points.length - 1 ? "hoje" : shortDate(p.date)}
-              </span>
-            )}
-          </div>
-        ))}
-      </div>
+      <ColumnChart columns={columns} />
 
       <details className="mt-7 text-sm">
         <summary className="cursor-pointer text-neutral-500 hover:text-neutral-800">Ver em tabela</summary>

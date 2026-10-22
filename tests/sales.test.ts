@@ -61,7 +61,7 @@ describe("eixo", () => {
 
   it("rótulos compactos", () => {
     expect(compactBRL(85_000)).toBe("R$ 850");
-    expect(compactBRL(125_000)).toBe("R$ 1,3 mil");
+    expect(compactBRL(125_000)).toBe("R$ 1,25 mil");
     expect(compactBRL(1_000_000)).toBe("R$ 10 mil");
   });
 });

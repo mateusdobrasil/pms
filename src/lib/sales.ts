@@ -51,9 +51,9 @@ export function axisTop(maxCents: number) {
   return Math.round(step * 100);
 }
 
-// "R$ 1,2 mil" / "R$ 850" para os rótulos do eixo.
+// "R$ 1,25 mil" / "R$ 850" para os rótulos do eixo.
 export function compactBRL(cents: number) {
   const reais = cents / 100;
-  if (reais >= 1000) return `R$ ${(reais / 1000).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} mil`;
+  if (reais >= 1000) return `R$ ${(reais / 1000).toLocaleString("pt-BR", { maximumFractionDigits: 2 })} mil`;
   return `R$ ${reais.toLocaleString("pt-BR", { maximumFractionDigits: 0 })}`;
 }
