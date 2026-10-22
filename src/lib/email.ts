@@ -298,6 +298,48 @@ export async function notifyInvoice(invoiceId: string, notice: InvoiceNotice): P
   }
 }
 
+// ---------------------------------------------------------------- propostas comerciais
+
+type ProposalForEmail = { id: string; client_name: string; business_name: string; email: string | null; setup_fee_cents: number; monthly_fee_cents: number; valid_until: string };
+
+const feeLabel = (cents: number) => (cents ? formatBRL(cents) : "isenta");
+
+// Envia a proposta ao cliente. Devolve null se enviou, ou o motivo da falha.
+export async function sendProposalEmail(p: ProposalForEmail, url: string): Promise<string | null> {
+  if (!p.email) return "a proposta não tem e-mail do cliente";
+  return trySendEmail({
+    to: p.email,
+    fromName: "PMS app",
+    idempotencyKey: `proposal-${p.id}-${Date.now()}`, // reenviar é permitido
+    subject: `Proposta da loja virtual para ${p.business_name}`,
+    html: layout(PLATFORM_BRAND, `
+      <h1 style="margin:0 0 8px;font-size:22px">Sua proposta de loja virtual</h1>
+      <p style="margin:0 0 16px;color:#525252">Olá, ${esc(firstName(p.client_name))}! Preparamos a proposta da loja virtual da <strong>${esc(p.business_name)}</strong>.</p>
+      <p style="margin:0 0 4px;padding:14px;border-radius:8px;background:#f5f5f5;font-size:15px">
+        Implantação: <strong>${feeLabel(p.setup_fee_cents)}</strong><br>
+        Mensalidade: <strong>${feeLabel(p.monthly_fee_cents)}</strong><br>
+        <span style="color:#525252">válida até ${formatDay(p.valid_until)}</span></p>
+      ${button(url, "Ver a proposta completa", PLATFORM_BRAND.primary_color)}`),
+  });
+}
+
+// Avisa a plataforma (ALERT_EMAIL) que o cliente aceitou.
+export async function notifyProposalAccepted(p: ProposalForEmail, adminUrl: string) {
+  const to = process.env.ALERT_EMAIL;
+  if (!to) return;
+  await trySendEmail({
+    to,
+    fromName: "PMS app propostas",
+    idempotencyKey: `proposal-accepted-${p.id}`,
+    subject: `${p.business_name} aceitou a proposta`,
+    html: layout(PLATFORM_BRAND, `
+      <h1 style="margin:0 0 8px;font-size:22px">Proposta aceita 🎉</h1>
+      <p style="margin:0 0 16px;color:#525252">${esc(p.client_name)} (${esc(p.business_name)}) aceitou a proposta: implantação ${feeLabel(p.setup_fee_cents)},
+      mensalidade ${feeLabel(p.monthly_fee_cents)}.${p.email ? ` E-mail: ${esc(p.email)}.` : ""}</p>
+      ${button(adminUrl, "Abrir no admin", PLATFORM_BRAND.primary_color)}`),
+  }).catch((err) => console.error("Falha ao avisar proposta aceita", err));
+}
+
 // ---------------------------------------------------------------- alertas da plataforma
 
 const ALERT_WINDOW_MINUTES = 30;

@@ -271,9 +271,9 @@ flowchart TD
 
     <section id="cobranca">
       <h2><span class="n">08</span>Cobrança dos lojistas</h2>
-      <p>Implantação de <strong>R$ 2.000,00</strong> e mensalidade de <strong>R$ 300,00</strong> (cada uma pode ser <strong>isenta</strong>), vencimento <strong>todo dia 9</strong> e suspensão com <strong>mais de 20 dias de atraso</strong>. Os valores ficam em <code>BILLING</code>, em <code>src/lib/billing.ts</code>.</p>
+      <p>Implantação e mensalidade com <strong>valor digitado por loja</strong> (vazio ou 0 = isenta; sugestão R$ 2.000,00 e R$ 300,00), vencimento <strong>todo dia 9</strong> e suspensão com <strong>mais de 20 dias de atraso</strong>. As regras ficam em <code>BILLING</code>, em <code>src/lib/billing.ts</code>.</p>
       <ol class="steps">
-        <li><div><strong>Configurar a loja</strong><br><code>/admin</code> → loja → Cobrança: implantação, mensalidade e o vencimento da 1ª mensalidade (um dia 9). Ao salvar, a implantação vira fatura com vencimento em 3 dias e o lojista recebe o e-mail na hora. Loja nova começa isenta de tudo até você configurar.</div></li>
+        <li><div><strong>Configurar a loja</strong><br><code>/admin</code> → loja → Cobrança: digite a implantação e a mensalidade (ex.: 2.000,00) e escolha o vencimento da 1ª mensalidade (um dia 9). Mudar a implantação atualiza a fatura dela em aberto; a mensalidade nova vale a partir da próxima fatura. Ao salvar, a implantação vira fatura com vencimento em 3 dias e o lojista recebe o e-mail na hora. Loja nova começa isenta de tudo até você configurar.</div></li>
         <li><div><strong>Rotina diária</strong> (Vercel Cron, <code>vercel.json</code>, 8h de Brasília → <code>/api/cron/cobranca</code>): emite a mensalidade 10 dias antes do dia 9, manda os avisos (fatura disponível, vencida no dia seguinte, último aviso com 15 dias de atraso) e, com mais de 20 dias, suspende a loja (<code>suspended_for_billing</code>) e avisa. Cada aviso sai uma vez por fatura (<code>store_invoices.notified_*</code>). Logs: Vercel → Logs, filtro <code>/api/cron/cobranca</code>.</div></li>
         <li><div><strong>Pagamento</strong><br>Painel → Assinatura → Pagar cria um link do Checkout Pro na conta da plataforma (<code>external_reference</code> = id da fatura). O webhook <code>/api/webhooks/plataforma</code> (e a volta do lojista para o painel) consulta o pagamento no Mercado Pago, baixa a fatura e reativa a loja se ela foi suspensa pela cobrança. Pagamento duplicado ou de fatura cancelada gera alerta para devolver.</div></li>
       </ol>
@@ -282,6 +282,13 @@ flowchart TD
         <li><strong>Dar mais prazo</strong> a uma loja suspensa: reative em Situação. O job suspende só uma vez por fatura, então ela fica no ar até a fatura seguinte vencer.</li>
         <li>Rodar a rotina na mão (teste): <code>curl -H "Authorization: Bearer $CRON_SECRET" https://www.pmsapp.dev/api/cron/cobranca</code>. Pode rodar quantas vezes quiser: não duplica fatura nem e-mail.</li>
         <li><strong>Testar o pagamento</strong> com o token <code>TEST-</code>: na página do Mercado Pago, o botão Pagar fica desabilitado se você estiver logado com a própria conta da plataforma (ninguém paga a si mesmo). Use uma janela anônima ou um comprador de teste. Alternativa que valida o nosso lado: criar o pagamento pela API com <code>external_reference</code> = id da fatura e enviar <code>{"type":"payment","data":{"id":"&lt;id&gt;"}}</code> para <code>/api/webhooks/plataforma</code>.</li>
+      </ul>
+      <h3>Propostas comerciais</h3>
+      <p><code>/admin</code> → <strong>Propostas</strong> → Nova proposta: contato, negócio, e-mail, WhatsApp, implantação e mensalidade digitadas, validade (padrão 15 dias), o que está incluído (já vem com os recursos da plataforma, um por linha) e condições. A proposta vira uma página em <code>pmsapp.dev/proposta/&lt;token&gt;</code> (tabela <code>proposals</code>, sem <code>store_id</code> porque vem antes da loja), que o cliente pode imprimir ou salvar em PDF.</p>
+      <ul>
+        <li><strong>Enviar</strong>: por e-mail (Resend) ou pelo WhatsApp (abre a conversa com a mensagem e o link). As duas marcam a proposta como enviada; o link sempre mostra a versão salva mais recente.</li>
+        <li><strong>Acompanhar</strong>: rascunho → enviada → vista pelo cliente (primeira abertura; a sua não conta) → aceita, ou vencida depois da validade.</li>
+        <li><strong>Aceite</strong>: o cliente clica em "Aceitar proposta" e o <code>ALERT_EMAIL</code> recebe um aviso. Na proposta aceita, "Criar a loja deste cliente" abre o cadastro de loja com nome e e-mail preenchidos; depois configure a Cobrança com os valores combinados.</li>
       </ul>
       <div class="note warn"><strong>Antes de cobrar de verdade</strong>Cadastre <code>MP_PLATFORM_ACCESS_TOKEN</code> (produção, <code>APP_USR-</code>) e <code>CRON_SECRET</code> na Vercel e faça Redeploy. Teste primeiro com o token <code>TEST-</code> e uma loja de teste.</div>
     </section>

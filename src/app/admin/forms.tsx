@@ -4,7 +4,7 @@ import { useActionState, useEffect, useRef, useState } from "react";
 import { submitKeepingValues } from "@/lib/form-submit";
 import { addDomain, addMember, createStore, saveBilling, saveSecrets, updateBranding, type AdminState } from "./actions";
 import { BILLING } from "@/lib/billing";
-import { formatBRL } from "@/lib/money";
+import { centsToInput, parseBRL } from "@/lib/money";
 
 const input = "w-full rounded-lg border px-3 py-2 text-sm";
 const primaryButton =
@@ -36,13 +36,14 @@ function Feedback({ state }: { state: AdminState }) {
   );
 }
 
-export function CreateStoreForm() {
+// defaults: vindos de uma proposta aceita (/admin?nome=...&email=...).
+export function CreateStoreForm({ defaults }: { defaults?: { name?: string; email?: string } }) {
   const [state, action, pending] = useActionState<AdminState, FormData>(createStore, null);
   return (
     <form onSubmit={submitKeepingValues(action)} className="space-y-3 rounded-xl border bg-white p-5 shadow-sm">
       <label className="block space-y-1 text-sm">
         <span className="font-medium text-neutral-700">Nome da loja</span>
-        <input name="name" required className={input} />
+        <input name="name" required defaultValue={defaults?.name} className={input} />
       </label>
       <label className="block space-y-1 text-sm">
         <span className="font-medium text-neutral-700">Identificador (opcional)</span>
@@ -50,7 +51,7 @@ export function CreateStoreForm() {
       </label>
       <label className="block space-y-1 text-sm">
         <span className="font-medium text-neutral-700">E-mail do dono</span>
-        <input name="ownerEmail" type="email" required className={input} />
+        <input name="ownerEmail" type="email" required defaultValue={defaults?.email} className={input} />
       </label>
       <label className="block space-y-1 text-sm">
         <span className="font-medium text-neutral-700">Domínio (opcional)</span>
@@ -279,27 +280,34 @@ export function BillingForm({
   dueOptions: { value: string; label: string }[];
 }) {
   const [state, action, pending] = useActionState<AdminState, FormData>(saveBilling, null);
-  const [monthly, setMonthly] = useState(String(monthlyFee));
+  const [monthly, setMonthly] = useState(centsToInput(monthlyFee || null));
   return (
     <form onSubmit={submitKeepingValues(action)} className="space-y-3">
       <input type="hidden" name="storeId" value={storeId} />
       <div className="grid gap-3 sm:grid-cols-2">
         <label className="block space-y-1 text-sm">
-          <span className="font-medium text-neutral-700">Implantação</span>
-          <select name="setup_fee_cents" defaultValue={String(setupFee)} className={input}>
-            <option value={BILLING.setupFeeCents}>{formatBRL(BILLING.setupFeeCents)}</option>
-            <option value="0">Isenta</option>
-          </select>
+          <span className="font-medium text-neutral-700">Implantação (R$)</span>
+          <input
+            name="setup_fee"
+            defaultValue={centsToInput(setupFee || null)}
+            inputMode="decimal"
+            placeholder={`ex.: ${centsToInput(BILLING.setupFeeCents)} (vazio = isenta)`}
+            className={input}
+          />
         </label>
         <label className="block space-y-1 text-sm">
-          <span className="font-medium text-neutral-700">Mensalidade</span>
-          <select name="monthly_fee_cents" value={monthly} onChange={(e) => setMonthly(e.target.value)} className={input}>
-            <option value={BILLING.monthlyFeeCents}>{formatBRL(BILLING.monthlyFeeCents)}</option>
-            <option value="0">Isenta</option>
-          </select>
+          <span className="font-medium text-neutral-700">Mensalidade (R$)</span>
+          <input
+            name="monthly_fee"
+            value={monthly}
+            onChange={(e) => setMonthly(e.target.value)}
+            inputMode="decimal"
+            placeholder={`ex.: ${centsToInput(BILLING.monthlyFeeCents)} (vazio = isenta)`}
+            className={input}
+          />
         </label>
       </div>
-      {monthly !== "0" && (
+      {(parseBRL(monthly) ?? 1) > 0 && monthly.trim() !== "" && (
         <label className="block space-y-1 text-sm">
           <span className="font-medium text-neutral-700">1ª mensalidade vence em</span>
           <select name="billing_starts_on" defaultValue={startsOn ?? dueOptions[1]?.value} className={input}>
@@ -311,8 +319,8 @@ export function BillingForm({
       )}
       <p className="text-xs text-neutral-500">
         A implantação vence {BILLING.setupDueDays} dias depois de salvar. Cada mensalidade é emitida {BILLING.issueDaysBefore} dias antes do dia {BILLING.dueDay} e
-        enviada por e-mail; com mais de {BILLING.graceDays} dias de atraso a loja é suspensa e volta sozinha ao pagar. Marcar como isenta cancela o que estiver
-        em aberto.
+        enviada por e-mail; com mais de {BILLING.graceDays} dias de atraso a loja é suspensa e volta sozinha ao pagar. Deixar um valor vazio (ou 0) isenta e
+        cancela o que estiver em aberto. Mudar o valor da implantação atualiza a fatura dela em aberto; o da mensalidade vale a partir da próxima fatura.
       </p>
       <Feedback state={state} />
       <button type="submit" disabled={pending} className={primaryButton}>

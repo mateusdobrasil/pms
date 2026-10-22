@@ -2,8 +2,8 @@
 // Datas são "AAAA-MM-DD" no fuso de Brasília, sem horário.
 
 export const BILLING = {
-  setupFeeCents: 200_000, // R$ 2.000,00 (ou isento)
-  monthlyFeeCents: 30_000, // R$ 300,00 (ou isento)
+  setupFeeCents: 200_000, // R$ 2.000,00: valor sugerido (cada loja tem o seu, digitado no /admin)
+  monthlyFeeCents: 30_000, // R$ 300,00: valor sugerido
   dueDay: 9, // a mensalidade vence todo dia 9
   setupDueDays: 3, // a implantação vence 3 dias depois de configurada
   issueDaysBefore: 10, // a fatura do mês aparece (e é enviada por e-mail) 10 dias antes do vencimento

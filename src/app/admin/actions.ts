@@ -9,6 +9,9 @@ import { removeStoreLogo, uploadStoreLogo, validateLogo } from "@/lib/branding";
 import { slugify } from "@/lib/slug";
 import { isEmail, isUuid, onlyDigits } from "@/lib/validation";
 import { BILLING, isDueDay, todayBR } from "@/lib/billing";
+import { parseBRL } from "@/lib/money";
+
+const MAX_FEE_CENTS = 10_000_000; // R$ 100.000,00: trava contra erro de digitação
 import { issueInvoices, reactivateIfClear } from "@/lib/billing-server";
 import { notifyInvoice } from "@/lib/email";
 
@@ -256,10 +259,16 @@ export async function saveBilling(_prev: AdminState, form: FormData): Promise<Ad
   const { db } = await requireAdmin();
   const storeId = String(form.get("storeId") ?? "");
   if (!isUuid(storeId)) return { error: "Loja inválida." };
-  const setup = Number(form.get("setup_fee_cents"));
-  const monthly = Number(form.get("monthly_fee_cents"));
+  // Valor digitado ("2.000,00"); vazio = isento.
+  const fee = (name: string) => {
+    const raw = String(form.get(name) ?? "").trim();
+    return raw ? parseBRL(raw) : 0;
+  };
+  const setup = fee("setup_fee");
+  const monthly = fee("monthly_fee");
   const startsOn = String(form.get("billing_starts_on") ?? "");
-  if (![0, BILLING.setupFeeCents].includes(setup) || ![0, BILLING.monthlyFeeCents].includes(monthly)) return { error: "Valor inválido." };
+  if (setup === null || setup > MAX_FEE_CENTS) return { error: "Valor da implantação inválido (ex.: 2.000,00)." };
+  if (monthly === null || monthly > MAX_FEE_CENTS) return { error: "Valor da mensalidade inválido (ex.: 300,00)." };
   if (monthly && !isDueDay(startsOn)) return { error: `Escolha o vencimento da 1ª mensalidade (dia ${BILLING.dueDay}).` };
 
   const { error } = await db
@@ -271,6 +280,7 @@ export async function saveBilling(_prev: AdminState, form: FormData): Promise<Ad
   // Isento: cancela o que estava em aberto.
   const today = todayBR();
   if (!setup) await db.from("store_invoices").update({ status: "canceled" }).eq("store_id", storeId).eq("kind", "setup").eq("status", "open");
+  else await db.from("store_invoices").update({ amount_cents: setup }).eq("store_id", storeId).eq("kind", "setup").eq("status", "open");
   if (!monthly) await db.from("store_invoices").update({ status: "canceled" }).eq("store_id", storeId).eq("kind", "monthly").eq("status", "open");
   const created = await issueInvoices(db, today, storeId);
   await reactivateIfClear(db, storeId, today);

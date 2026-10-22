@@ -14,7 +14,8 @@ type Row = {
   store_members: { user_id: string }[];
 };
 
-export default async function AdminHome() {
+export default async function AdminHome({ searchParams }: { searchParams: Promise<{ nome?: string; email?: string }> }) {
+  const { nome, email } = await searchParams;
   const { db } = await requireAdmin();
   const { data } = await db
     .from("stores")
@@ -61,7 +62,7 @@ export default async function AdminHome() {
 
       <section className="space-y-4">
         <h2 className="text-lg font-semibold tracking-tight">Nova loja</h2>
-        <CreateStoreForm />
+        <CreateStoreForm defaults={{ name: nome?.slice(0, 80), email: email?.slice(0, 120) }} />
       </section>
     </div>
   );
