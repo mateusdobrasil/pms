@@ -134,6 +134,72 @@ export async function deleteProduct(form: FormData) {
   redirect("/painel/produtos");
 }
 
+// Cria uma cópia oculta do produto (variações, fotos e categoria), para o lojista ajustar e publicar.
+// O estoque da cópia começa em zero: estoque é coisa física, não se duplica.
+export async function duplicateProduct(form: FormData) {
+  const { supabase, store } = await requireStore();
+  const id = String(form.get("id") ?? "");
+  if (!isUuid(id)) return;
+
+  const { data: source } = await supabase
+    .from("products")
+    .select(
+      "name, slug, description, category_id, product_variants(name, sku, price_cents, compare_at_cents, weight_g, height_cm, width_cm, length_cm, active, position), product_images(path, position)",
+    )
+    .eq("id", id)
+    .eq("store_id", store.id)
+    .maybeSingle();
+  if (!source) return;
+
+  // Primeiro endereço livre: camiseta-copia, camiseta-copia-2, ...
+  const base = `${source.slug}-copia`.slice(0, 90);
+  const { data: taken } = await supabase.from("products").select("slug").eq("store_id", store.id).like("slug", `${base}%`);
+  const used = new Set((taken ?? []).map((p) => p.slug as string));
+  let slug = base;
+  for (let n = 2; used.has(slug); n++) slug = `${base}-${n}`;
+
+  const { data: copy, error } = await supabase
+    .from("products")
+    .insert({
+      store_id: store.id,
+      name: `${source.name} (cópia)`.slice(0, 120),
+      slug,
+      description: source.description,
+      category_id: source.category_id,
+      active: false,
+      featured: false,
+    })
+    .select("id")
+    .single();
+  if (error) throw error;
+
+  const variants = source.product_variants as Record<string, unknown>[];
+  if (variants.length) {
+    const { error: vErr } = await supabase
+      .from("product_variants")
+      .insert(variants.map((v) => ({ ...v, sku: null, stock: 0, store_id: store.id, product_id: copy.id })));
+    if (vErr) {
+      await supabase.from("products").delete().eq("id", copy.id).eq("store_id", store.id);
+      throw vErr;
+    }
+  }
+
+  // Fotos: copia o arquivo para a pasta do novo produto. Se uma falhar, segue sem ela.
+  for (const img of source.product_images as { path: string; position: number }[]) {
+    const ext = img.path.split(".").pop();
+    const path = `${store.id}/${copy.id}/${crypto.randomUUID()}.${ext}`;
+    const { error: cErr } = await supabase.storage.from("product-images").copy(img.path, path);
+    if (cErr) {
+      console.error("Foto não copiada ao duplicar produto", { from: img.path, error: cErr.message });
+      continue;
+    }
+    await supabase.from("product_images").insert({ store_id: store.id, product_id: copy.id, path, position: img.position });
+  }
+
+  revalidateProduct();
+  redirect(`/painel/produtos/${copy.id}?copiado=1`);
+}
+
 // ---------------------------------------------------------------- Variações
 
 // Variação como o editor mostra (preços como texto do formulário).

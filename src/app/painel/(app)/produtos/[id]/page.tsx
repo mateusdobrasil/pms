@@ -7,6 +7,7 @@ import { ProductForm } from "../product-form";
 import { VariantsEditor } from "../variants-editor";
 import { ImagesManager } from "../images-manager";
 import { DeleteProductButton } from "../delete-product-button";
+import { duplicateProduct } from "../actions";
 
 type Variant = {
   id: string;
@@ -28,10 +29,10 @@ export default async function EditProductPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ criado?: string }>;
+  searchParams: Promise<{ criado?: string; copiado?: string }>;
 }) {
   const { id } = await params;
-  const { criado } = await searchParams;
+  const { criado, copiado } = await searchParams;
   if (!isUuid(id)) notFound();
   const { supabase, store } = await requireStore();
 
@@ -57,8 +58,22 @@ export default async function EditProductPage({
     <div className="max-w-4xl space-y-6">
       <div>
         <Link href="/painel/produtos" className="text-sm text-neutral-500 underline">← Produtos</Link>
-        <h1 className="mt-2 text-2xl font-semibold tracking-tight">{product.name}</h1>
+        <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
+          <h1 className="text-2xl font-semibold tracking-tight">{product.name}</h1>
+          <form action={duplicateProduct}>
+            <input type="hidden" name="id" value={product.id} />
+            <button type="submit" className="rounded-md border bg-white px-3 py-1.5 text-sm hover:border-neutral-400">
+              Duplicar produto
+            </button>
+          </form>
+        </div>
         {criado && <p className="mt-1 text-sm text-green-700">Produto criado. Agora adicione fotos e variações.</p>}
+        {copiado && (
+          <p className="mt-1 text-sm text-green-700">
+            Cópia criada, ainda escondida da loja e com estoque zerado. Ajuste nome, variações e estoque, e marque
+            “Visível na loja”.
+          </p>
+        )}
       </div>
 
       <ProductForm product={product} categories={categories ?? []} />
