@@ -83,5 +83,5 @@ export function formatDay(date: string) {
 export function invoiceTitle(invoice: { kind: InvoiceKind; reference_month: string | null }) {
   if (invoice.kind === "setup" || !invoice.reference_month) return "Taxa de implantação";
   const [y, m] = invoice.reference_month.split("-").map(Number);
-  return `Mensalidade de ${MONTHS[m - 1]}/${y}`;
+  return `Mensalidade de ${MONTHS[m - 1]} de ${y}`; // sem barra: o Mercado Pago remove
 }

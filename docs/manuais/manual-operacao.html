@@ -280,6 +280,7 @@ flowchart TD
         <li><strong>Recebeu por fora</strong> (transferência, dinheiro): <code>/admin</code> → loja → Cobrança → "marcar como paga". <strong>Perdoar</strong> uma fatura: "cancelar". As duas ações reativam a loja se ela estava suspensa pela cobrança.</li>
         <li><strong>Dar mais prazo</strong> a uma loja suspensa: reative em Situação. O job suspende só uma vez por fatura, então ela fica no ar até a fatura seguinte vencer.</li>
         <li>Rodar a rotina na mão (teste): <code>curl -H "Authorization: Bearer $CRON_SECRET" https://www.pmsapp.dev/api/cron/cobranca</code>. Pode rodar quantas vezes quiser: não duplica fatura nem e-mail.</li>
+        <li><strong>Testar o pagamento</strong> com o token <code>TEST-</code>: na página do Mercado Pago, o botão Pagar fica desabilitado se você estiver logado com a própria conta da plataforma (ninguém paga a si mesmo). Use uma janela anônima ou um comprador de teste. Alternativa que valida o nosso lado: criar o pagamento pela API com <code>external_reference</code> = id da fatura e enviar <code>{"type":"payment","data":{"id":"&lt;id&gt;"}}</code> para <code>/api/webhooks/plataforma</code>.</li>
       </ul>
       <div class="note warn"><strong>Antes de cobrar de verdade</strong>Cadastre <code>MP_PLATFORM_ACCESS_TOKEN</code> (produção, <code>APP_USR-</code>) e <code>CRON_SECRET</code> na Vercel e faça Redeploy. Teste primeiro com o token <code>TEST-</code> e uma loja de teste.</div>
     </section>

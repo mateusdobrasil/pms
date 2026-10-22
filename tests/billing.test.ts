@@ -60,7 +60,7 @@ describe("atraso", () => {
   });
 
   it("título da fatura", () => {
-    expect(invoiceTitle({ kind: "monthly", reference_month: "2026-11-01" })).toBe("Mensalidade de novembro/2026");
+    expect(invoiceTitle({ kind: "monthly", reference_month: "2026-11-01" })).toBe("Mensalidade de novembro de 2026");
     expect(invoiceTitle({ kind: "setup", reference_month: null })).toBe("Taxa de implantação");
   });
 });
