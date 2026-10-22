@@ -8,11 +8,17 @@ export default async function SettingsPage() {
     .select("name, logo_url, primary_color, whatsapp, email, origin_zip")
     .eq("id", store.id)
     .single();
+  // Consulta à parte: sem o SQL do banner rodado, a página continua funcionando, só sem essa seção.
+  const { data: banner, error: bannerError } = await supabase
+    .from("stores")
+    .select("banner_image_url, banner_title, banner_subtitle, banner_link")
+    .eq("id", store.id)
+    .single();
 
   return (
     <div className="max-w-2xl space-y-6">
       <h1 className="text-2xl font-semibold tracking-tight">Configurações da loja</h1>
-      <SettingsForm storeId={store.id} settings={data!} />
+      <SettingsForm storeId={store.id} settings={data!} banner={bannerError ? null : banner} />
     </div>
   );
 }

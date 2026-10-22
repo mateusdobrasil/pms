@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireStore } from "@/lib/panel";
 import { isEmail, onlyDigits } from "@/lib/validation";
+import { isValidBannerLink } from "@/lib/banner";
 
 export type SettingsState = { error?: string; ok?: string } | null;
 
@@ -23,9 +24,25 @@ export async function saveSettings(_prev: SettingsState, form: FormData): Promis
   if (email && !isEmail(email)) return { error: "E-mail inválido." };
   if (whatsapp && !/^55\d{10,11}$/.test(whatsapp)) return { error: "WhatsApp inválido: use DDD + número." };
   if (originZip && originZip.length !== 8) return { error: "CEP de origem inválido." };
-  // O logo só pode vir do Storage da própria loja.
-  const logoPrefix = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/product-images/${store.id}/`;
-  if (logoUrl && !logoUrl.startsWith(logoPrefix)) return { error: "Logo inválido." };
+  // Logo e banner só podem vir do Storage da própria loja.
+  const storagePrefix = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/product-images/${store.id}/`;
+  if (logoUrl && !logoUrl.startsWith(storagePrefix)) return { error: "Logo inválido." };
+
+  // Banner: só vem no formulário quando as colunas existem no banco.
+  const hasBanner = form.get("banner_enabled") === "1";
+  const text = (key: string, max: number) => String(form.get(key) ?? "").trim().replace(/\s+/g, " ").slice(0, max);
+  const banner = {
+    banner_image_url: text("banner_image_url", 500) || null,
+    banner_title: text("banner_title", 80) || null,
+    banner_subtitle: text("banner_subtitle", 160) || null,
+    banner_link: text("banner_link", 500) || null,
+  };
+  if (hasBanner) {
+    if (banner.banner_image_url && !banner.banner_image_url.startsWith(storagePrefix)) return { error: "Imagem do banner inválida." };
+    if (banner.banner_link && !isValidBannerLink(banner.banner_link)) {
+      return { error: "Link do banner inválido: use um caminho da loja (ex.: /c/promocoes) ou um endereço https://." };
+    }
+  }
 
   const { data, error } = await supabase
     .from("stores")
@@ -36,6 +53,7 @@ export async function saveSettings(_prev: SettingsState, form: FormData): Promis
       whatsapp: whatsapp || null,
       origin_zip: originZip || null,
       logo_url: logoUrl || null,
+      ...(hasBanner ? banner : {}),
     })
     .eq("id", store.id)
     .select("id");

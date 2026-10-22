@@ -347,6 +347,10 @@ npx next build         # build de produção (rode antes de subir)</code></pre>
       <p>Acontece quando duas pessoas pagam a última unidade ao mesmo tempo. O pedido fica pago com o selo "sem estoque" e aparece um aviso no resumo do painel. O lojista combina com o cliente: troca, espera ou estorno no Mercado Pago.</p>
       <h3>Cancelar um pedido pago</h3>
       <p>O lojista cancela no painel, mas o <strong>estorno é feito no Mercado Pago</strong> e o estoque <strong>não volta sozinho</strong>: ajuste em Produtos.</p>
+      <h3>Cliente bloqueado por excesso de tentativas</h3>
+      <p>Há um limite por IP e por loja: 10 pedidos em 10 min, 15 buscas em "Meus pedidos" em 15 min e 12 tentativas de pagamento em 10 min (barra robôs e teste de cartões roubados). Quem passa do limite vê "Muitas tentativas seguidas" e pode tentar de novo ao fim da janela. Para liberar um IP na hora:</p>
+      <pre><code>delete from rate_limits where key like '%:&lt;ip&gt;';</code></pre>
+      <p>Se a função <code>rate_limit_hit</code> falhar, o site segue sem limite (a venda não para) e o log mostra <code>rate_limit_hit falhou</code>. A tabela é limpa todo dia pelo job <code>limpar-limites</code> do pg_cron.</p>
       <h3>Novo super-admin</h3>
       <pre><code>insert into platform_admins (user_id) select id from auth.users where email = 'pessoa@email.com';</code></pre>
     </section>
@@ -357,8 +361,7 @@ npx next build         # build de produção (rode antes de subir)</code></pre>
         <li><span class="pill warn">e-mail</span> Verificar <code>pmsapp.dev</code> no Resend e trocar o <code>EMAIL_FROM</code>.</li>
         <li><span class="pill warn">Vercel</span> Conferir as variáveis de produção (Resend, Melhor Envio, <code>PLATFORM_URL</code>) e fazer Redeploy.</li>
         <li><span class="pill warn">Kadosh</span> CEP de origem, produtos, compra de teste no domínio e virada para produção.</li>
-        <li><span class="pill bad">banco</span> Rodar <code>20261021100000_agendar_expiracao_pedidos.sql</code> (liga o pg_cron e agenda <code>expire_pending_orders()</code>). Até isso ser feito, pedidos vencidos continuam como "aguardando pagamento" no painel (a página do cliente já mostra "Expirado").</li>
-        <li><span class="pill bad">banco</span> Rodar <code>20261021110000_limite_tentativas.sql</code> (depois do anterior). Liga o limite por IP: 10 pedidos em 10 min, 15 buscas em "Meus pedidos" em 15 min e 12 tentativas de pagamento em 10 min, por loja. Sem ele, o site funciona sem limite, e o log mostra <code>rate_limit_hit falhou</code>. Para liberar um IP na hora: <code>delete from rate_limits where key like '%:&lt;ip&gt;'</code>.</li>
+        <li><span class="pill warn">banco</span> Rodar <code>20261022000000_banner_da_home.sql</code>. Até lá, a seção "Banner da página inicial" fica escondida em Configurações e a home mostra a faixa padrão.</li>
         <li><span class="pill bad">segurança</span> Trocar a senha de <code>admin@pms.com</code>, que foi exposta em conversa.</li>
       </ul>
     </section>
