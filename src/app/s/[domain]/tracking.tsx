@@ -86,7 +86,8 @@ export function Tracking({ metaPixelId, gaMeasurementId }: { metaPixelId: string
     <div role="dialog" aria-label="Aviso de cookies" className="fixed inset-x-0 bottom-0 z-40 border-t bg-white/95 px-4 py-3 shadow-[0_-4px_12px_rgba(0,0,0,0.08)] backdrop-blur">
       <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 text-sm">
         <p className="text-neutral-700">
-          Usamos cookies para entender as visitas e melhorar nossos anúncios. Você pode aceitar ou recusar.
+          Usamos cookies para entender as visitas e melhorar nossos anúncios. Você pode aceitar ou recusar.{" "}
+          <a href="/politica-de-privacidade" className="underline">Saiba mais</a>
         </p>
         <div className="flex gap-2">
           <button

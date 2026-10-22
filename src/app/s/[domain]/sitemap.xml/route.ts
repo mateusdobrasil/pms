@@ -26,6 +26,8 @@ export async function GET(_req: Request, { params }: { params: Promise<{ domain:
   const urls = [
     { loc: `${base}/`, priority: "1.0" },
     ...categories.map((c) => ({ loc: `${base}/c/${c.slug}`, priority: "0.8" })),
+    { loc: `${base}/trocas-e-devolucoes`, priority: "0.3" },
+    { loc: `${base}/politica-de-privacidade`, priority: "0.3" },
     ...(products ?? []).map((p) => ({ loc: `${base}/p/${p.slug}`, priority: "0.9" })),
   ];
 

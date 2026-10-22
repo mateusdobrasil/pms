@@ -6,6 +6,7 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { productImageUrl } from "@/lib/images";
 import { MAX_ORIGINAL_BYTES, compressImage } from "@/lib/compress-image";
 import { saveSettings, type SettingsState } from "./actions";
+import { LegalSection, type LegalSettings, type PolicyBase } from "./legal-section";
 
 type Settings = {
   name: string;
@@ -36,12 +37,18 @@ export function SettingsForm({
   banner,
   promos,
   marketing,
+  legal,
+  policyBase,
+  storeUrl,
 }: {
   storeId: string;
   settings: Settings;
   banner: BannerSettings;
   promos: PromoSettings;
   marketing: MarketingSettings;
+  legal: LegalSettings | null;
+  policyBase: PolicyBase;
+  storeUrl: string | null;
 }) {
   const [state, action, pending] = useActionState<SettingsState, FormData>(saveSettings, null);
   const [color, setColor] = useState(settings.primary_color);
@@ -278,6 +285,8 @@ export function SettingsForm({
           <span className="text-xs text-neutral-500">De onde os pedidos saem. Usado para calcular o frete.</span>
         </label>
       </section>
+
+      {legal && <LegalSection legal={legal} policyBase={policyBase} storeUrl={storeUrl} />}
 
       {state?.error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{state.error}</p>}
       {state?.ok && <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-800">{state.ok}</p>}

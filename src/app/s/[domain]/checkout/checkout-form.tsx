@@ -294,6 +294,11 @@ export function CheckoutForm() {
       >
         {submitting ? "Criando pedido…" : "Ir para o pagamento"}
       </button>
+      <p className="text-center text-xs text-neutral-500">
+        Ao continuar, você concorda com a{" "}
+        <Link href="/politica-de-privacidade" className="underline">Política de privacidade</Link> e a{" "}
+        <Link href="/trocas-e-devolucoes" className="underline">Política de trocas e devoluções</Link>.
+      </p>
     </form>
   );
 }

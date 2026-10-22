@@ -10,6 +10,12 @@ export function formatCPF(value: string) {
   return onlyDigits(value).replace(/^(\d{3})(\d{3})(\d{3})(\d{2})$/, "$1.$2.$3-$4");
 }
 
+// CPF (11 dígitos) ou CNPJ (14 dígitos) com máscara.
+export function formatDocument(value: string) {
+  const d = onlyDigits(value);
+  return d.length === 14 ? d.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, "$1.$2.$3/$4-$5") : formatCPF(d);
+}
+
 export function formatPhone(value: string) {
   return onlyDigits(value).replace(/^(\d{2})(\d{4,5})(\d{4})$/, "($1) $2-$3");
 }

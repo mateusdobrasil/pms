@@ -15,3 +15,18 @@ export function isValidCPF(value: string) {
   }
   return true;
 }
+
+export function isValidCNPJ(value: string) {
+  const cnpj = onlyDigits(value);
+  if (cnpj.length !== 14 || /^(\d)\1{13}$/.test(cnpj)) return false;
+  for (const len of [12, 13]) {
+    let sum = 0;
+    for (let i = 0; i < len; i++) sum += Number(cnpj[i]) * ((len - i - 1) % 8 + 2);
+    const digit = sum % 11 < 2 ? 0 : 11 - (sum % 11);
+    if (digit !== Number(cnpj[len])) return false;
+  }
+  return true;
+}
+
+// Documento da loja: CPF (pessoa física, MEI sem CNPJ à mostra) ou CNPJ.
+export const isValidDocument = (value: string) => isValidCPF(value) || isValidCNPJ(value);

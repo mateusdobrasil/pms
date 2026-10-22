@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireStore } from "@/lib/panel";
-import { isEmail, onlyDigits } from "@/lib/validation";
+import { isEmail, isValidDocument, onlyDigits } from "@/lib/validation";
 import { isValidBannerLink } from "@/lib/banner";
 import { parseBRL } from "@/lib/money";
 import { parseInstagramHandle } from "@/lib/store-marketing";
@@ -69,6 +69,21 @@ export async function saveSettings(_prev: SettingsState, form: FormData): Promis
     if (gaId && !/^G-[A-Z0-9]{4,15}$/.test(gaId)) return { error: "ID do Google Analytics inválido: começa com G-, por exemplo G-ABC123XYZ." };
   }
 
+  // Dados da empresa e políticas: só vêm no formulário quando as colunas existem no banco.
+  const hasLegal = form.get("legal_enabled") === "1";
+  const legalName = text("legal_name", 150);
+  const documentText = String(form.get("document") ?? "").trim();
+  const legalAddress = text("address", 250);
+  const policy = (key: string) => String(form.get(key) ?? "").replace(/\r\n/g, "\n").trim();
+  const privacyPolicy = policy("privacy_policy");
+  const returnsPolicy = policy("returns_policy");
+  if (hasLegal) {
+    if (legalName && legalName.length < 2) return { error: "Nome empresarial muito curto." };
+    if (documentText && !isValidDocument(documentText)) return { error: "CNPJ ou CPF inválido. Confira os números." };
+    if (legalAddress && legalAddress.length < 5) return { error: "Endereço muito curto." };
+    if (privacyPolicy.length > 20000 || returnsPolicy.length > 20000) return { error: "Política muito longa (até 20.000 caracteres)." };
+  }
+
   const { data, error } = await supabase
     .from("stores")
     .update({
@@ -79,6 +94,15 @@ export async function saveSettings(_prev: SettingsState, form: FormData): Promis
       origin_zip: originZip || null,
       logo_url: logoUrl || null,
       ...(hasBanner ? banner : {}),
+      ...(hasLegal
+        ? {
+            legal_name: legalName || null,
+            document: documentText ? onlyDigits(documentText) : null,
+            address: legalAddress || null,
+            privacy_policy: privacyPolicy || null,
+            returns_policy: returnsPolicy || null,
+          }
+        : {}),
       ...(hasMarketing ? { instagram, meta_pixel_id: metaPixelId || null, ga_measurement_id: gaId || null } : {}),
       ...(hasPromos ? { pix_discount_percent: pixPercent, free_shipping_min_cents: freeShippingMin } : {}),
     })

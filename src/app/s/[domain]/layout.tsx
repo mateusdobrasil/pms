@@ -4,6 +4,8 @@ import { notFound } from "next/navigation";
 import { getCategories, getStoreByDomain } from "@/lib/store";
 import { getPromotions } from "@/lib/promotions";
 import { getStoreMarketing } from "@/lib/store-marketing";
+import { getStoreLegal } from "@/lib/store-legal";
+import { formatDocument } from "@/lib/format";
 import { InstagramIcon } from "./instagram-icon";
 import { Tracking } from "./tracking";
 import { formatBRL } from "@/lib/money";
@@ -36,11 +38,20 @@ export default async function StoreLayout({
   const { domain } = await params;
   const store = await getStoreByDomain(domain);
   if (!store) notFound();
-  const [categories, promotions, marketing] = await Promise.all([
+  const [categories, promotions, marketing, legal] = await Promise.all([
     getCategories(store.id),
     getPromotions(store.id),
     getStoreMarketing(store.id),
+    getStoreLegal(store.id),
   ]);
+  // Identificação exigida no comércio eletrônico (Decreto 7.962/2013): nome empresarial, CPF/CNPJ e endereço.
+  const identification = [
+    legal.legalName,
+    legal.document && `${legal.document.length === 14 ? "CNPJ" : "CPF"} ${formatDocument(legal.document)}`,
+    legal.address,
+  ]
+    .filter(Boolean)
+    .join(" · ");
   const instagramUrl = marketing.instagram ? `https://www.instagram.com/${marketing.instagram}/` : null;
   // Faixa no topo anunciando as promoções da loja (some quando não há nenhuma).
   const promoText = [
@@ -158,11 +169,14 @@ export default async function StoreLayout({
             <Link href="/" className="block py-1.5 hover:text-white">Início</Link>
             <Link href="/carrinho" className="block py-1.5 hover:text-white">Carrinho</Link>
             <Link href="/meus-pedidos" className="block py-1.5 hover:text-white">Meus pedidos</Link>
+            <Link href="/trocas-e-devolucoes" className="block py-1.5 hover:text-white">Trocas e devoluções</Link>
+            <Link href="/politica-de-privacidade" className="block py-1.5 hover:text-white">Política de privacidade</Link>
           </div>
         </div>
-        <p className="border-t border-neutral-800 py-4 text-center text-xs text-neutral-500">
-          Loja criada com PMS app
-        </p>
+        <div className="space-y-1 border-t border-neutral-800 px-4 py-4 text-center text-xs text-neutral-500">
+          {identification && <p className="text-neutral-400">{identification}</p>}
+          <p>Loja criada com PMS app</p>
+        </div>
       </footer>
 
       {store.whatsapp && <StoreWhatsappButton whatsapp={store.whatsapp} />}
