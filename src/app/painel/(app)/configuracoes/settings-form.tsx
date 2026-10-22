@@ -3,6 +3,7 @@
 import { startTransition, useActionState, useState } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { productImageUrl } from "@/lib/images";
+import { MAX_ORIGINAL_BYTES, compressImage } from "@/lib/compress-image";
 import { saveSettings, type SettingsState } from "./actions";
 
 type Settings = {
@@ -43,11 +44,14 @@ export function SettingsForm({
 
   // Envia a imagem para o Storage da loja e devolve a mensagem de erro, se houver.
   // A URL nova só vale depois de "Salvar".
-  async function upload(file: File | undefined, kind: "logo" | "banner", maxMB: number) {
-    if (!file) return null;
+  async function upload(original: File | undefined, kind: "logo" | "banner", maxMB: number) {
+    if (!original) return null;
+    if (!LOGO_TYPES[original.type]) return "Use PNG, JPG ou WebP.";
+    if (original.size > MAX_ORIGINAL_BYTES) return "Arquivo muito grande (máximo de 25 MB).";
+    // Reduz no navegador antes de enviar (WebP mantém a transparência do logo).
+    const file = await compressImage(original, kind === "logo" ? 600 : 2000);
     const ext = LOGO_TYPES[file.type];
-    if (!ext) return "Use PNG, JPG ou WebP.";
-    if (file.size > maxMB * 1024 * 1024) return `Máximo de ${maxMB} MB.`;
+    if (file.size > maxMB * 1024 * 1024) return `Não foi possível reduzir para menos de ${maxMB} MB.`;
     setUploading(true);
     const path = `${storeId}/branding/${kind}-${crypto.randomUUID()}.${ext}`;
     const { error } = await createSupabaseBrowserClient()
@@ -126,7 +130,7 @@ export function SettingsForm({
               </button>
             )}
           </div>
-          <p className="text-xs text-neutral-500">PNG com fundo transparente fica melhor. Até 2 MB. Sem logo, a loja mostra a inicial do nome.</p>
+          <p className="text-xs text-neutral-500">PNG com fundo transparente fica melhor. A imagem é reduzida automaticamente. Sem logo, a loja mostra a inicial do nome.</p>
           {logoError && <p className="text-red-700">{logoError}</p>}
         </div>
       </section>
@@ -163,7 +167,7 @@ export function SettingsForm({
               )}
             </div>
             <p className="text-xs text-neutral-500">
-              Formato largo, 1800 × 600 pixels (3 por 1). No celular, as laterais são cortadas: deixe o principal no centro. Evite texto escrito na imagem: use os campos abaixo, que ficam legíveis em qualquer tela. Até 5 MB.
+              Formato largo, 1800 × 600 pixels (3 por 1). No celular, as laterais são cortadas: deixe o principal no centro. Evite texto escrito na imagem: use os campos abaixo, que ficam legíveis em qualquer tela. A imagem é reduzida automaticamente.
             </p>
             {bannerError && <p className="text-red-700">{bannerError}</p>}
           </div>

@@ -4,6 +4,7 @@ import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { productImageUrl } from "@/lib/images";
+import { MAX_ORIGINAL_BYTES, compressImage } from "@/lib/compress-image";
 import { addImage, moveImage, removeImage } from "./actions";
 
 const MAX_BYTES = 5 * 1024 * 1024;
@@ -31,14 +32,20 @@ export function ImagesManager({
     const supabase = createSupabaseBrowserClient();
     const problems: string[] = [];
 
-    for (const file of Array.from(files)) {
-      const ext = TYPES[file.type];
-      if (!ext) {
-        problems.push(`${file.name}: use JPG, PNG ou WebP.`);
+    for (const original of Array.from(files)) {
+      if (!TYPES[original.type]) {
+        problems.push(`${original.name}: use JPG, PNG ou WebP.`);
         continue;
       }
+      if (original.size > MAX_ORIGINAL_BYTES) {
+        problems.push(`${original.name}: arquivo muito grande (máximo de 25 MB).`);
+        continue;
+      }
+      // Reduz no navegador (até 1600 px, WebP) antes de enviar.
+      const file = await compressImage(original);
+      const ext = TYPES[file.type];
       if (file.size > MAX_BYTES) {
-        problems.push(`${file.name}: máximo de 5 MB.`);
+        problems.push(`${original.name}: não foi possível reduzir para menos de 5 MB.`);
         continue;
       }
       // Pasta <store_id>/... é exigida pelas políticas do Storage.
@@ -121,9 +128,9 @@ export function ImagesManager({
           htmlFor="product-image-input"
           className={`cursor-pointer rounded-md border px-3 py-2 text-sm ${uploading ? "pointer-events-none opacity-50" : ""}`}
         >
-          {uploading ? "Enviando…" : "+ Adicionar fotos"}
+          {uploading ? "Reduzindo e enviando…" : "+ Adicionar fotos"}
         </label>
-        <span className="text-xs text-neutral-500">JPG, PNG ou WebP, até 5 MB cada.</span>
+        <span className="text-xs text-neutral-500">JPG, PNG ou WebP. As fotos são reduzidas automaticamente para carregar rápido na loja.</span>
       </div>
       {error && <p className="text-sm text-red-700">{error}</p>}
     </section>
