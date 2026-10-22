@@ -6,6 +6,7 @@ import { isUuid } from "@/lib/validation";
 import { ProductForm } from "../product-form";
 import { VariantsEditor } from "../variants-editor";
 import { ImagesManager } from "../images-manager";
+import { VideosManager } from "../videos-manager";
 import { DeleteProductButton } from "../delete-product-button";
 import { duplicateProduct } from "../actions";
 
@@ -48,6 +49,13 @@ export default async function EditProductPage({
     supabase.from("categories").select("id, name").eq("store_id", store.id).order("position").order("name"),
   ]);
   if (!product) notFound();
+  // Consulta à parte: sem o SQL dos vídeos rodado, a página segue sem essa seção.
+  const { data: videos, error: videosError } = await supabase
+    .from("product_videos")
+    .select("id, path")
+    .eq("product_id", product.id)
+    .eq("store_id", store.id)
+    .order("position");
 
   const variants = [...(product.product_variants as Variant[])].sort((a, b) => a.position - b.position);
   const images = [...(product.product_images as { id: string; path: string; position: number }[])].sort(
@@ -79,6 +87,8 @@ export default async function EditProductPage({
       <ProductForm product={product} categories={categories ?? []} />
 
       <ImagesManager storeId={store.id} productId={product.id} images={images} />
+
+      {!videosError && <VideosManager storeId={store.id} productId={product.id} videos={videos ?? []} />}
 
       <VariantsEditor
         productId={product.id}

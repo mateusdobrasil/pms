@@ -5,7 +5,8 @@ import { getStoreByDomain, productImageUrl } from "@/lib/store";
 import { createPublicClient } from "@/lib/supabase/public";
 import { getInstallmentsInfo } from "@/lib/payments/installments";
 import { AddToCart } from "./add-to-cart";
-import { Gallery } from "./gallery";
+import { Gallery, type Media } from "./gallery";
+import { productVideoUrl } from "@/lib/images";
 
 export const revalidate = 60;
 
@@ -69,7 +70,20 @@ export default async function ProductPage({ params }: Params) {
 
   // Dados estruturados (schema.org/Product): o Google mostra preço e disponibilidade na busca.
   const prices = product.product_variants.map((v) => v.price_cents);
-  const installments = await getInstallmentsInfo(store.id, Math.min(...prices));
+  const [installments, { data: videos }] = await Promise.all([
+    getInstallmentsInfo(store.id, Math.min(...prices)),
+    // Consulta à parte: sem a tabela de vídeos (SQL não rodado), o produto aparece só com as fotos.
+    createPublicClient()
+      .from("product_videos")
+      .select("path")
+      .eq("store_id", store.id)
+      .eq("product_id", product.id)
+      .order("position"),
+  ]);
+  const media: Media[] = [
+    ...product.product_images.map((i) => ({ type: "image" as const, url: productImageUrl(i.path), alt: i.alt })),
+    ...(videos ?? []).map((v) => ({ type: "video" as const, url: productVideoUrl(v.path), alt: null })),
+  ];
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "Product",
@@ -97,7 +111,7 @@ export default async function ProductPage({ params }: Params) {
         // JSON.stringify não escapa "<"; troca para não fechar a tag script por engano.
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replaceAll("<", String.fromCharCode(92) + "u003c") }}
       />
-      <Gallery name={product.name} images={product.product_images.map((i) => ({ url: productImageUrl(i.path), alt: i.alt }))} />
+      <Gallery name={product.name} media={media} />
 
       <div className="space-y-6">
         <div>
