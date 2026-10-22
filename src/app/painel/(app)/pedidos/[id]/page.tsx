@@ -4,8 +4,8 @@ import { requireStore } from "@/lib/panel";
 import { formatBRL } from "@/lib/money";
 import { formatCPF, formatDateTime, formatPhone } from "@/lib/format";
 import { isUuid } from "@/lib/validation";
-import { MEMBER_TRANSITIONS, statusLabel, statusTone, type OrderStatus } from "@/lib/order-status";
-import { OrderActions } from "./order-actions";
+import { MEMBER_TRANSITIONS, SOLD_STATUSES, statusLabel, statusTone, type OrderStatus } from "@/lib/order-status";
+import { OrderActions, RefundSection } from "./order-actions";
 
 type Order = {
   id: string;
@@ -55,6 +55,11 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
   const isPickup = order.shipping_method === "pickup";
   const phone = order.customer_phone ? `55${order.customer_phone}` : null;
   const address = order.shipping_address;
+  const approved = order.payments.find((p) => p.status === "approved");
+  // Estorno pelo painel (coluna do SQL 20261027000000, lida à parte).
+  const { data: refund } = await supabase.from("orders").select("refunded_at").eq("id", order.id).maybeSingle();
+  const refundedAt = (refund as { refunded_at: string | null } | null)?.refunded_at ?? null;
+  const refundable = SOLD_STATUSES.includes(order.status) && !!approved;
 
   return (
     <div className="space-y-6">
@@ -75,10 +80,17 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
         <p className="text-sm text-neutral-500">
           Criado em {formatDateTime(order.created_at)}
           {order.paid_at && ` · pago em ${formatDateTime(order.paid_at)}`}
+          {refundedAt && ` · estornado em ${formatDateTime(refundedAt)}`}
         </p>
       </div>
 
-      {order.stock_issue && (
+      {refundedAt && (
+        <p className="rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+          Pedido cancelado e estornado em {formatDateTime(refundedAt)}. O cliente foi avisado por e-mail.
+        </p>
+      )}
+
+      {order.stock_issue && !refundedAt && (
         <p className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
           Este pedido foi pago, mas faltou estoque de algum item no momento da confirmação. Confira antes de enviar e,
           se preciso, combine com o cliente.
@@ -143,7 +155,11 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
             shippingMethod={order.shipping_method}
             trackingCode={order.tracking_code}
             transitions={MEMBER_TRANSITIONS[order.status]}
+            refundable={refundable}
           />
+          {refundable && approved && (
+            <RefundSection orderId={order.id} totalLabel={formatBRL(order.total_cents)} method={approved.method} stockIssue={order.stock_issue} />
+          )}
 
           <section className="space-y-1 rounded-xl border bg-white shadow-sm px-4 py-3 text-sm">
             <h2 className="mb-2 font-medium">Cliente</h2>

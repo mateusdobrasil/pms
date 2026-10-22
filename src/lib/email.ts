@@ -91,8 +91,10 @@ function customerWhatsappUrl(o: OrderForEmail) {
   return `https://wa.me/55${o.customer_phone}?text=${encodeURIComponent(text)}`;
 }
 
+type OrderNotice = "notified_paid_at" | "notified_shipped_at" | "notified_refunded_at";
+
 // Trava: só quem preencher a coluna envia. Se o envio falhar, libera para tentar de novo.
-async function claim(orderId: string, column: "notified_paid_at" | "notified_shipped_at", statuses: string[]) {
+async function claim(orderId: string, column: OrderNotice, statuses: string[]) {
   const { data } = await createAdminClient()
     .from("orders")
     .update({ [column]: new Date().toISOString() })
@@ -103,7 +105,7 @@ async function claim(orderId: string, column: "notified_paid_at" | "notified_shi
   return !!data?.length;
 }
 
-async function release(orderId: string, column: "notified_paid_at" | "notified_shipped_at") {
+async function release(orderId: string, column: OrderNotice) {
   await createAdminClient().from("orders").update({ [column]: null }).eq("id", orderId);
 }
 
@@ -181,6 +183,35 @@ export async function notifyOrderShipped(orderId: string) {
     if (!ok) await release(orderId, "notified_shipped_at");
   } catch (err) {
     console.error("Falha ao notificar envio", { orderId, err });
+  }
+}
+
+// Pedido cancelado com estorno pelo painel: avisa o cliente de quando o dinheiro volta.
+export async function notifyOrderRefunded(orderId: string, method: "pix" | "card") {
+  try {
+    if (!(await claim(orderId, "notified_refunded_at", ["canceled"]))) return;
+    const o = await loadOrder(orderId);
+    if (!o) return;
+    const when =
+      method === "pix"
+        ? "Como o pagamento foi por Pix, o valor volta para a sua conta em instantes."
+        : "Como o pagamento foi no cartão, o valor aparece como crédito na fatura em até 2 faturas, conforme o banco.";
+    const ok = await sendEmail({
+      to: o.customer_email,
+      fromName: o.stores.name,
+      replyTo: o.stores.email,
+      idempotencyKey: `refunded-${o.id}`,
+      subject: `Pedido ${o.code} cancelado e estornado`,
+      html: layout(o.stores, `
+        <h1 style="margin:0 0 8px;font-size:22px">Pedido cancelado e estornado</h1>
+        <p style="margin:0 0 20px;color:#525252">Olá, ${esc(firstName(o.customer_name))}. O pedido <strong>${o.code}</strong> foi cancelado e
+        devolvemos <strong>${formatBRL(o.total_cents)}</strong>. ${when}</p>
+        ${itemsTable(o)}
+        ${o.stores.whatsapp ? `<p style="margin:20px 0 0;color:#525252">Dúvidas? Fale com a gente pelo <a href="https://wa.me/${o.stores.whatsapp}">WhatsApp</a>.</p>` : ""}`),
+    });
+    if (!ok) await release(orderId, "notified_refunded_at");
+  } catch (err) {
+    console.error("Falha ao notificar estorno", { orderId, err });
   }
 }
 

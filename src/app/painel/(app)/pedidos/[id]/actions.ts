@@ -2,10 +2,12 @@
 
 import { revalidatePath } from "next/cache";
 import { after } from "next/server";
-import { notifyOrderShipped } from "@/lib/email";
+import { notifyOrderRefunded, notifyOrderShipped, notifyPlatformError } from "@/lib/email";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { MercadoPagoError, getPayment, refundPayment } from "@/lib/payments/mercadopago";
 import { requireStore } from "@/lib/panel";
 import { isUuid } from "@/lib/validation";
-import { MEMBER_TRANSITIONS, statusLabel, type OrderStatus } from "@/lib/order-status";
+import { MEMBER_TRANSITIONS, SOLD_STATUSES, statusLabel, type OrderStatus } from "@/lib/order-status";
 
 export type OrderActionState = { error?: string; ok?: string } | null;
 
@@ -76,4 +78,53 @@ export async function saveTracking(_prev: OrderActionState, form: FormData): Pro
 
   if (markShipped) after(() => notifyOrderShipped(order.id));
   return done(order.id, markShipped ? "Rastreio salvo e pedido marcado como enviado." : "Rastreio atualizado.");
+}
+
+// Cancelar e estornar: devolve o pagamento no Mercado Pago (conta do lojista), cancela o pedido e,
+// se marcado, devolve os itens ao estoque. Seguro para repetir: consulta o pagamento antes de estornar.
+export async function refundOrder(_prev: OrderActionState, form: FormData): Promise<OrderActionState> {
+  const id = String(form.get("orderId") ?? "");
+  const restock = form.get("restock") === "on";
+  const { supabase, store } = await requireStore();
+  if (!isUuid(id)) return { error: "Pedido não encontrado." };
+
+  // RLS: o lojista só enxerga os pedidos e pagamentos da própria loja.
+  const { data } = await supabase
+    .from("orders")
+    .select("id, status, payments(provider_payment_id, method, status)")
+    .eq("id", id)
+    .eq("store_id", store.id)
+    .maybeSingle();
+  const order = data as { id: string; status: OrderStatus; payments: { provider_payment_id: string; method: "pix" | "card"; status: string }[] } | null;
+  if (!order) return { error: "Pedido não encontrado." };
+  if (!SOLD_STATUSES.includes(order.status)) return { error: "Só é possível estornar pedidos pagos." };
+  const payment = order.payments.find((p) => p.status === "approved" || p.status === "refunded");
+  if (!payment) return { error: "Este pedido não tem pagamento aprovado para estornar." };
+
+  const db = createAdminClient();
+  const { data: secret } = await db.from("store_secrets").select("gateway_access_token").eq("store_id", store.id).maybeSingle();
+  if (!secret?.gateway_access_token) return { error: "Mercado Pago não configurado. Fale com o suporte." };
+
+  try {
+    const current = await getPayment(payment.provider_payment_id, secret.gateway_access_token);
+    if (current.status !== "refunded") await refundPayment(payment.provider_payment_id, secret.gateway_access_token);
+  } catch (err) {
+    console.error("Estorno recusado pelo Mercado Pago", { orderId: id, err });
+    const detail = err instanceof MercadoPagoError ? (err.body as { message?: string } | null)?.message : null;
+    return {
+      error: `O Mercado Pago não fez o estorno${detail ? ` (${detail})` : ""}. Confira se há saldo na sua conta do Mercado Pago ou faça o estorno pelo app dele.`,
+    };
+  }
+
+  // Dinheiro já devolvido: daqui em diante só atualizamos o pedido (service role: transição feita pelo servidor).
+  await db.from("payments").update({ status: "refunded" }).eq("store_id", store.id).eq("provider_payment_id", payment.provider_payment_id);
+  const { data: refunded, error } = await db.rpc("refund_order", { p_order_id: id, p_restock: restock });
+  if (error || !refunded) {
+    console.error("Estorno feito, mas o pedido não foi atualizado", { orderId: id, error });
+    after(() => notifyPlatformError(`estorno:${id}`, "Estorno feito no Mercado Pago, mas o pedido não foi atualizado", { pedido: id, erro: error?.message ?? "refund_order devolveu false" }));
+    return { error: "O dinheiro foi devolvido, mas não foi possível atualizar o pedido. Recarregue a página; se continuar, fale com o suporte." };
+  }
+
+  after(() => notifyOrderRefunded(id, payment.method));
+  return done(id, restock ? "Pedido cancelado, valor estornado e itens devolvidos ao estoque." : "Pedido cancelado e valor estornado.");
 }

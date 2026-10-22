@@ -191,6 +191,16 @@ export async function createCheckoutPreference(input: {
   return String((body as { init_point: string }).init_point);
 }
 
+// Estorno total do pagamento. A chave de idempotência fixa por pagamento impede estornar duas vezes
+// (clique duplo ou nova tentativa devolvem o mesmo estorno).
+export async function refundPayment(paymentId: string, accessToken: string) {
+  return mpFetch(`/v1/payments/${encodeURIComponent(paymentId)}/refunds`, accessToken, {
+    method: "POST",
+    headers: { "X-Idempotency-Key": `refund-${paymentId}` },
+    body: JSON.stringify({}),
+  }) as Promise<{ id: number; status: string; amount: number }>;
+}
+
 export async function getPayment(paymentId: string, accessToken: string) {
   const raw = await mpFetch(`/v1/payments/${encodeURIComponent(paymentId)}`, accessToken);
   return toGatewayPayment(raw);
