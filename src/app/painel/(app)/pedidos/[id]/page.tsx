@@ -62,6 +62,14 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
         <div className="mt-2 flex flex-wrap items-baseline gap-3">
           <h1 className="font-mono text-2xl font-semibold tracking-tight">{order.code}</h1>
           <span className={statusTone(order.status)}>{statusLabel(order.status, order.shipping_method)}</span>
+          <a
+            href={`/painel/imprimir/${order.id}`}
+            target="_blank"
+            rel="noopener"
+            className="ml-auto rounded-md border bg-white px-3 py-1.5 text-sm hover:border-neutral-400"
+          >
+            Imprimir pedido
+          </a>
         </div>
         <p className="text-sm text-neutral-500">
           Criado em {formatDateTime(order.created_at)}
