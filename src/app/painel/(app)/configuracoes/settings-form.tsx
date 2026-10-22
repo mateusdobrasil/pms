@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { startTransition, useActionState, useState } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { productImageUrl } from "@/lib/images";
 import { saveSettings, type SettingsState } from "./actions";
@@ -70,7 +70,16 @@ export function SettingsForm({
   }
 
   return (
-    <form action={action} className="space-y-6">
+    <form
+      // Envio manual: com action={action}, o React limpa o formulário depois do envio,
+      // e um erro de validação apagaria o que o lojista digitou.
+      onSubmit={(e) => {
+        e.preventDefault();
+        const data = new FormData(e.currentTarget);
+        startTransition(() => action(data));
+      }}
+      className="space-y-6"
+    >
       <section className="space-y-4 rounded-xl border bg-white p-5 shadow-sm">
         <h2 className="font-semibold">Identidade</h2>
         <label className="block space-y-1 text-sm">
@@ -154,7 +163,7 @@ export function SettingsForm({
               )}
             </div>
             <p className="text-xs text-neutral-500">
-              Formato largo, 1800 × 600 pixels (3 por 1). No celular, as laterais são cortadas: deixe o principal no centro. Até 5 MB.
+              Formato largo, 1800 × 600 pixels (3 por 1). No celular, as laterais são cortadas: deixe o principal no centro. Evite texto escrito na imagem: use os campos abaixo, que ficam legíveis em qualquer tela. Até 5 MB.
             </p>
             {bannerError && <p className="text-red-700">{bannerError}</p>}
           </div>
