@@ -4,6 +4,7 @@ import { productImageUrl } from "@/lib/store";
 import { formatBRL } from "@/lib/money";
 import { NoPhoto } from "./no-photo";
 import type { Sort } from "./sort-options";
+import { LOW_STOCK } from "@/lib/stock";
 
 type Row = {
   id: string;
@@ -47,6 +48,7 @@ export function ProductGrid({ products }: { products: Row[] }) {
         const minPrice = Math.min(...prices);
         const cheapest = p.product_variants.find((v) => v.price_cents === minPrice);
         const soldOut = p.product_variants.every((v) => v.stock <= 0);
+        const lastUnits = !soldOut && p.product_variants.reduce((s, v) => s + Math.max(0, v.stock), 0) <= LOW_STOCK;
         const cover = [...p.product_images].sort((a, b) => a.position - b.position)[0];
 
         return (
@@ -66,6 +68,9 @@ export function ProductGrid({ products }: { products: Row[] }) {
                 )}
                 {soldOut && (
                   <span className="absolute left-2 top-2 rounded-full bg-neutral-900/80 px-2.5 py-0.5 text-xs font-medium text-white">Esgotado</span>
+                )}
+                {lastUnits && (
+                  <span className="absolute left-2 top-2 rounded-full bg-amber-500 px-2.5 py-0.5 text-xs font-semibold text-white">Últimas unidades</span>
                 )}
               </div>
               <p className="mt-3 line-clamp-2 text-sm font-medium text-neutral-800">{p.name}</p>

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { addToCart, readCart } from "@/lib/cart";
 import { formatBRL } from "@/lib/money";
+import { LOW_STOCK } from "@/lib/stock";
 
 type Variant = { id: string; name: string; priceCents: number; compareAtCents: number | null; stock: number };
 
@@ -98,8 +99,10 @@ export function AddToCart({ productName, variants }: { productName: string; vari
         </div>
       )}
 
-      {selected && selected.stock > 0 && selected.stock <= 5 && (
-        <p className="text-sm text-amber-700">Últimas {selected.stock} unidades.</p>
+      {selected && selected.stock > 0 && selected.stock <= LOW_STOCK && (
+        <p className="text-sm font-medium text-amber-700">
+          {selected.stock === 1 ? "Última unidade!" : `Últimas ${selected.stock} unidades!`}
+        </p>
       )}
       {message && <p className="text-sm text-red-700">{message}</p>}
       {added && (
