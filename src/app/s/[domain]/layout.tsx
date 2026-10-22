@@ -9,7 +9,7 @@ import { formatDocument } from "@/lib/format";
 import { InstagramIcon } from "./instagram-icon";
 import { Tracking } from "./tracking";
 import { formatBRL } from "@/lib/money";
-import { storeBaseUrl } from "@/lib/urls";
+import { platformUrl, storeBaseUrl } from "@/lib/urls";
 import { CartLink } from "./cart-link";
 import { StoreWhatsappButton } from "./store-whatsapp";
 import { TestModeBanner } from "./test-mode-banner";
@@ -182,7 +182,12 @@ export default async function StoreLayout({
         </div>
         <div className="space-y-1 border-t border-neutral-800 px-4 py-4 text-center text-xs text-neutral-500">
           {identification && <p className="text-neutral-400">{identification}</p>}
-          <p>Loja criada com PMS app</p>
+          <p>
+            Loja criada com{" "}
+            <a href={platformUrl()} target="_blank" rel="noopener" className="font-medium text-neutral-400 underline-offset-2 hover:text-white hover:underline">
+              PMS app
+            </a>
+          </p>
         </div>
       </footer>
 
