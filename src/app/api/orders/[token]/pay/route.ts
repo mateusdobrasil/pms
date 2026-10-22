@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getStoreFromRequest } from "@/lib/request-store";
 import { isUuid } from "@/lib/validation";
 import { recordPayment } from "@/lib/payments/record";
+import { rateLimit } from "@/lib/rate-limit";
 import {
   MercadoPagoError,
   PIX_TTL_MINUTES,
@@ -37,6 +38,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ token: 
 
   const store = await getStoreFromRequest(req);
   if (!store) return fail("Loja não encontrada", 404);
+
+  const limited = await rateLimit(req, store.id, "pay");
+  if (limited) return limited;
 
   const db = createAdminClient();
   const { data: order } = await db

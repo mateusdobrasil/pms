@@ -358,6 +358,7 @@ npx next build         # build de produção (rode antes de subir)</code></pre>
         <li><span class="pill warn">Vercel</span> Conferir as variáveis de produção (Resend, Melhor Envio, <code>PLATFORM_URL</code>) e fazer Redeploy.</li>
         <li><span class="pill warn">Kadosh</span> CEP de origem, produtos, compra de teste no domínio e virada para produção.</li>
         <li><span class="pill bad">banco</span> Rodar <code>20261021100000_agendar_expiracao_pedidos.sql</code> (liga o pg_cron e agenda <code>expire_pending_orders()</code>). Até isso ser feito, pedidos vencidos continuam como "aguardando pagamento" no painel (a página do cliente já mostra "Expirado").</li>
+        <li><span class="pill bad">banco</span> Rodar <code>20261021110000_limite_tentativas.sql</code> (depois do anterior). Liga o limite por IP: 10 pedidos em 10 min, 15 buscas em "Meus pedidos" em 15 min e 12 tentativas de pagamento em 10 min, por loja. Sem ele, o site funciona sem limite, e o log mostra <code>rate_limit_hit falhou</code>. Para liberar um IP na hora: <code>delete from rate_limits where key like '%:&lt;ip&gt;'</code>.</li>
         <li><span class="pill bad">segurança</span> Trocar a senha de <code>admin@pms.com</code>, que foi exposta em conversa.</li>
       </ul>
     </section>

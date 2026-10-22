@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getStoreFromRequest } from "@/lib/request-store";
 import { isEmail, onlyDigits } from "@/lib/validation";
+import { rateLimit } from "@/lib/rate-limit";
 
 const MAX_RESULTS = 20;
 
@@ -10,6 +11,9 @@ const MAX_RESULTS = 20;
 export async function POST(req: Request) {
   const store = await getStoreFromRequest(req);
   if (!store) return NextResponse.json({ error: "Loja não encontrada" }, { status: 404 });
+
+  const limited = await rateLimit(req, store.id, "lookup");
+  if (limited) return limited;
 
   const body = (await req.json().catch(() => null)) as { identifier?: unknown; email?: unknown } | null;
   const identifier = typeof body?.identifier === "string" ? body.identifier.trim() : "";
