@@ -29,7 +29,12 @@ export function TwoFactorForm({ mode, factorId, email }: { mode: "enroll" | "ver
         if (f.factor_type === "totp" && f.status === "unverified") await supabase.auth.mfa.unenroll({ factorId: f.id });
       }
       // Nome interno único: duas tentativas simultâneas não se atrapalham.
-      const { data, error } = await supabase.auth.mfa.enroll({ factorType: "totp", friendlyName: `PMS app ${Date.now()}` });
+      // issuer é o nome que aparece no app autenticador (sem ele, o Supabase usa o Site URL do projeto).
+      const { data, error } = await supabase.auth.mfa.enroll({
+        factorType: "totp",
+        friendlyName: `PMS app ${Date.now()}`,
+        issuer: "PMS app",
+      });
       if (!current) return;
       if (error || !data) return setError("Não foi possível iniciar o cadastro. Recarregue a página.");
       setEnrollment({ factorId: data.id, qrCode: data.totp.qr_code, secret: data.totp.secret });
