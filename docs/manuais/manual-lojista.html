@@ -97,14 +97,42 @@ footer { color: var(--muted); font-size: 14px; border-top: 1px solid var(--line)
 <main class="inner">
   <section aria-label="Índice">
     <ul class="toc">
+      <li><a href="#novidades">Novidades<span>O que mudou em outubro</span></a></li>
       <li><a href="#acesso">Primeiro acesso<span>Entrar e trocar a senha</span></a></li>
-      <li><a href="#configurar">Configurar a loja<span>Logo, cor, WhatsApp, CEP</span></a></li>
-      <li><a href="#produtos">Produtos<span>Fotos, tamanhos, estoque</span></a></li>
+      <li><a href="#configurar">Configurar a loja<span>Logo, banner, promoções, CEP</span></a></li>
+      <li><a href="#produtos">Produtos<span>Fotos, vídeos, tamanhos, estoque</span></a></li>
       <li><a href="#compra">Como o cliente compra<span>O caminho da venda</span></a></li>
       <li><a href="#pagamentos">Pagamentos<span>Pix, cartão e o seu dinheiro</span></a></li>
-      <li><a href="#pedidos">Pedidos<span>O que fazer em cada etapa</span></a></li>
+      <li><a href="#pedidos">Pedidos<span>Etapas, planilha e impressão</span></a></li>
       <li><a href="#entrega">Entrega e frete<span>Etiqueta e rastreio</span></a></li>
       <li><a href="#duvidas">Dúvidas frequentes<span>Respostas rápidas</span></a></li>
+    </ul>
+  </section>
+
+  <section id="novidades">
+    <h2>Novidades</h2>
+    <p>O que chegou à sua loja em outubro de 2026. Cada item leva à explicação completa neste manual.</p>
+
+    <h3>Para vender mais</h3>
+    <ul>
+      <li><strong>Desconto no Pix e frete grátis</strong>: em Configurações → Promoções, defina um desconto para quem paga com Pix e um valor a partir do qual a entrega mais barata sai de graça. A loja anuncia as promoções numa faixa no topo. <a href="#configurar">Ver como configurar</a></li>
+      <li><strong>Banner na página inicial</strong>: uma imagem larga com título, texto e link para uma categoria ou produto. Bom para divulgar promoções e coleções. <a href="#configurar">Ver como configurar</a></li>
+      <li><strong>Vídeos dos produtos</strong>: até 3 vídeos curtos por produto, que aparecem na galeria junto com as fotos. <a href="#produtos">Ver como enviar</a></li>
+      <li><strong>Parcelamento na página do produto</strong>: o cliente vê em quantas vezes pode pagar, e "sem juros" quando você oferece isso no Mercado Pago. <a href="#pagamentos">Ver detalhes</a></li>
+      <li><strong>Selo "Últimas unidades"</strong> nos produtos com 3 unidades ou menos, e esgotados no fim da lista. <a href="#produtos">Ver detalhes</a></li>
+      <li><strong>Ordenar produtos</strong>: nas categorias e na busca, o cliente ordena por destaques, novidades ou preço. <a href="#produtos">Ver detalhes</a></li>
+      <li><strong>Meus pedidos</strong>: o cliente encontra os pedidos dele no topo da loja, pelo número do pedido ou CPF, junto com o e-mail da compra. <a href="#compra">Ver detalhes</a></li>
+    </ul>
+
+    <h3>Para o seu dia a dia</h3>
+    <ul>
+      <li><strong>Um botão só para salvar o produto</strong>: "Salvar alterações" fica fixo no rodapé da página do produto e salva os dados e as variações juntos. Fotos e vídeos são salvos assim que terminam de enviar. <a href="#produtos">Ver detalhes</a></li>
+      <li><strong>Fotos direto do celular</strong>: pode enviar a foto como saiu da câmera. O painel reduz o tamanho sozinho, e a loja carrega mais rápido. <a href="#produtos">Ver detalhes</a></li>
+      <li><strong>Duplicar produto</strong>: cria uma cópia com fotos, vídeos e variações, ótima para outra cor ou modelo parecido. <a href="#produtos">Ver detalhes</a></li>
+      <li><strong>Busca e filtros na lista de produtos</strong>: visíveis, ocultos, destaques e categoria. <a href="#produtos">Ver detalhes</a></li>
+      <li><strong>Estoque baixo no Resumo</strong>: a lista do que está acabando, para você repor a tempo. <a href="#pedidos">Ver detalhes</a></li>
+      <li><strong>Exportar pedidos em planilha</strong> e <strong>imprimir pedido</strong> para separar e conferir. <a href="#pedidos">Ver detalhes</a></li>
+      <li><strong>Menos retrabalho</strong>: quando aparece um erro num formulário (preço inválido, por exemplo), o que você digitou continua na tela.</li>
     </ul>
   </section>
 
@@ -230,6 +258,11 @@ footer { color: var(--muted); font-size: 14px; border-top: 1px solid var(--line)
 
   <section id="duvidas">
     <h2>Dúvidas frequentes</h2>
+    <details><summary>Como dou desconto no Pix ou ofereço frete grátis?</summary><p>Painel → Configurações → Promoções. Preencha o percentual do Pix (por exemplo, 5) e/ou o valor mínimo para frete grátis (por exemplo, 199,90) e clique em Salvar configurações. Em até 1 minuto aparece a faixa no topo da loja. Para desligar, apague o campo e salve.</p></details>
+    <details><summary>O frete grátis sai do meu bolso?</summary><p>Sim. O cliente não paga a entrega, mas a etiqueta no Melhor Envio continua sendo cobrada de você. Escolha um valor mínimo que cubra esse custo. Só a opção de entrega mais barata fica grátis.</p></details>
+    <details><summary>Um cliente pagou com Pix e o total do pedido ficou menor. Está certo?</summary><p>Está. Com desconto no Pix, o pedido mostra a linha "Desconto Pix", e o total passa a ser o valor que entrou no seu Mercado Pago. O Resumo de vendas e a planilha também usam esse valor.</p></details>
+    <details><summary>O painel recusou meu vídeo dizendo que ele não toca em todos os navegadores.</summary><p>O vídeo foi gravado em HEVC, formato padrão do iPhone que o Chrome e muitos Androids não reproduzem. No iPhone, vá em Ajustes → Câmera → Formatos, escolha <strong>Mais Compatível</strong> e grave de novo. Vídeos de outros celulares costumam funcionar direto.</p></details>
+    <details><summary>A foto perde qualidade ao ser reduzida?</summary><p>Não de forma visível. A foto fica com até 1600 pixels no lado maior, o suficiente para ver os detalhes no celular e no computador, e carrega muito mais rápido para o cliente.</p></details>
     <details><summary>O cliente diz que pagou, mas o pedido continua "Aguardando pagamento".</summary><p>Pix leva alguns segundos e, raramente, alguns minutos. Peça para ele manter a página do pedido aberta: ela atualiza sozinha. Se passar de 30 minutos, confira o pagamento no seu Mercado Pago e fale com o suporte.</p></details>
     <details><summary>Vendi pela loja física. Como ajusto o estoque?</summary><p>Painel → Produtos → abra o produto → Variações e estoque → altere o número → Salvar alterações (no rodapé). Se aparecer o aviso de que o estoque mudou enquanto você editava, é porque saiu uma venda online nesse meio-tempo. O valor atual já aparece na tela: ajuste e salve de novo.</p></details>
     <details><summary>Posso mudar o preço de um produto que já tem pedidos?</summary><p>Pode. Pedidos já feitos mantêm o preço da época da compra.</p></details>
