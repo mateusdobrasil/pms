@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { clearCart, readCart } from "@/lib/cart";
 import { formatBRL } from "@/lib/money";
+import { trackBeginCheckout } from "@/lib/tracking";
 
 type Option = {
   id: string;
@@ -59,7 +60,10 @@ export function CheckoutForm() {
 
   useEffect(() => {
     fetchQuote(null)
-      .then(applyQuote)
+      .then((q) => {
+        applyQuote(q);
+        if (q.lines.length) trackBeginCheckout(q.subtotalCents);
+      })
       .catch(() => setErrors(["Não foi possível carregar o carrinho."]));
   }, []);
 

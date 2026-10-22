@@ -100,7 +100,7 @@ footer { color: var(--muted); font-size: 14px; border-top: 1px solid var(--line)
       <li><a href="#novidades">Novidades<span>O que mudou em outubro</span></a></li>
       <li><a href="#acesso">Primeiro acesso<span>Entrar e trocar a senha</span></a></li>
       <li><a href="#configurar">Configurar a loja<span>Logo, banner, promoções, CEP</span></a></li>
-      <li><a href="#produtos">Produtos<span>Fotos, vídeos, tamanhos, estoque</span></a></li>
+      <li><a href="#produtos">Produtos<span>Fotos, Instagram, tamanhos, estoque</span></a></li>
       <li><a href="#compra">Como o cliente compra<span>O caminho da venda</span></a></li>
       <li><a href="#pagamentos">Pagamentos<span>Pix, cartão e o seu dinheiro</span></a></li>
       <li><a href="#pedidos">Pedidos<span>Etapas, planilha e impressão</span></a></li>
@@ -117,7 +117,8 @@ footer { color: var(--muted); font-size: 14px; border-top: 1px solid var(--line)
     <ul>
       <li><strong>Desconto no Pix e frete grátis</strong>: em Configurações → Promoções, defina um desconto para quem paga com Pix e um valor a partir do qual a entrega mais barata sai de graça. A loja anuncia as promoções numa faixa no topo. <a href="#configurar">Ver como configurar</a></li>
       <li><strong>Banner na página inicial</strong>: uma imagem larga com título, texto e link para uma categoria ou produto. Bom para divulgar promoções e coleções. <a href="#configurar">Ver como configurar</a></li>
-      <li><strong>Vídeos dos produtos</strong>: até 3 vídeos curtos por produto, que aparecem na galeria junto com as fotos. <a href="#produtos">Ver como enviar</a></li>
+      <li><strong>Instagram na loja</strong>: o seu @ aparece no topo e no rodapé, e cada produto pode ter o link de um Reel com o botão "Ver vídeo no Instagram". <a href="#configurar">Ver como configurar</a></li>
+      <li><strong>Pixel da Meta e Google Analytics</strong>: meça visitas, carrinhos e vendas que vieram dos seus anúncios. A loja pede o consentimento do visitante (LGPD). <a href="#configurar">Ver como configurar</a></li>
       <li><strong>Parcelamento na página do produto</strong>: o cliente vê em quantas vezes pode pagar, e "sem juros" quando você oferece isso no Mercado Pago. <a href="#pagamentos">Ver detalhes</a></li>
       <li><strong>Selo "Últimas unidades"</strong> nos produtos com 3 unidades ou menos, e esgotados no fim da lista. <a href="#produtos">Ver detalhes</a></li>
       <li><strong>Ordenar produtos</strong>: nas categorias e na busca, o cliente ordena por destaques, novidades ou preço. <a href="#produtos">Ver detalhes</a></li>
@@ -126,9 +127,10 @@ footer { color: var(--muted); font-size: 14px; border-top: 1px solid var(--line)
 
     <h3>Para o seu dia a dia</h3>
     <ul>
-      <li><strong>Um botão só para salvar o produto</strong>: "Salvar alterações" fica fixo no rodapé da página do produto e salva os dados e as variações juntos. Fotos e vídeos são salvos assim que terminam de enviar. <a href="#produtos">Ver detalhes</a></li>
+      <li><strong>Um botão só para salvar o produto</strong>: "Salvar alterações" fica fixo no rodapé da página do produto e salva os dados e as variações juntos. As fotos são salvas assim que terminam de enviar. <a href="#produtos">Ver detalhes</a></li>
+      <li><strong>WhatsApp do cliente no e-mail de venda</strong>: o e-mail "Nova venda" traz um botão que abre a conversa com o cliente, com uma mensagem pronta. <a href="#pedidos">Ver detalhes</a></li>
       <li><strong>Fotos direto do celular</strong>: pode enviar a foto como saiu da câmera. O painel reduz o tamanho sozinho, e a loja carrega mais rápido. <a href="#produtos">Ver detalhes</a></li>
-      <li><strong>Duplicar produto</strong>: cria uma cópia com fotos, vídeos e variações, ótima para outra cor ou modelo parecido. <a href="#produtos">Ver detalhes</a></li>
+      <li><strong>Duplicar produto</strong>: cria uma cópia com fotos e variações, ótima para outra cor ou modelo parecido. <a href="#produtos">Ver detalhes</a></li>
       <li><strong>Busca e filtros na lista de produtos</strong>: visíveis, ocultos, destaques e categoria. <a href="#produtos">Ver detalhes</a></li>
       <li><strong>Estoque baixo no Resumo</strong>: a lista do que está acabando, para você repor a tempo. <a href="#pedidos">Ver detalhes</a></li>
       <li><strong>Exportar pedidos em planilha</strong> e <strong>imprimir pedido</strong> para separar e conferir. <a href="#pedidos">Ver detalhes</a></li>
@@ -165,6 +167,13 @@ footer { color: var(--muted); font-size: 14px; border-top: 1px solid var(--line)
         </ul>
       </li>
       <li><strong>WhatsApp</strong>: DDD + número. Cria o botão verde "WhatsApp" em todas as páginas da loja. Deixe vazio para esconder.</li>
+      <li><strong>Instagram e anúncios</strong>:
+        <ul>
+          <li><strong>Instagram da loja</strong>: o seu @ (por exemplo, @minhaloja). Aparece como ícone no topo e no rodapé da loja.</li>
+          <li><strong>Pixel da Meta</strong> e <strong>Google Analytics</strong> (opcionais): cole os IDs para medir quem veio dos seus anúncios, o que viu, o que pôs no carrinho e o que comprou. O ID do Pixel fica no Gerenciador de Eventos da Meta; o do Analytics começa com G- e fica em Administrador → Fluxos de dados.</li>
+          <li>Com Pixel ou Analytics configurado, a loja mostra um aviso de cookies na primeira visita, como manda a LGPD, e só mede quem clicar em <strong>Aceitar</strong>. Sem nenhum dos dois, não aparece aviso.</li>
+        </ul>
+      </li>
       <li><strong>E-mail da loja</strong>: recebe o aviso de <strong>cada venda</strong> e as respostas dos clientes aos e-mails do pedido.</li>
       <li><strong>CEP de origem</strong>: de onde os pedidos saem. <strong>Sem ele não há cálculo de frete</strong>, e a loja oferece só retirada.</li>
     </ul>
@@ -181,10 +190,10 @@ footer { color: var(--muted); font-size: 14px; border-top: 1px solid var(--line)
       <li><div><span class="where">Painel → Produtos → Novo produto</span> Preencha nome, descrição, categoria, <strong>preço</strong> (ex.: <strong>79,90</strong>) e <strong>estoque</strong>.</div></li>
       <li><div>Clique em <strong>Criar produto</strong>. A página do produto abre para você completar o cadastro.</div></li>
       <li><div>Em <strong>Fotos</strong>, envie as imagens (JPG, PNG ou WebP). Você pode escolher várias de uma vez, direto da câmera do celular: o painel reduz cada foto automaticamente (até 1600 pixels) para a loja carregar rápido. <strong>A primeira é a capa.</strong> Use ← → para mudar a ordem.</div></li>
-      <li><div>Em <strong>Vídeos</strong> (opcional), envie até <strong>3 vídeos curtos</strong> mostrando o produto em uso: MP4 ou MOV, até <strong>60 segundos</strong> e 50 MB cada. Na loja, eles aparecem na galeria depois das fotos, com um ícone de play, e começam a tocar sem som quando o cliente toca na miniatura. Se o painel disser que o vídeo não toca em todos os navegadores, é o formato HEVC do iPhone: em Ajustes → Câmera → Formatos, escolha <strong>Mais Compatível</strong> e grave de novo.</div></li>
+      <li><div>Tem um <strong>Reel</strong> mostrando o produto? Cole o link em <strong>Vídeo no Instagram</strong> (opcional). Na loja, aparece o botão "Ver vídeo no Instagram" abaixo das fotos. No app do Instagram: abra o Reel → ⋯ → Copiar link.</div></li>
       <li><div>Em <strong>Variações e estoque</strong>, crie uma linha para cada opção do produto (tamanho, cor, volume) com preço e estoque próprios.</div></li>
       <li><div>Marque <strong>Mostrar peso e medidas</strong> e preencha o peso (gramas) e as medidas da embalagem (cm) de cada variação.</div></li>
-      <li><div>Clique em <strong>Salvar alterações</strong>, no rodapé da tela (ele fica sempre visível). Um só botão salva os dados do produto e as variações. Enquanto houver algo sem salvar, o rodapé mostra <strong>"Alterações não salvas"</strong>. Fotos e vídeos não precisam desse botão: são salvos assim que terminam de enviar.</div></li>
+      <li><div>Clique em <strong>Salvar alterações</strong>, no rodapé da tela (ele fica sempre visível). Um só botão salva os dados do produto e as variações. Enquanto houver algo sem salvar, o rodapé mostra <strong>"Alterações não salvas"</strong>. As fotos não precisam desse botão: são salvas assim que terminam de enviar.</div></li>
     </ol>
     <div class="tip bad"><strong>Peso e medidas definem o frete</strong>O valor do frete é calculado com o peso e as medidas que você cadastra. Se estiverem errados, o cliente paga menos frete do que custa enviar, e a diferença sai do seu bolso. Pese o produto <strong>já embalado</strong>.</div>
     <h3>Outras opções do produto</h3>
@@ -196,7 +205,7 @@ footer { color: var(--muted); font-size: 14px; border-top: 1px solid var(--line)
       <li>Produto com <strong>estoque zero</strong> aparece como "Esgotado", e ninguém consegue comprar. Na loja, os esgotados ficam no fim da lista. Com <strong>3 unidades ou menos</strong>, o produto ganha o selo "Últimas unidades", e a página dele avisa quantas restam.</li>
       <li>Nas categorias e na busca, o cliente pode <strong>ordenar</strong> por Destaques (padrão: os marcados como destaque primeiro), Novidades, Menor preço ou Maior preço.</li>
       <li>Na lista de <strong>Produtos</strong>, busque pelo nome ou filtre por <strong>Visíveis</strong>, <strong>Ocultos</strong>, <strong>Destaques</strong> ou categoria. A lista mostra 30 produtos por página.</li>
-      <li><strong>Duplicar produto</strong> (no topo da página do produto): cria uma cópia com as mesmas fotos, vídeos, descrição, categoria, variações, preços e medidas. Útil para cadastrar outra cor ou outro modelo parecido. A cópia nasce <strong>escondida da loja e com estoque zero</strong>: ajuste o nome e o estoque e marque "Visível na loja".</li>
+      <li><strong>Duplicar produto</strong> (no topo da página do produto): cria uma cópia com as mesmas fotos, link do Instagram, descrição, categoria, variações, preços e medidas. Útil para cadastrar outra cor ou outro modelo parecido. A cópia nasce <strong>escondida da loja e com estoque zero</strong>: ajuste o nome e o estoque e marque "Visível na loja".</li>
     </ul>
   </section>
 
@@ -233,7 +242,7 @@ footer { color: var(--muted); font-size: 14px; border-top: 1px solid var(--line)
       <thead><tr><th>Situação</th><th>O que significa</th><th>O que você faz</th></tr></thead>
       <tbody>
         <tr><td><span class="pill p-wait">Aguardando pagamento</span></td><td>O cliente fechou o pedido, mas ainda não pagou</td><td>Nada. Se não pagar, o pedido expira</td></tr>
-        <tr><td><span class="pill p-ok">Pago</span></td><td>Pagamento confirmado. Você recebeu o e-mail "Nova venda"</td><td>Separe os produtos e marque "Em preparação"</td></tr>
+        <tr><td><span class="pill p-ok">Pago</span></td><td>Pagamento confirmado. Você recebeu o e-mail "Nova venda", com um botão para falar com o cliente no WhatsApp</td><td>Separe os produtos e marque "Em preparação"</td></tr>
         <tr><td><span class="pill p-info">Em preparação</span></td><td>Você está separando ou embalando</td><td>Gere a etiqueta e informe o rastreio</td></tr>
         <tr><td><span class="pill p-info">Enviado</span> / <span class="pill p-info">Pronto para retirada</span></td><td>Saiu para entrega, ou está esperando o cliente buscar</td><td>O cliente recebe um e-mail automático. Quando chegar, marque "Entregue"</td></tr>
         <tr><td><span class="pill p-mute">Entregue</span></td><td>Pedido concluído</td><td>Nada</td></tr>
@@ -261,7 +270,7 @@ footer { color: var(--muted); font-size: 14px; border-top: 1px solid var(--line)
     <details><summary>Como dou desconto no Pix ou ofereço frete grátis?</summary><p>Painel → Configurações → Promoções. Preencha o percentual do Pix (por exemplo, 5) e/ou o valor mínimo para frete grátis (por exemplo, 199,90) e clique em Salvar configurações. Em até 1 minuto aparece a faixa no topo da loja. Para desligar, apague o campo e salve.</p></details>
     <details><summary>O frete grátis sai do meu bolso?</summary><p>Sim. O cliente não paga a entrega, mas a etiqueta no Melhor Envio continua sendo cobrada de você. Escolha um valor mínimo que cubra esse custo. Só a opção de entrega mais barata fica grátis.</p></details>
     <details><summary>Um cliente pagou com Pix e o total do pedido ficou menor. Está certo?</summary><p>Está. Com desconto no Pix, o pedido mostra a linha "Desconto Pix", e o total passa a ser o valor que entrou no seu Mercado Pago. O Resumo de vendas e a planilha também usam esse valor.</p></details>
-    <details><summary>O painel recusou meu vídeo dizendo que ele não toca em todos os navegadores.</summary><p>O vídeo foi gravado em HEVC, formato padrão do iPhone que o Chrome e muitos Androids não reproduzem. No iPhone, vá em Ajustes → Câmera → Formatos, escolha <strong>Mais Compatível</strong> e grave de novo. Vídeos de outros celulares costumam funcionar direto.</p></details>
+    <details><summary>Por que o vídeo do produto fica no Instagram e não na loja?</summary><p>Vídeo hospedado na loja gasta muito tráfego a cada visualização, e isso encarece a plataforma. O Instagram exibe o vídeo de graça e ainda leva o cliente para o seu perfil, onde ele pode seguir a loja. Basta colar o link do Reel no produto.</p></details>
     <details><summary>A foto perde qualidade ao ser reduzida?</summary><p>Não de forma visível. A foto fica com até 1600 pixels no lado maior, o suficiente para ver os detalhes no celular e no computador, e carrega muito mais rápido para o cliente.</p></details>
     <details><summary>O cliente diz que pagou, mas o pedido continua "Aguardando pagamento".</summary><p>Pix leva alguns segundos e, raramente, alguns minutos. Peça para ele manter a página do pedido aberta: ela atualiza sozinha. Se passar de 30 minutos, confira o pagamento no seu Mercado Pago e fale com o suporte.</p></details>
     <details><summary>Vendi pela loja física. Como ajusto o estoque?</summary><p>Painel → Produtos → abra o produto → Variações e estoque → altere o número → Salvar alterações (no rodapé). Se aparecer o aviso de que o estoque mudou enquanto você editava, é porque saiu uma venda online nesse meio-tempo. O valor atual já aparece na tela: ajuste e salve de novo.</p></details>

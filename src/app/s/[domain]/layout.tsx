@@ -3,6 +3,9 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getCategories, getStoreByDomain } from "@/lib/store";
 import { getPromotions } from "@/lib/promotions";
+import { getStoreMarketing } from "@/lib/store-marketing";
+import { InstagramIcon } from "./instagram-icon";
+import { Tracking } from "./tracking";
 import { formatBRL } from "@/lib/money";
 import { storeBaseUrl } from "@/lib/urls";
 import { CartLink } from "./cart-link";
@@ -33,7 +36,12 @@ export default async function StoreLayout({
   const { domain } = await params;
   const store = await getStoreByDomain(domain);
   if (!store) notFound();
-  const [categories, promotions] = await Promise.all([getCategories(store.id), getPromotions(store.id)]);
+  const [categories, promotions, marketing] = await Promise.all([
+    getCategories(store.id),
+    getPromotions(store.id),
+    getStoreMarketing(store.id),
+  ]);
+  const instagramUrl = marketing.instagram ? `https://www.instagram.com/${marketing.instagram}/` : null;
   // Faixa no topo anunciando as promoções da loja (some quando não há nenhuma).
   const promoText = [
     promotions.freeShippingMinCents && `Frete grátis acima de ${formatBRL(promotions.freeShippingMinCents)}`,
@@ -92,6 +100,17 @@ export default async function StoreLayout({
               <span className="sm:hidden">Pedidos</span>
               <span className="hidden sm:inline">Meus pedidos</span>
             </Link>
+            {instagramUrl && (
+              <a
+                href={instagramUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label={`Instagram da ${store.name}`}
+                className="hidden rounded-full border p-2 transition hover:border-neutral-400 sm:block"
+              >
+                <InstagramIcon />
+              </a>
+            )}
             <CartLink />
           </div>
         </div>
@@ -125,6 +144,11 @@ export default async function StoreLayout({
                 WhatsApp
               </a>
             )}
+            {instagramUrl && (
+              <a href={instagramUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 py-1.5 hover:text-white">
+                <InstagramIcon className="h-4 w-4" />@{marketing.instagram}
+              </a>
+            )}
             {store.email && (
               <a href={`mailto:${store.email}`} className="block break-all py-1.5 hover:text-white">{store.email}</a>
             )}
@@ -142,6 +166,7 @@ export default async function StoreLayout({
       </footer>
 
       {store.whatsapp && <StoreWhatsappButton whatsapp={store.whatsapp} />}
+      <Tracking metaPixelId={marketing.metaPixelId} gaMeasurementId={marketing.gaMeasurementId} />
     </div>
   );
 }

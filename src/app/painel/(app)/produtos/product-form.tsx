@@ -13,6 +13,7 @@ export type ProductData = {
   category_id: string | null;
   active: boolean;
   featured: boolean;
+  instagram_url?: string | null;
 };
 
 const inputClass = "w-full rounded-md border bg-white px-3 py-2 text-sm";
@@ -96,6 +97,23 @@ export function ProductFields({
             Fotos, vídeos, tamanhos, cores e outras variações você adiciona depois de criar.
           </p>
         </div>
+      )}
+
+      {product && (
+        <label className="block space-y-1 text-sm">
+          <span className="text-neutral-600">Vídeo no Instagram (opcional)</span>
+          <input
+            name="instagram_url"
+            inputMode="url"
+            defaultValue={product.instagram_url ?? ""}
+            placeholder="https://www.instagram.com/reel/..."
+            className={inputClass}
+          />
+          <span className="text-xs text-neutral-500">
+            Cole o link de um Reel ou post mostrando o produto. Na loja, aparece o botão &quot;Ver vídeo no Instagram&quot; abaixo
+            das fotos. No app do Instagram: abra o Reel → ⋯ → Copiar link.
+          </span>
+        </label>
       )}
 
       <div className="flex flex-wrap gap-6 text-sm">

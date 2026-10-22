@@ -1,21 +1,24 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { addToCart, readCart } from "@/lib/cart";
 import { formatBRL } from "@/lib/money";
 import { LOW_STOCK } from "@/lib/stock";
+import { trackAddToCart, trackViewProduct } from "@/lib/tracking";
 
 type Variant = { id: string; name: string; priceCents: number; compareAtCents: number | null; stock: number };
 
 type Installments = { max: number; interestFree: number } | null;
 
 export function AddToCart({
+  productId,
   productName,
   variants,
   installments,
   pixDiscountPercent,
 }: {
+  productId: string;
   productName: string;
   variants: Variant[];
   installments: Installments;
@@ -33,6 +36,14 @@ export function AddToCart({
   const prices = new Set(variants.map((v) => v.priceCents));
   const soldOut = variants.every((v) => v.stock <= 0);
 
+  // Depois do efeito do layout, que carrega o Pixel/Analytics (quando o visitante aceitou).
+  useEffect(() => {
+    const t = setTimeout(() =>
+      trackViewProduct({ id: productId, name: productName, priceCents: Math.min(...variants.map((v) => v.priceCents)), quantity: 1 }),
+    );
+    return () => clearTimeout(t);
+  }, [productId, productName, variants]);
+
   function add() {
     if (!selected) {
       setMessage("Escolha uma opção.");
@@ -45,6 +56,7 @@ export function AddToCart({
       return;
     }
     addToCart(selected.id, qty);
+    trackAddToCart({ id: productId, name: productName, priceCents: selected.priceCents, quantity: qty });
     setMessage(qty < quantity ? `Adicionamos ${qty}, o máximo disponível.` : null);
     setAdded(true);
   }

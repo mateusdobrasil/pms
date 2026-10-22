@@ -5,6 +5,7 @@ import { requireStore } from "@/lib/panel";
 import { isEmail, onlyDigits } from "@/lib/validation";
 import { isValidBannerLink } from "@/lib/banner";
 import { parseBRL } from "@/lib/money";
+import { parseInstagramHandle } from "@/lib/store-marketing";
 
 export type SettingsState = { error?: string; ok?: string } | null;
 
@@ -56,6 +57,18 @@ export async function saveSettings(_prev: SettingsState, form: FormData): Promis
     if (freeShippingText && (freeShippingMin === null || freeShippingMin <= 0)) return { error: "Frete grátis: valor inválido. Use o formato 199,90." };
   }
 
+  // Instagram e rastreamento: só vêm no formulário quando as colunas existem no banco.
+  const hasMarketing = form.get("marketing_enabled") === "1";
+  const instagramText = String(form.get("instagram") ?? "").trim();
+  const instagram = instagramText ? parseInstagramHandle(instagramText) : null;
+  const metaPixelId = String(form.get("meta_pixel_id") ?? "").replace(/\s/g, "");
+  const gaId = String(form.get("ga_measurement_id") ?? "").trim().toUpperCase();
+  if (hasMarketing) {
+    if (instagramText && !instagram) return { error: "Instagram inválido: use o nome de usuário, por exemplo @minhaloja." };
+    if (metaPixelId && !/^[0-9]{5,20}$/.test(metaPixelId)) return { error: "ID do Pixel da Meta inválido: são só números." };
+    if (gaId && !/^G-[A-Z0-9]{4,15}$/.test(gaId)) return { error: "ID do Google Analytics inválido: começa com G-, por exemplo G-ABC123XYZ." };
+  }
+
   const { data, error } = await supabase
     .from("stores")
     .update({
@@ -66,6 +79,7 @@ export async function saveSettings(_prev: SettingsState, form: FormData): Promis
       origin_zip: originZip || null,
       logo_url: logoUrl || null,
       ...(hasBanner ? banner : {}),
+      ...(hasMarketing ? { instagram, meta_pixel_id: metaPixelId || null, ga_measurement_id: gaId || null } : {}),
       ...(hasPromos ? { pix_discount_percent: pixPercent, free_shipping_min_cents: freeShippingMin } : {}),
     })
     .eq("id", store.id)

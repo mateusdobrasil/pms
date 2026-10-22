@@ -7,6 +7,7 @@ import { isUuid } from "@/lib/validation";
 import { statusLabel } from "@/lib/order-status";
 import { PaymentPanel } from "./payment-panel";
 import { CopyOrderLink } from "./copy-link";
+import { TrackPurchase } from "./track-purchase";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Seu pedido", robots: { index: false } };
@@ -53,6 +54,7 @@ export default async function OrderPage({ params }: { params: Promise<{ domain: 
         <h1 className="text-2xl font-bold tracking-tight">{expired ? statusLabel("expired") : order.status === "paid" ? "Pagamento confirmado" : statusLabel(order.status, order.shipping_method)}</h1>
         {order.status === "paid" && (
           <>
+            <TrackPurchase orderCode={order.code} valueCents={order.total_cents} />
             <p className="mt-2 text-neutral-600">Obrigado! Enviamos a confirmação para {order.customer_email}.</p>
             <p className="mt-1 text-neutral-600">Guarde este link para acompanhar o pedido.</p>
             <CopyOrderLink />

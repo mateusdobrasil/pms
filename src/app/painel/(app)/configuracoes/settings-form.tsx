@@ -23,6 +23,8 @@ type BannerSettings = {
   banner_link: string | null;
 } | null;
 
+type MarketingSettings = { instagram: string | null; meta_pixel_id: string | null; ga_measurement_id: string | null } | null;
+
 type PromoSettings = { pix_discount_percent: number; free_shipping_min_cents: number | null } | null;
 
 const input = "w-full rounded-lg border px-3 py-2 text-sm";
@@ -33,11 +35,13 @@ export function SettingsForm({
   settings,
   banner,
   promos,
+  marketing,
 }: {
   storeId: string;
   settings: Settings;
   banner: BannerSettings;
   promos: PromoSettings;
+  marketing: MarketingSettings;
 }) {
   const [state, action, pending] = useActionState<SettingsState, FormData>(saveSettings, null);
   const [color, setColor] = useState(settings.primary_color);
@@ -218,6 +222,33 @@ export function SettingsForm({
             <span className="block text-xs text-neutral-500">
               Compras com produtos a partir desse valor ganham a opção de entrega mais barata de graça. O custo do envio
               continua sendo seu no Melhor Envio. Deixe vazio para não oferecer.
+            </span>
+          </label>
+        </section>
+      )}
+
+      {marketing && (
+        <section className="space-y-4 rounded-xl border bg-white p-5 shadow-sm">
+          <h2 className="font-semibold">Instagram e anúncios</h2>
+          <input type="hidden" name="marketing_enabled" value="1" />
+          <label className="block space-y-1 text-sm">
+            <span className="font-medium text-neutral-700">Instagram da loja</span>
+            <input name="instagram" defaultValue={marketing.instagram ? `@${marketing.instagram}` : ""} placeholder="@minhaloja" className={input} />
+            <span className="text-xs text-neutral-500">Aparece como ícone no topo e no rodapé da loja. Deixe vazio para esconder.</span>
+          </label>
+          <label className="block space-y-1 text-sm">
+            <span className="font-medium text-neutral-700">ID do Pixel da Meta (opcional)</span>
+            <input name="meta_pixel_id" inputMode="numeric" defaultValue={marketing.meta_pixel_id ?? ""} placeholder="123456789012345" className={input} />
+            <span className="text-xs text-neutral-500">
+              Para medir anúncios do Instagram e Facebook. Fica no Gerenciador de Eventos da Meta → Fontes de dados.
+            </span>
+          </label>
+          <label className="block space-y-1 text-sm">
+            <span className="font-medium text-neutral-700">ID do Google Analytics (opcional)</span>
+            <input name="ga_measurement_id" defaultValue={marketing.ga_measurement_id ?? ""} placeholder="G-ABC123XYZ" className={input} />
+            <span className="text-xs text-neutral-500">
+              Fica no Google Analytics → Administrador → Fluxos de dados. Os dois só são ativados para quem clicar em
+              &quot;Aceitar&quot; no aviso de cookies da loja.
             </span>
           </label>
         </section>

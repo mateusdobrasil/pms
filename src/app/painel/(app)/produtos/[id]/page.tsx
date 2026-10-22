@@ -5,7 +5,6 @@ import { centsToInput } from "@/lib/money";
 import { isUuid } from "@/lib/validation";
 import { ProductEditor } from "../product-editor";
 import { ImagesManager } from "../images-manager";
-import { VideosManager } from "../videos-manager";
 import { DeleteProductButton } from "../delete-product-button";
 import { duplicateProduct } from "../actions";
 
@@ -40,7 +39,7 @@ export default async function EditProductPage({
     supabase
       .from("products")
       .select(
-        "id, name, slug, description, category_id, active, featured, product_variants(id, name, sku, price_cents, compare_at_cents, stock, weight_g, height_cm, width_cm, length_cm, active, position), product_images(id, path, position)",
+        "id, name, slug, description, category_id, active, featured, instagram_url, product_variants(id, name, sku, price_cents, compare_at_cents, stock, weight_g, height_cm, width_cm, length_cm, active, position), product_images(id, path, position)",
       )
       .eq("id", id)
       .eq("store_id", store.id)
@@ -48,13 +47,6 @@ export default async function EditProductPage({
     supabase.from("categories").select("id, name").eq("store_id", store.id).order("position").order("name"),
   ]);
   if (!product) notFound();
-  // Consulta à parte: sem o SQL dos vídeos rodado, a página segue sem essa seção.
-  const { data: videos, error: videosError } = await supabase
-    .from("product_videos")
-    .select("id, path")
-    .eq("product_id", product.id)
-    .eq("store_id", store.id)
-    .order("position");
 
   const variants = [...(product.product_variants as Variant[])].sort((a, b) => a.position - b.position);
   const images = [...(product.product_images as { id: string; path: string; position: number }[])].sort(
@@ -89,7 +81,6 @@ export default async function EditProductPage({
         media={
           <>
             <ImagesManager storeId={store.id} productId={product.id} images={images} />
-            {!videosError && <VideosManager storeId={store.id} productId={product.id} videos={videos ?? []} />}
           </>
         }
         footer={<DeleteProductButton id={product.id} />}

@@ -6,8 +6,8 @@ import { createPublicClient } from "@/lib/supabase/public";
 import { getInstallmentsInfo } from "@/lib/payments/installments";
 import { getPromotions } from "@/lib/promotions";
 import { AddToCart } from "./add-to-cart";
-import { Gallery, type Media } from "./gallery";
-import { productVideoUrl } from "@/lib/images";
+import { InstagramIcon } from "../../instagram-icon";
+import { Gallery } from "./gallery";
 
 export const revalidate = 60;
 
@@ -71,21 +71,13 @@ export default async function ProductPage({ params }: Params) {
 
   // Dados estruturados (schema.org/Product): o Google mostra preço e disponibilidade na busca.
   const prices = product.product_variants.map((v) => v.price_cents);
-  const [installments, { data: videos }, promotions] = await Promise.all([
+  const [installments, { data: insta }, promotions] = await Promise.all([
     getInstallmentsInfo(store.id, Math.min(...prices)),
-    // Consulta à parte: sem a tabela de vídeos (SQL não rodado), o produto aparece só com as fotos.
-    createPublicClient()
-      .from("product_videos")
-      .select("path")
-      .eq("store_id", store.id)
-      .eq("product_id", product.id)
-      .order("position"),
+    // Consulta à parte: sem a coluna (SQL não rodado), o produto aparece sem o link do Instagram.
+    createPublicClient().from("products").select("instagram_url").eq("store_id", store.id).eq("id", product.id).maybeSingle(),
     getPromotions(store.id),
   ]);
-  const media: Media[] = [
-    ...product.product_images.map((i) => ({ type: "image" as const, url: productImageUrl(i.path), alt: i.alt })),
-    ...(videos ?? []).map((v) => ({ type: "video" as const, url: productVideoUrl(v.path), alt: null })),
-  ];
+  const instagramUrl = (insta as { instagram_url: string | null } | null)?.instagram_url ?? null;
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "Product",
@@ -113,7 +105,20 @@ export default async function ProductPage({ params }: Params) {
         // JSON.stringify não escapa "<"; troca para não fechar a tag script por engano.
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replaceAll("<", String.fromCharCode(92) + "u003c") }}
       />
-      <Gallery name={product.name} media={media} />
+      <div className="space-y-3">
+        <Gallery name={product.name} images={product.product_images.map((i) => ({ url: productImageUrl(i.path), alt: i.alt }))} />
+        {instagramUrl && (
+          <a
+            href={instagramUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center justify-center gap-2 rounded-lg border px-4 py-3 text-sm font-medium transition hover:border-neutral-400"
+          >
+            <InstagramIcon className="h-5 w-5" />
+            Ver vídeo no Instagram
+          </a>
+        )}
+      </div>
 
       <div className="space-y-6">
         <div>
@@ -126,6 +131,7 @@ export default async function ProductPage({ params }: Params) {
         </div>
 
         <AddToCart
+          productId={product.id}
           productName={product.name}
           installments={installments}
           pixDiscountPercent={promotions.pixDiscountPercent}

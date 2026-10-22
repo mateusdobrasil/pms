@@ -6,7 +6,6 @@ import { requireStore } from "@/lib/panel";
 import { centsToInput, parseBRL } from "@/lib/money";
 import { slugify } from "@/lib/slug";
 import { isUuid } from "@/lib/validation";
-import { MAX_VIDEOS } from "@/lib/images";
 
 // Tudo com o cliente da sessão: o RLS ("members manage ...") restringe à loja do lojista.
 // Mesmo assim filtramos por store_id em toda consulta, como manda a regra do projeto.
@@ -20,6 +19,10 @@ function readProductFields(form: FormData) {
   const slug = slugify(String(form.get("slug") ?? "") || name);
   const description = String(form.get("description") ?? "").trim();
   const categoryId = String(form.get("categoryId") ?? "");
+  // Aceita o link colado sem "https://" (ex.: instagram.com/reel/...).
+  const instagramUrl = String(form.get("instagram_url") ?? "")
+    .trim()
+    .replace(/^(?:https?:\/\/)?(?:www\.)?instagram\.com\//i, "https://www.instagram.com/");
   return {
     name,
     slug,
@@ -27,6 +30,7 @@ function readProductFields(form: FormData) {
     category_id: isUuid(categoryId) ? categoryId : null,
     active: form.get("active") === "on",
     featured: form.get("featured") === "on",
+    instagram_url: instagramUrl || null,
   };
 }
 
@@ -34,6 +38,9 @@ function validateProduct(p: ReturnType<typeof readProductFields>) {
   if (p.name.length < 2 || p.name.length > 120) return "Informe o nome do produto (até 120 caracteres).";
   if (!p.slug) return "Endereço (slug) inválido.";
   if (p.description && p.description.length > 5000) return "Descrição muito longa (até 5.000 caracteres).";
+  if (p.instagram_url && !/^https:\/\/(www\.)?instagram\.com\/\S+$/.test(p.instagram_url)) {
+    return "Link do Instagram inválido: copie o link do Reel ou do post (começa com https://www.instagram.com/).";
+  }
   return null;
 }
 
@@ -44,14 +51,10 @@ async function assertCategory(supabase: Awaited<ReturnType<typeof requireStore>>
 }
 
 // Remove arquivos do bucket. Uma falha não desfaz a exclusão no banco; só deixa o arquivo órfão (fica no log).
-async function removeFiles(
-  supabase: Awaited<ReturnType<typeof requireStore>>["supabase"],
-  paths: string[],
-  bucket: "product-images" | "product-videos" = "product-images",
-) {
-  const { data, error } = await supabase.storage.from(bucket).remove(paths);
+async function removeFiles(supabase: Awaited<ReturnType<typeof requireStore>>["supabase"], paths: string[]) {
+  const { data, error } = await supabase.storage.from("product-images").remove(paths);
   if (error || (data?.length ?? 0) < paths.length) {
-    console.error("Arquivos não removidos do Storage", { bucket, paths, removed: data?.length ?? 0, error });
+    console.error("Arquivos não removidos do Storage", { paths, removed: data?.length ?? 0, error });
   }
 }
 
@@ -128,25 +131,18 @@ export async function deleteProduct(form: FormData) {
     .select("path")
     .eq("product_id", id)
     .eq("store_id", store.id);
-  // Sem a tabela de vídeos (SQL não rodado), data vem nulo e nada é removido.
-  const { data: videos } = await supabase
-    .from("product_videos")
-    .select("path")
-    .eq("product_id", id)
-    .eq("store_id", store.id);
 
   // Itens de pedidos antigos guardam nome e preço copiados, então o histórico continua intacto.
   const { error } = await supabase.from("products").delete().eq("id", id).eq("store_id", store.id);
   if (error) throw error;
 
   if (images?.length) await removeFiles(supabase, images.map((i) => i.path));
-  if (videos?.length) await removeFiles(supabase, videos.map((v) => v.path), "product-videos");
 
   revalidateProduct();
   redirect("/painel/produtos");
 }
 
-// Cria uma cópia oculta do produto (variações, fotos, vídeos e categoria), para o lojista ajustar e publicar.
+// Cria uma cópia oculta do produto (variações, fotos, link do Instagram e categoria), para o lojista ajustar e publicar.
 // O estoque da cópia começa em zero: estoque é coisa física, não se duplica.
 export async function duplicateProduct(form: FormData) {
   const { supabase, store } = await requireStore();
@@ -156,7 +152,7 @@ export async function duplicateProduct(form: FormData) {
   const { data: source } = await supabase
     .from("products")
     .select(
-      "name, slug, description, category_id, product_variants(name, sku, price_cents, compare_at_cents, weight_g, height_cm, width_cm, length_cm, active, position), product_images(path, position)",
+      "name, slug, description, category_id, instagram_url, product_variants(name, sku, price_cents, compare_at_cents, weight_g, height_cm, width_cm, length_cm, active, position), product_images(path, position)",
     )
     .eq("id", id)
     .eq("store_id", store.id)
@@ -178,6 +174,7 @@ export async function duplicateProduct(form: FormData) {
       slug,
       description: source.description,
       category_id: source.category_id,
+      instagram_url: source.instagram_url,
       active: false,
       featured: false,
     })
@@ -206,23 +203,6 @@ export async function duplicateProduct(form: FormData) {
       continue;
     }
     await supabase.from("product_images").insert({ store_id: store.id, product_id: copy.id, path, position: img.position });
-  }
-
-  // Vídeos: mesma ideia, no bucket de vídeos (sem a tabela, a lista vem vazia).
-  const { data: videos } = await supabase
-    .from("product_videos")
-    .select("path, position")
-    .eq("product_id", id)
-    .eq("store_id", store.id);
-  for (const video of videos ?? []) {
-    const ext = video.path.split(".").pop();
-    const path = `${store.id}/${copy.id}/${crypto.randomUUID()}.${ext}`;
-    const { error: cErr } = await supabase.storage.from("product-videos").copy(video.path, path);
-    if (cErr) {
-      console.error("Vídeo não copiado ao duplicar produto", { from: video.path, error: cErr.message });
-      continue;
-    }
-    await supabase.from("product_videos").insert({ store_id: store.id, product_id: copy.id, path, position: video.position });
   }
 
   revalidateProduct();
@@ -448,57 +428,6 @@ export async function removeImage(imageId: string): Promise<FormState> {
 
   revalidateProduct(image.product_id);
   return { ok: "Imagem removida." };
-}
-
-// ---------------------------------------------------------------- Vídeos
-
-const VIDEO_EXT = /\.(mp4|webm|mov)$/i;
-
-// Como nas fotos: o navegador envia direto ao bucket product-videos; aqui só registramos.
-export async function addVideo(productId: string, path: string): Promise<FormState> {
-  const { supabase, store } = await requireStore();
-  if (!isUuid(productId)) return { error: "Produto não encontrado." };
-  const prefix = `${store.id}/${productId}/`;
-  if (!path.startsWith(prefix) || !VIDEO_EXT.test(path) || path.includes("..")) return { error: "Arquivo inválido." };
-
-  const { data: existing } = await supabase
-    .from("product_videos")
-    .select("position")
-    .eq("product_id", productId)
-    .eq("store_id", store.id)
-    .order("position", { ascending: false });
-  if ((existing?.length ?? 0) >= MAX_VIDEOS) return { error: `Máximo de ${MAX_VIDEOS} vídeos por produto.` };
-
-  const { error } = await supabase.from("product_videos").insert({
-    store_id: store.id,
-    product_id: productId,
-    path,
-    position: (existing?.[0]?.position ?? -1) + 1,
-  });
-  if (error) return { error: "Não foi possível salvar o vídeo." };
-
-  revalidateProduct(productId);
-  return { ok: "Vídeo adicionado." };
-}
-
-export async function removeVideo(videoId: string): Promise<FormState> {
-  const { supabase, store } = await requireStore();
-  if (!isUuid(videoId)) return { error: "Vídeo não encontrado." };
-
-  const { data: video } = await supabase
-    .from("product_videos")
-    .select("id, path, product_id")
-    .eq("id", videoId)
-    .eq("store_id", store.id)
-    .maybeSingle();
-  if (!video) return { error: "Vídeo não encontrado." };
-
-  const { error } = await supabase.from("product_videos").delete().eq("id", video.id).eq("store_id", store.id);
-  if (error) return { error: "Não foi possível remover o vídeo." };
-  await removeFiles(supabase, [video.path], "product-videos");
-
-  revalidateProduct(video.product_id);
-  return { ok: "Vídeo removido." };
 }
 
 export async function moveImage(imageId: string, direction: "up" | "down"): Promise<FormState> {

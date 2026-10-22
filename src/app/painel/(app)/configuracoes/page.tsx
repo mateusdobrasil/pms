@@ -20,11 +20,17 @@ export default async function SettingsPage() {
     .select("pix_discount_percent, free_shipping_min_cents")
     .eq("id", store.id)
     .single();
+  // Instagram e rastreamento: também à parte (SQL 20261023000000).
+  const { data: marketing, error: marketingError } = await supabase
+    .from("stores")
+    .select("instagram, meta_pixel_id, ga_measurement_id")
+    .eq("id", store.id)
+    .single();
 
   return (
     <div className="max-w-2xl space-y-6">
       <h1 className="text-2xl font-semibold tracking-tight">Configurações da loja</h1>
-      <SettingsForm storeId={store.id} settings={data!} banner={bannerError ? null : banner} promos={promosError ? null : promos} />
+      <SettingsForm storeId={store.id} settings={data!} banner={bannerError ? null : banner} promos={promosError ? null : promos} marketing={marketingError ? null : marketing} />
     </div>
   );
 }
