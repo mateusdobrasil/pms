@@ -3,7 +3,13 @@ import { cache } from "react";
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
-export type PanelStore = { id: string; name: string; slug: string; status: "active" | "suspended" };
+export type PanelStore = {
+  id: string;
+  name: string;
+  slug: string;
+  status: "active" | "suspended";
+  logo_url: string | null;
+};
 
 // Sessão do lojista + loja dele. Redireciona para o login se não houver sessão válida.
 // getClaims() valida o JWT; nunca confie só no cookie (getSession).
@@ -15,7 +21,7 @@ export const getPanelContext = cache(async () => {
 
   const { data: memberships } = await supabase
     .from("store_members")
-    .select("role, created_at, stores(id, name, slug, status)")
+    .select("role, created_at, stores(id, name, slug, status, logo_url)")
     .eq("user_id", userId)
     .order("created_at", { ascending: true })
     .limit(1);

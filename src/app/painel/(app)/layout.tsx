@@ -14,9 +14,17 @@ export default async function PanelLayout({ children }: { children: ReactNode })
       <header className="bg-neutral-900 text-white">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-x-6 gap-y-3 px-4 py-3">
           <div className="flex min-w-0 items-center gap-3">
-            <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-primary-500 text-sm font-bold">
-              {store.name.slice(0, 1).toUpperCase()}
-            </span>
+            {store.logo_url ? (
+              // Fundo branco: logos escuros ou com transparência somem no topo escuro do painel.
+              <span className="flex h-10 shrink-0 items-center rounded-lg bg-white px-2 py-1">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={store.logo_url} alt={store.name} className="h-full w-auto max-w-32 object-contain" />
+              </span>
+            ) : (
+              <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-primary-500 text-sm font-bold">
+                {store.name.slice(0, 1).toUpperCase()}
+              </span>
+            )}
             <div className="min-w-0 leading-tight">
               <p className="truncate font-semibold">{store.name}</p>
               <p className="text-xs text-neutral-400">Painel da loja</p>
