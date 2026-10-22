@@ -69,7 +69,7 @@ export default async function OrdersPage({
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-semibold tracking-tight">Pedidos</h1>
-        <form action="/painel/pedidos" className="flex gap-2">
+        <form action="/painel/pedidos" className="flex flex-wrap gap-2">
           {status && <input type="hidden" name="status" value={status} />}
           <input
             name="q"
@@ -78,6 +78,13 @@ export default async function OrdersPage({
             className="w-40 rounded-md border bg-white px-3 py-1.5 text-sm"
           />
           <button type="submit" className="rounded-md border bg-white px-3 py-1.5 text-sm">Buscar</button>
+          {/* Baixa a planilha com o filtro atual (todas as páginas). */}
+          <a
+            href={href({}).replace("/painel/pedidos", "/painel/pedidos/exportar")}
+            className="rounded-md border bg-white px-3 py-1.5 text-sm"
+          >
+            Exportar planilha
+          </a>
         </form>
       </div>
 
