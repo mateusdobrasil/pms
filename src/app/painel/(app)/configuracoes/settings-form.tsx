@@ -40,6 +40,7 @@ export function SettingsForm({
   legal,
   policyBase,
   storeUrl,
+  googleVerification,
 }: {
   storeId: string;
   settings: Settings;
@@ -48,6 +49,7 @@ export function SettingsForm({
   marketing: MarketingSettings;
   legal: LegalSettings | null;
   policyBase: PolicyBase;
+  googleVerification: string | null | undefined; // undefined = coluna ainda não existe
   storeUrl: string | null;
 }) {
   const [state, action, pending] = useActionState<SettingsState, FormData>(saveSettings, null);
@@ -258,6 +260,34 @@ export function SettingsForm({
               &quot;Aceitar&quot; no aviso de cookies da loja.
             </span>
           </label>
+          {storeUrl && (
+            <div className="space-y-1 rounded-lg bg-neutral-50 p-3 text-sm">
+              <p className="font-medium text-neutral-700">Google Shopping (grátis)</p>
+              <p className="text-xs text-neutral-500">
+                Para seus produtos aparecerem na aba Shopping do Google, cadastre este endereço no Google Merchant Center
+                (Produtos → Adicionar produtos → Arquivo → Adicionar um link de arquivo). Ele se atualiza sozinho com
+                preços, estoque e fotos. Produtos sem foto ficam de fora.
+              </p>
+              <code className="block break-all rounded bg-white px-2 py-1.5 font-mono text-xs">{storeUrl}/feed.xml</code>
+            </div>
+          )}
+          {googleVerification !== undefined && (
+            <label className="block space-y-1 text-sm">
+              <input type="hidden" name="google_enabled" value="1" />
+              <span className="font-medium text-neutral-700">Código de verificação do Google (opcional)</span>
+              <input
+                name="google_site_verification"
+                defaultValue={googleVerification ?? ""}
+                placeholder='Cole o código ou a etiqueta <meta name="google-site-verification" ...>'
+                className={input}
+              />
+              <span className="text-xs text-neutral-500">
+                O Google Merchant Center e o Search Console pedem para confirmar que o site é seu. Escolha o método
+                &quot;Tag HTML&quot;, copie a etiqueta e cole aqui. Depois de salvar, aguarde 1 minuto e clique em
+                &quot;Verificar&quot; no Google.
+              </span>
+            </label>
+          )}
         </section>
       )}
 

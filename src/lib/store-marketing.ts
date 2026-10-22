@@ -5,9 +5,10 @@ export type StoreMarketing = {
   instagram: string | null; // nome de usuário, sem @
   metaPixelId: string | null;
   gaMeasurementId: string | null; // G-XXXXXXX
+  googleSiteVerification: string | null;
 };
 
-const NONE: StoreMarketing = { instagram: null, metaPixelId: null, gaMeasurementId: null };
+const NONE: StoreMarketing = { instagram: null, metaPixelId: null, gaMeasurementId: null, googleSiteVerification: null };
 
 // Instagram e rastreamento da loja. Consulta separada de getStoreByDomain: sem as colunas
 // (SQL 20261023000000 não rodado), a vitrine segue sem esses recursos em vez de quebrar.
@@ -18,8 +19,22 @@ export const getStoreMarketing = cache(async (storeId: string): Promise<StoreMar
     .eq("id", storeId)
     .maybeSingle();
   if (error || !data) return NONE;
-  return { instagram: data.instagram, metaPixelId: data.meta_pixel_id, gaMeasurementId: data.ga_measurement_id };
+  // Código de verificação do Google: coluna mais nova (SQL 20261023200000), lida à parte.
+  const { data: g } = await createPublicClient().from("stores").select("google_site_verification").eq("id", storeId).maybeSingle();
+  return {
+    instagram: data.instagram,
+    metaPixelId: data.meta_pixel_id,
+    gaMeasurementId: data.ga_measurement_id,
+    googleSiteVerification: (g as { google_site_verification: string | null } | null)?.google_site_verification ?? null,
+  };
 });
+
+// Aceita o código sozinho ou a etiqueta inteira que o Google mostra (<meta name="google-site-verification" content="...">).
+export function parseGoogleVerification(input: string): string | null {
+  const s = input.trim();
+  const fromTag = /content=["']([^"']+)["']/i.exec(s)?.[1] ?? s;
+  return /^[A-Za-z0-9_-]{10,100}$/.test(fromTag) ? fromTag : null;
+}
 
 // Aceita "@loja", "loja" ou o link do perfil; devolve só o nome de usuário (ou null se inválido).
 export function parseInstagramHandle(input: string): string | null {

@@ -20,8 +20,8 @@ function isRootDomain(host: string) {
 }
 
 export const config = {
-  // Não reescreve API, assets do Next nem arquivos estáticos — exceto sitemap e robots, que são por loja.
-  matcher: ["/((?!api|_next|.*\\..*).*)", "/sitemap.xml", "/robots.txt"],
+  // Não reescreve API, assets do Next nem arquivos estáticos — exceto sitemap, robots e o feed do Google, que são por loja.
+  matcher: ["/((?!api|_next|.*\\..*).*)", "/sitemap.xml", "/robots.txt", "/feed.xml"],
 };
 
 export function proxy(req: NextRequest) {

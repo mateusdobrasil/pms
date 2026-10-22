@@ -5,7 +5,7 @@ import { requireStore } from "@/lib/panel";
 import { isEmail, isValidDocument, onlyDigits } from "@/lib/validation";
 import { isValidBannerLink } from "@/lib/banner";
 import { parseBRL } from "@/lib/money";
-import { parseInstagramHandle } from "@/lib/store-marketing";
+import { parseGoogleVerification, parseInstagramHandle } from "@/lib/store-marketing";
 
 export type SettingsState = { error?: string; ok?: string } | null;
 
@@ -69,6 +69,14 @@ export async function saveSettings(_prev: SettingsState, form: FormData): Promis
     if (gaId && !/^G-[A-Z0-9]{4,15}$/.test(gaId)) return { error: "ID do Google Analytics inválido: começa com G-, por exemplo G-ABC123XYZ." };
   }
 
+  // Verificação do Google: só vem no formulário quando a coluna existe no banco.
+  const hasGoogle = form.get("google_enabled") === "1";
+  const googleText = String(form.get("google_site_verification") ?? "").trim();
+  const googleVerification = googleText ? parseGoogleVerification(googleText) : null;
+  if (hasGoogle && googleText && !googleVerification) {
+    return { error: "Código de verificação do Google inválido: cole a etiqueta inteira ou só o código (content)." };
+  }
+
   // Dados da empresa e políticas: só vêm no formulário quando as colunas existem no banco.
   const hasLegal = form.get("legal_enabled") === "1";
   const legalName = text("legal_name", 150);
@@ -94,6 +102,7 @@ export async function saveSettings(_prev: SettingsState, form: FormData): Promis
       origin_zip: originZip || null,
       logo_url: logoUrl || null,
       ...(hasBanner ? banner : {}),
+      ...(hasGoogle ? { google_site_verification: googleVerification } : {}),
       ...(hasLegal
         ? {
             legal_name: legalName || null,

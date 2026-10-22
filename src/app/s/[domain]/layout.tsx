@@ -17,6 +17,7 @@ export async function generateMetadata({ params }: { params: Promise<{ domain: s
   const { domain } = await params;
   const store = await getStoreByDomain(domain);
   const name = store?.name ?? "Loja";
+  const marketing = store ? await getStoreMarketing(store.id) : null;
   const description = `Compre na ${name} com Pix ou cartão. Entrega para todo o Brasil.`;
   return {
     // Torna absolutos os links canônicos e de compartilhamento (cada loja no seu domínio).
@@ -25,6 +26,8 @@ export async function generateMetadata({ params }: { params: Promise<{ domain: s
     description,
     alternates: { canonical: "/" },
     openGraph: { siteName: name, type: "website", locale: "pt_BR", title: name, description },
+    // Search Console e Merchant Center: <meta name="google-site-verification">.
+    ...(marketing?.googleSiteVerification ? { verification: { google: marketing.googleSiteVerification } } : {}),
   };
 }
 

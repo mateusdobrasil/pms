@@ -101,6 +101,7 @@ footer { color: var(--muted); font-size: 14px; border-top: 1px solid var(--line)
       <li><a href="#acesso">Primeiro acesso<span>Entrar e trocar a senha</span></a></li>
       <li><a href="#configurar">Configurar a loja<span>Logo, banner, promoções, CEP</span></a></li>
       <li><a href="#legal">Dados legais e políticas<span>O que a lei exige da loja</span></a></li>
+      <li><a href="#google">Google Shopping<span>Produtos no Google, grátis</span></a></li>
       <li><a href="#produtos">Produtos<span>Fotos, Instagram, tamanhos, estoque</span></a></li>
       <li><a href="#compra">Como o cliente compra<span>O caminho da venda</span></a></li>
       <li><a href="#pagamentos">Pagamentos<span>Pix, cartão e o seu dinheiro</span></a></li>
@@ -121,6 +122,7 @@ footer { color: var(--muted); font-size: 14px; border-top: 1px solid var(--line)
 
     <h3>Para vender mais</h3>
     <ul>
+      <li><strong>Seus produtos no Google Shopping, de graça</strong>: a loja gera sozinha a lista de produtos no formato do Google. Cadastre uma vez no Google Merchant Center e os produtos aparecem na aba Shopping. <a href="#google">Ver o passo a passo</a></li>
       <li><strong>Desconto no Pix e frete grátis</strong>: em Configurações → Promoções, defina um desconto para quem paga com Pix e um valor a partir do qual a entrega mais barata sai de graça. A loja anuncia as promoções numa faixa no topo. <a href="#configurar">Ver como configurar</a></li>
       <li><strong>Banner na página inicial</strong>: uma imagem larga com título, texto e link para uma categoria ou produto. Bom para divulgar promoções e coleções. <a href="#configurar">Ver como configurar</a></li>
       <li><strong>Instagram na loja</strong>: o seu @ aparece no topo e no rodapé, e cada produto pode ter o link de um Reel com o botão "Ver vídeo no Instagram". <a href="#configurar">Ver como configurar</a></li>
@@ -197,6 +199,19 @@ footer { color: var(--muted); font-size: 14px; border-top: 1px solid var(--line)
     <div class="tip info"><strong>O que o modelo garante</strong>Arrependimento em até 7 dias após o recebimento, com devolução do valor total, frete incluído; prazos de garantia para defeito (30 dias para produtos não duráveis, 90 para duráveis); e os direitos do cliente sobre os dados dele. Esses são mínimos da lei: o seu texto pode dar mais, nunca menos.</div>
     <div class="tip"><strong>Revise com o seu contador</strong>O modelo é um ponto de partida seguro, mas não substitui orientação jurídica. Se o seu ramo tem regras próprias, ajuste o texto.</div>
     <p>Os links para as duas políticas ficam no rodapé da loja, no aviso de cookies e no checkout, logo abaixo do botão "Ir para o pagamento".</p>
+  </section>
+
+  <section id="google">
+    <h2>Google Shopping</h2>
+    <p>O Google mostra produtos de lojas na aba <strong>Shopping</strong> e nos resultados de busca, sem custo (listagens gratuitas). A sua loja já publica a lista de produtos no formato que o Google pede, e ela se atualiza sozinha com preços, promoções, estoque e fotos.</p>
+    <ol class="steps">
+      <li><div>Crie uma conta no <strong>Google Merchant Center</strong> (merchants.google.com) com o seu e-mail do Google e preencha os dados da empresa.</div></li>
+      <li><div>Confirme que o site é seu: no Merchant Center, escolha o método <strong>Tag HTML</strong> e copie a etiqueta. No painel, cole em <span class="where">Configurações → Instagram e anúncios → Código de verificação do Google</span>, salve, espere 1 minuto e clique em <strong>Verificar</strong> no Google.</div></li>
+      <li><div>Cadastre as regras de <strong>frete</strong> e a <strong>política de devolução</strong>. Para a política, use o endereço <code>sualoja.com.br/trocas-e-devolucoes</code>.</div></li>
+      <li><div>Em Produtos → Adicionar produtos, escolha adicionar <strong>de um arquivo</strong>, por link, e cole o endereço que aparece em <span class="where">Configurações → Instagram e anúncios → Google Shopping</span> (termina com <code>/feed.xml</code>). Peça para o Google buscar todo dia.</div></li>
+    </ol>
+    <div class="tip info"><strong>Produtos sem foto ficam de fora</strong>O Google exige imagem. Cada tamanho ou cor vira um item, agrupado no mesmo produto. Produto com "Preço de" aparece com o desconto. A primeira aprovação do Google leva alguns dias.</div>
+    <p>O mesmo código de verificação serve para o <strong>Google Search Console</strong> (search.google.com/search-console), onde você vê como a loja aparece nas buscas. Lá, envie também o mapa do site: <code>sualoja.com.br/sitemap.xml</code>.</p>
   </section>
 
   <section id="produtos">
