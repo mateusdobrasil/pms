@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 import { statusLabel, type OrderStatus } from "@/lib/order-status";
 import { changeStatus, saveTracking, type OrderActionState } from "./actions";
+import { submitKeepingValues } from "@/lib/form-submit";
 
 export function OrderActions({
   orderId,
@@ -34,7 +35,7 @@ export function OrderActions({
       )}
 
       {nextSteps.length > 0 && (
-        <form action={statusAction} className="flex flex-wrap gap-2">
+        <form onSubmit={submitKeepingValues(statusAction)} className="flex flex-wrap gap-2">
           <input type="hidden" name="orderId" value={orderId} />
           {nextSteps.map((s) => (
             <button
@@ -52,7 +53,7 @@ export function OrderActions({
       )}
 
       {canTrack && (
-        <form action={trackAction} className="space-y-2">
+        <form onSubmit={submitKeepingValues(trackAction)} className="space-y-2">
           <input type="hidden" name="orderId" value={orderId} />
           <label className="block text-neutral-600" htmlFor="trackingCode">Código de rastreio</label>
           <div className="flex gap-2">
@@ -81,13 +82,13 @@ export function OrderActions({
 
       {canCancel && (
         <form
-          action={statusAction}
           onSubmit={(e) => {
             const msg =
               status === "pending_payment"
                 ? "Cancelar este pedido?"
                 : "Cancelar este pedido pago? O estorno do pagamento deve ser feito no Mercado Pago e o estoque não volta automaticamente.";
-            if (!confirm(msg)) e.preventDefault();
+            if (!confirm(msg)) return e.preventDefault();
+            submitKeepingValues(statusAction)(e);
           }}
         >
           <input type="hidden" name="orderId" value={orderId} />

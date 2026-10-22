@@ -1,6 +1,7 @@
 "use client";
 
-import { startTransition, useActionState, useState } from "react";
+import { useActionState, useState } from "react";
+import { submitKeepingValues } from "@/lib/form-submit";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { productImageUrl } from "@/lib/images";
 import { MAX_ORIGINAL_BYTES, compressImage } from "@/lib/compress-image";
@@ -74,16 +75,7 @@ export function SettingsForm({
   }
 
   return (
-    <form
-      // Envio manual: com action={action}, o React limpa o formulário depois do envio,
-      // e um erro de validação apagaria o que o lojista digitou.
-      onSubmit={(e) => {
-        e.preventDefault();
-        const data = new FormData(e.currentTarget);
-        startTransition(() => action(data));
-      }}
-      className="space-y-6"
-    >
+    <form onSubmit={submitKeepingValues(action)} className="space-y-6">
       <section className="space-y-4 rounded-xl border bg-white p-5 shadow-sm">
         <h2 className="font-semibold">Identidade</h2>
         <label className="block space-y-1 text-sm">

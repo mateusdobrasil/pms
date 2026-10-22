@@ -1,11 +1,21 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
+import { submitKeepingValues } from "@/lib/form-submit";
 import { addDomain, addMember, createStore, saveSecrets, updateBranding, type AdminState } from "./actions";
 
 const input = "w-full rounded-lg border px-3 py-2 text-sm";
 const primaryButton =
   "rounded-lg bg-primary-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-primary-700 disabled:opacity-50";
+
+// Formulários de "adicionar": limpam os campos quando dá certo (no erro, mantêm o que foi digitado).
+function useResetOnOk(state: AdminState) {
+  const formRef = useRef<HTMLFormElement>(null);
+  useEffect(() => {
+    if (state?.ok) formRef.current?.reset();
+  }, [state]);
+  return formRef;
+}
 
 function Feedback({ state }: { state: AdminState }) {
   if (!state) return null;
@@ -27,7 +37,7 @@ function Feedback({ state }: { state: AdminState }) {
 export function CreateStoreForm() {
   const [state, action, pending] = useActionState<AdminState, FormData>(createStore, null);
   return (
-    <form action={action} className="space-y-3 rounded-xl border bg-white p-5 shadow-sm">
+    <form onSubmit={submitKeepingValues(action)} className="space-y-3 rounded-xl border bg-white p-5 shadow-sm">
       <label className="block space-y-1 text-sm">
         <span className="font-medium text-neutral-700">Nome da loja</span>
         <input name="name" required className={input} />
@@ -56,8 +66,9 @@ export function CreateStoreForm() {
 
 export function AddDomainForm({ storeId }: { storeId: string }) {
   const [state, action, pending] = useActionState<AdminState, FormData>(addDomain, null);
+  const formRef = useResetOnOk(state);
   return (
-    <form action={action} className="space-y-2">
+    <form ref={formRef} onSubmit={submitKeepingValues(action)} className="space-y-2">
       <input type="hidden" name="storeId" value={storeId} />
       <div className="flex gap-2">
         <input name="domain" required placeholder="www.minhaloja.com.br" className={input} />
@@ -70,8 +81,9 @@ export function AddDomainForm({ storeId }: { storeId: string }) {
 
 export function AddMemberForm({ storeId }: { storeId: string }) {
   const [state, action, pending] = useActionState<AdminState, FormData>(addMember, null);
+  const formRef = useResetOnOk(state);
   return (
-    <form action={action} className="space-y-2">
+    <form ref={formRef} onSubmit={submitKeepingValues(action)} className="space-y-2">
       <input type="hidden" name="storeId" value={storeId} />
       <div className="flex gap-2">
         <input name="email" type="email" required placeholder="email@lojista.com.br" className={input} />
@@ -101,8 +113,9 @@ export function SecretsForm({
   meSandbox: boolean;
 }) {
   const [state, action, pending] = useActionState<AdminState, FormData>(saveSecrets, null);
+  const formRef = useResetOnOk(state);
   return (
-    <form action={action} className="space-y-4">
+    <form ref={formRef} onSubmit={submitKeepingValues(action)} className="space-y-4">
       <input type="hidden" name="storeId" value={storeId} />
       {SECRET_FIELDS.map((f) => (
         <label key={f.name} className="block space-y-1 text-sm">
@@ -234,7 +247,7 @@ export function BrandingForm({
 }) {
   const [state, action, pending] = useActionState<AdminState, FormData>(updateBranding, null);
   return (
-    <form action={action} className="space-y-4">
+    <form onSubmit={submitKeepingValues(action)} className="space-y-4">
       <input type="hidden" name="storeId" value={storeId} />
       <label className="block space-y-1 text-sm">
         <span className="font-medium text-neutral-700">Nome da loja</span>
