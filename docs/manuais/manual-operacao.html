@@ -129,7 +129,7 @@ footer { grid-column: 1 / -1; color: var(--muted); font-size: 13px; border-top: 
       <h3>Stack</h3>
       <ul>
         <li><strong>Next.js 16</strong> (App Router, TypeScript, Tailwind 4), hospedado na <strong>Vercel</strong>. Código em <code>github.com/mateusdobrasil/pms</code>.</li>
-        <li><strong>Supabase</strong> na nuvem: Postgres com RLS, Auth (login do painel) e Storage (fotos e logos no bucket <code>product-images</code>, até 5 MB; vídeos de produto no <code>product-videos</code>, até 50 MB).</li>
+        <li><strong>Supabase</strong> na nuvem: Postgres com RLS, Auth (login do painel) e Storage (fotos e logos no bucket <code>product-images</code>, até 5 MB; o navegador reduz as fotos antes do envio). Vídeos ficam no Instagram da loja (link por produto), não no Storage.</li>
         <li><strong>Mercado Pago</strong>: Pix pela Payments API e cartão pelo Card Payment Brick. Cada loja usa as credenciais da própria conta, então o dinheiro cai direto para o lojista.</li>
         <li><strong>Melhor Envio</strong> para frete, além da opção de retirada na loja.</li>
         <li><strong>Resend</strong> para e-mails transacionais.</li>
@@ -193,6 +193,7 @@ footer { grid-column: 1 / -1; color: var(--muted); font-size: 13px; border-top: 
           <tr><td><code>MELHOR_ENVIO_CONTACT</code></td><td>E-mail técnico exigido pelo Melhor Envio</td><td>e-mail de contato</td></tr>
           <tr><td><code>RESEND_API_KEY</code></td><td>Envio de e-mails (chave só de envio)</td><td>resend.com → API Keys</td></tr>
           <tr><td><code>EMAIL_FROM</code></td><td>Remetente dos e-mails</td><td><code>pedidos@pmsapp.dev</code> (com o domínio verificado)</td></tr>
+          <tr><td><code>ALERT_EMAIL</code></td><td>Recebe os alertas de erro (pagamento, webhook, criação de pedido, consulta de status). No máximo 1 por tipo a cada 30 min; sem ela, não há alertas</td><td>O seu e-mail</td></tr>
         </tbody>
       </table></div>
       <div class="note warn"><strong>Variáveis <code>NEXT_PUBLIC_</code> entram no código na hora do build</strong>Depois de mudar qualquer uma delas na Vercel, faça <strong>Redeploy</strong> (Deployments → ⋯ → Redeploy). Sem isso, o site continua com o valor antigo.</div>
@@ -304,6 +305,8 @@ npx next build         # build de produção (rode antes de subir)</code></pre>
 
     <section id="testes">
       <h2><span class="n">11</span>Como testar</h2>
+      <h3>Testes automatizados</h3>
+      <p><code>npm test</code> roda os testes de unidade (Vitest, pasta <code>tests/</code>): dinheiro, CPF, carrinho, desconto no Pix, frete grátis e a conferência de pagamentos (<code>recordPayment</code>). Não usam banco nem rede. A cada envio para a <code>main</code>, o GitHub Actions roda lint, <code>npm run typecheck</code> e os testes (<code>.github/workflows/ci.yml</code>); um X vermelho no commit indica falha. Mudou regra de preço ou pagamento? Acrescente um teste.</p>
       <h3>Compra com cartão (sandbox)</h3>
       <div class="table"><table>
         <thead><tr><th>Campo</th><th>Valor</th></tr></thead>

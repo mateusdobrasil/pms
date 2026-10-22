@@ -1,4 +1,5 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
+import { notifyPlatformError } from "@/lib/email";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getStoreFromRequest } from "@/lib/request-store";
 import { isUuid } from "@/lib/validation";
@@ -47,6 +48,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ token: s
       }
     } catch (err) {
       console.error("Erro ao consultar pagamento", { orderId: order.id, err });
+      after(() => notifyPlatformError(`status:${store.id}`, `Erro ao consultar pagamento (${store.name})`, { loja: store.name, pedido: order.id, erro: String(err) }));
     }
   }
 

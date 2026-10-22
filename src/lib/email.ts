@@ -78,6 +78,12 @@ function orderUrl(o: OrderForEmail) {
   return domain ? `${storeBaseUrl(domain)}/pedido/${o.public_token}` : null;
 }
 
+// Conversa do lojista com o cliente no WhatsApp, com a mensagem já escrita (telefone salvo sem o 55).
+function customerWhatsappUrl(o: OrderForEmail) {
+  const text = `Olá, ${firstName(o.customer_name)}! Aqui é da ${o.stores.name}. Recebemos o pagamento do seu pedido ${o.code} e já estamos preparando. Qualquer dúvida, é só chamar por aqui.`;
+  return `https://wa.me/55${o.customer_phone}?text=${encodeURIComponent(text)}`;
+}
+
 // Trava: só quem preencher a coluna envia. Se o envio falhar, libera para tentar de novo.
 async function claim(orderId: string, column: "notified_paid_at" | "notified_shipped_at", statuses: string[]) {
   const { data } = await createAdminClient()
@@ -129,6 +135,7 @@ export async function notifyOrderPaid(orderId: string) {
           <p style="margin:0 0 20px;color:#525252">Pedido <strong>${o.code}</strong> pago por ${esc(o.customer_name)}
           (${esc(o.customer_email)}${o.customer_phone ? `, ${esc(formatPhone(o.customer_phone))}` : ""}).</p>
           ${o.stock_issue ? `<p style="margin:0 0 20px;padding:12px;border-radius:8px;background:#fef2f2;color:#991b1b">Atenção: faltou estoque de algum item na confirmação. Confira antes de enviar.</p>` : ""}
+          ${o.customer_phone ? `${button(customerWhatsappUrl(o), "Falar com o cliente no WhatsApp", "#16a34a")}<div style="height:24px"></div>` : ""}
           ${itemsTable(o)}
           ${o.shipping_address ? addressBlock(o.shipping_address) : ""}
           <p style="margin:20px 0 0;color:#525252">Veja os detalhes no painel da loja.</p>`),
@@ -167,6 +174,54 @@ export async function notifyOrderShipped(orderId: string) {
     if (!ok) await release(orderId, "notified_shipped_at");
   } catch (err) {
     console.error("Falha ao notificar envio", { orderId, err });
+  }
+}
+
+// ---------------------------------------------------------------- alertas da plataforma
+
+const ALERT_WINDOW_MINUTES = 30;
+
+// Avisa a plataforma (ALERT_EMAIL) quando algo crítico falha: pagamento, webhook, criação de pedido.
+// No máximo 1 e-mail por tipo de erro a cada 30 min (error_alert_claim conta as repetições).
+// Nunca lança erro: um alerta não pode derrubar a requisição do cliente. Não passe credenciais em details.
+export async function notifyPlatformError(key: string, title: string, details: Record<string, unknown>) {
+  const to = process.env.ALERT_EMAIL;
+  if (!to) return;
+  try {
+    const { data: repeats, error } = await createAdminClient().rpc("error_alert_claim", {
+      p_key: key,
+      p_minutes: ALERT_WINDOW_MINUTES,
+    });
+    if (error) {
+      console.error("error_alert_claim falhou", error.message);
+      return;
+    }
+    if (repeats === -1) return; // já avisado há menos de 30 min
+
+    const rows = Object.entries(details)
+      .map(([k, v]) => {
+        const text = typeof v === "string" ? v : JSON.stringify(v);
+        return `<tr><td style="padding:6px 12px 6px 0;color:#737373;vertical-align:top">${esc(k)}</td><td style="padding:6px 0;font-family:monospace;font-size:12px;word-break:break-all">${esc(String(text ?? "").slice(0, 2000))}</td></tr>`;
+      })
+      .join("");
+    const when = new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" });
+    await sendEmail({
+      to,
+      fromName: "PMS app alertas",
+      idempotencyKey: `alert-${key}-${Date.now()}`,
+      subject: `Alerta: ${title}`,
+      html: `<!doctype html><html lang="pt-BR"><body style="margin:0;padding:24px;background:#f5f5f5;font-family:Arial,Helvetica,sans-serif;color:#171717">
+        <div style="max-width:640px;margin:0 auto;background:#fff;border-radius:12px;padding:24px;border-top:6px solid #b42318">
+          <h1 style="margin:0 0 8px;font-size:20px">${esc(title)}</h1>
+          <p style="margin:0 0 16px;color:#525252">${esc(when)} · tipo <code>${esc(key)}</code> · ambiente ${esc(process.env.VERCEL_ENV ?? "local")}${
+            repeats ? ` · repetiu ${repeats}× desde o último alerta` : ""
+          }</p>
+          <table style="border-collapse:collapse;font-size:14px">${rows}</table>
+          <p style="margin:20px 0 0;font-size:12px;color:#a3a3a3">Novos erros deste tipo nos próximos ${ALERT_WINDOW_MINUTES} minutos só são contados. Detalhes completos nos logs da Vercel.</p>
+        </div></body></html>`,
+    });
+  } catch (err) {
+    console.error("Falha ao enviar alerta", err);
   }
 }
 

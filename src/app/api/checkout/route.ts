@@ -1,4 +1,5 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
+import { notifyPlatformError } from "@/lib/email";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getStoreFromRequest } from "@/lib/request-store";
 import { createOrder } from "@/lib/orders";
@@ -13,7 +14,14 @@ export async function POST(req: Request) {
   if (limited) return limited;
 
   const body = await req.json().catch(() => null);
-  const result = await createOrder(createAdminClient(), store, body);
+  let result: Awaited<ReturnType<typeof createOrder>>;
+  try {
+    result = await createOrder(createAdminClient(), store, body);
+  } catch (err) {
+    console.error("Erro ao criar pedido", { storeId: store.id, err });
+    after(() => notifyPlatformError(`pedido:${store.id}`, `Falha ao criar pedido (${store.name})`, { loja: store.name, erro: err instanceof Error ? err.message : JSON.stringify(err) }));
+    return NextResponse.json({ errors: ["Não foi possível criar o pedido agora. Tente de novo em instantes."] }, { status: 500 });
+  }
   if (!result.ok) return NextResponse.json({ errors: result.errors }, { status: 400 });
 
   return NextResponse.json({ token: result.token }, { status: 201 });

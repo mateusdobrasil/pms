@@ -1,4 +1,5 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
+import { notifyPlatformError } from "@/lib/email";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isUuid } from "@/lib/validation";
 import { ORDER_PAYMENT_FIELDS, recordPayment } from "@/lib/payments/record";
@@ -39,6 +40,7 @@ export async function POST(req: Request) {
     .maybeSingle();
   if (!secret?.gateway_access_token) {
     console.error("Webhook para loja sem credencial", { storeId });
+    after(() => notifyPlatformError(`webhook:sem-credencial:${storeId}`, "Webhook de pagamento para loja sem credencial", { loja: storeId, pagamento: paymentId }));
     return NextResponse.json({ ok: true, ignored: true }); // 200 para o gateway não reenviar para sempre
   }
 
@@ -69,17 +71,23 @@ export async function POST(req: Request) {
   if (ev?.processed_at) return NextResponse.json({ ok: true, duplicate: true });
 
   // Nunca confie no payload: o status vem da consulta direta ao gateway.
-  // Erro aqui → 500 → o gateway reenvia.
-  const payment = await getPayment(paymentId, secret.gateway_access_token);
+  // Erro aqui → alerta + 500 → o gateway reenvia.
+  try {
+    const payment = await getPayment(paymentId, secret.gateway_access_token);
 
-  if (payment.orderId && isUuid(payment.orderId)) {
-    const { data: order } = await db
-      .from("orders")
-      .select(ORDER_PAYMENT_FIELDS)
-      .eq("id", payment.orderId)
-      .eq("store_id", storeId)
-      .maybeSingle();
-    if (order) await recordPayment(db, order, payment);
+    if (payment.orderId && isUuid(payment.orderId)) {
+      const { data: order } = await db
+        .from("orders")
+        .select(ORDER_PAYMENT_FIELDS)
+        .eq("id", payment.orderId)
+        .eq("store_id", storeId)
+        .maybeSingle();
+      if (order) await recordPayment(db, order, payment);
+    }
+  } catch (err) {
+    console.error("Erro ao processar webhook", { storeId, paymentId, err });
+    after(() => notifyPlatformError(`webhook:erro:${storeId}`, "Erro ao processar webhook de pagamento", { loja: storeId, pagamento: paymentId, erro: String(err) }));
+    throw err;
   }
 
   await db

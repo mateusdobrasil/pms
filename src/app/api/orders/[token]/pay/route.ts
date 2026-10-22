@@ -1,4 +1,5 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
+import { notifyPlatformError } from "@/lib/email";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getStoreFromRequest } from "@/lib/request-store";
 import { isUuid } from "@/lib/validation";
@@ -119,6 +120,15 @@ export async function POST(req: Request, { params }: { params: Promise<{ token: 
       "Erro ao criar pagamento",
       { orderId: order.id, method: body.method },
       err instanceof MercadoPagoError ? JSON.stringify(err.body) : err,
+    );
+    after(() =>
+      notifyPlatformError(`pagamento:${String(body.method)}:${store.id}`, `Falha ao criar pagamento (${store.name})`, {
+        loja: store.name,
+        pedido: order.code,
+        forma: body.method,
+        status_mercado_pago: err instanceof MercadoPagoError ? err.status : "-",
+        erro: err instanceof MercadoPagoError ? err.body : String(err),
+      }),
     );
     // Falha do lado do Mercado Pago (5xx): avisa o cliente que é temporário e oferece a outra forma.
     if (err instanceof MercadoPagoError && err.status >= 500) {

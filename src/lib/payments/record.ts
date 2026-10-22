@@ -1,7 +1,7 @@
 import "server-only";
 import { after } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { notifyOrderPaid } from "@/lib/email";
+import { notifyOrderPaid, notifyPlatformError } from "@/lib/email";
 import { PROVIDER, type GatewayPayment } from "@/lib/payments/mercadopago";
 
 // Campos do pedido que toda chamada precisa selecionar.
@@ -28,11 +28,22 @@ export function amountFor(order: OrderRef, method: "pix" | "card") {
 export async function recordPayment(db: SupabaseClient, order: OrderRef, payment: GatewayPayment) {
   if (payment.orderId !== order.id) {
     console.error("Pagamento de outro pedido", { orderId: order.id, paymentId: payment.id });
+    after(() => notifyPlatformError("pagamento:pedido-trocado", "Pagamento apontando para outro pedido", { pedido: order.id, pagamento: payment.id, pedido_no_pagamento: payment.orderId }));
     return false;
   }
   const expected = amountFor(order, payment.method);
   if (payment.amountCents !== expected) {
     console.error("Valor divergente", { orderId: order.id, metodo: payment.method, pago: payment.amountCents, esperado: expected });
+    after(() =>
+      notifyPlatformError("pagamento:valor-divergente", "Pagamento com valor diferente do pedido", {
+        pedido: order.id,
+        pagamento: payment.id,
+        forma: payment.method,
+        status: payment.status,
+        pago_centavos: payment.amountCents,
+        esperado_centavos: expected,
+      }),
+    );
     return false;
   }
 
