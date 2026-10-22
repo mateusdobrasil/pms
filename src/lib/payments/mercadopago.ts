@@ -163,6 +163,34 @@ export async function createCardPayment(input: Common & { payer: Payer; card: Ca
   return toGatewayPayment(raw);
 }
 
+// Link de pagamento (Checkout Pro): usado nas faturas da plataforma. O lojista escolhe Pix, cartão ou boleto
+// na página do Mercado Pago; a confirmação chega pelo webhook (external_reference = id da fatura).
+export async function createCheckoutPreference(input: {
+  accessToken: string;
+  reference: string;
+  title: string;
+  amountCents: number;
+  payerEmail: string | null;
+  backUrl: string;
+  notificationUrl: string | undefined;
+}) {
+  const https = input.backUrl.startsWith("https://");
+  const body = await mpFetch("/checkout/preferences", input.accessToken, {
+    method: "POST",
+    headers: { "X-Idempotency-Key": randomUUID() },
+    body: JSON.stringify({
+      items: [{ id: input.reference, title: input.title, quantity: 1, currency_id: "BRL", unit_price: input.amountCents / 100 }],
+      external_reference: input.reference,
+      payer: input.payerEmail ? { email: input.payerEmail } : undefined,
+      back_urls: { success: input.backUrl, pending: input.backUrl, failure: input.backUrl },
+      auto_return: https ? "approved" : undefined, // o Mercado Pago só volta sozinho para https
+      notification_url: input.notificationUrl,
+      statement_descriptor: "PMS APP",
+    }),
+  });
+  return String((body as { init_point: string }).init_point);
+}
+
 export async function getPayment(paymentId: string, accessToken: string) {
   const raw = await mpFetch(`/v1/payments/${encodeURIComponent(paymentId)}`, accessToken);
   return toGatewayPayment(raw);

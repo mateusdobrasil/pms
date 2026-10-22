@@ -3,8 +3,12 @@ import { notFound } from "next/navigation";
 import { requireAdmin } from "@/lib/admin";
 import { isUuid } from "@/lib/validation";
 import { storeBaseUrl } from "@/lib/urls";
-import { removeDomain, removeMember, setPrimaryDomain, setStoreStatus } from "../../actions";
-import { AddDomainForm, AddMemberForm, BrandingForm, SecretsForm } from "../../forms";
+import { formatBRL } from "@/lib/money";
+import { formatDateTime } from "@/lib/format";
+import { daysLate, dueDateOptions, formatDay, invoiceTitle, todayBR } from "@/lib/billing";
+import { INVOICE_FIELDS, type InvoiceRow } from "@/lib/billing-server";
+import { cancelInvoice, markInvoicePaid, removeDomain, removeMember, setPrimaryDomain, setStoreStatus } from "../../actions";
+import { AddDomainForm, AddMemberForm, BillingForm, BrandingForm, SecretsForm } from "../../forms";
 
 export default async function AdminStorePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -21,6 +25,16 @@ export default async function AdminStorePage({ params }: { params: Promise<{ id:
     db.from("store_members").select("user_id, role, created_at").eq("store_id", id),
   ]);
   if (!store) notFound();
+
+  // Cobrança: colunas e tabela do SQL 20261024000000, lidas à parte (sem o SQL, a seção avisa).
+  const [{ data: billing, error: billingError }, { data: invoiceRows }] = await Promise.all([
+    db.from("stores").select("setup_fee_cents, monthly_fee_cents, billing_starts_on, suspended_for_billing").eq("id", id).single(),
+    db.from("store_invoices").select(INVOICE_FIELDS).eq("store_id", id).order("due_date", { ascending: false }),
+  ]);
+  const invoices = (invoiceRows ?? []) as InvoiceRow[];
+  const today = todayBR();
+  const dueValues = dueDateOptions(today, 4);
+  if (billing?.billing_starts_on && !dueValues.includes(billing.billing_starts_on)) dueValues.unshift(billing.billing_starts_on);
 
   // E-mails dos membros (auth.users só é acessível pela API admin).
   const memberRows = await Promise.all(
@@ -129,6 +143,66 @@ export default async function AdminStorePage({ params }: { params: Promise<{ id:
             <p className={`rounded-lg px-3 py-2 text-xs ${mpTest ? "bg-amber-50 text-amber-900" : "bg-emerald-50 text-emerald-800"}`}>
               Mercado Pago em {mpTest ? "modo de TESTE (credenciais TEST-): nenhum dinheiro real é cobrado." : "PRODUÇÃO: cobranças reais."}
             </p>
+          )}
+        </section>
+
+        <section className={`${card} lg:col-span-2`}>
+          <h2 className="font-semibold">Cobrança</h2>
+          {billingError || !billing ? (
+            <p className="text-sm text-neutral-500">Rode o SQL 20261024000000_cobranca_mensalidade.sql para ativar a cobrança.</p>
+          ) : (
+            <div className="grid gap-6 lg:grid-cols-2">
+              <BillingForm
+                storeId={store.id}
+                setupFee={billing.setup_fee_cents}
+                monthlyFee={billing.monthly_fee_cents}
+                startsOn={billing.billing_starts_on}
+                dueOptions={dueValues.map((d) => ({ value: d, label: formatDay(d) }))}
+              />
+              <div className="space-y-2">
+                <h3 className="text-sm font-medium text-neutral-700">Faturas</h3>
+                {billing.suspended_for_billing && (
+                  <p className="rounded-lg bg-red-50 px-3 py-2 text-xs text-red-800">Suspensa pela cobrança: volta sozinha quando a fatura atrasada for paga.</p>
+                )}
+                {invoices.length === 0 ? (
+                  <p className="text-sm text-neutral-500">Nenhuma fatura.</p>
+                ) : (
+                  <ul className="divide-y rounded-lg border text-sm">
+                    {invoices.map((inv) => {
+                      const late = inv.status === "open" ? daysLate(inv.due_date, today) : 0;
+                      return (
+                        <li key={inv.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2">
+                          <span className="min-w-0 flex-1">
+                            {invoiceTitle(inv)} · {formatBRL(inv.amount_cents)}
+                            <span className={`block text-xs ${late ? "text-red-700" : "text-neutral-500"}`}>
+                              {inv.status === "paid"
+                                ? `paga${inv.paid_at ? ` em ${formatDateTime(inv.paid_at)}` : ""}${inv.payment_method ? ` (${inv.payment_method})` : ""}`
+                                : inv.status === "canceled"
+                                  ? "cancelada"
+                                  : `vence ${formatDay(inv.due_date)}${late ? ` · ${late} dia(s) de atraso` : ""}`}
+                            </span>
+                          </span>
+                          {inv.status === "open" && (
+                            <>
+                              <form action={markInvoicePaid}>
+                                <input type="hidden" name="storeId" value={store.id} />
+                                <input type="hidden" name="invoiceId" value={inv.id} />
+                                <button className="text-xs text-emerald-700 underline">marcar como paga</button>
+                              </form>
+                              <form action={cancelInvoice}>
+                                <input type="hidden" name="storeId" value={store.id} />
+                                <input type="hidden" name="invoiceId" value={inv.id} />
+                                <button className="text-xs text-red-700 underline">cancelar</button>
+                              </form>
+                            </>
+                          )}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </div>
+            </div>
           )}
         </section>
 

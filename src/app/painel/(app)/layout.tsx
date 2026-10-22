@@ -1,13 +1,24 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { requireStore } from "@/lib/panel";
+import { formatDay, lastPayDay, todayBR } from "@/lib/billing";
 import { signOut } from "../actions";
 import { PanelNav } from "./panel-nav";
 
 export const metadata = { title: "Painel · PMS app", robots: { index: false } };
 
 export default async function PanelLayout({ children }: { children: ReactNode }) {
-  const { store, email } = await requireStore();
+  const { supabase, store, email } = await requireStore();
+  // Fatura vencida mais antiga (aviso no topo de todas as telas). Se a tabela ainda não existir, segue sem aviso.
+  const { data: overdue } = await supabase
+    .from("store_invoices")
+    .select("due_date")
+    .eq("store_id", store.id)
+    .eq("status", "open")
+    .lt("due_date", todayBR())
+    .order("due_date")
+    .limit(1);
+  const oldestDue = overdue?.[0]?.due_date as string | undefined;
 
   return (
     <div className="min-h-screen bg-neutral-100">
@@ -42,10 +53,24 @@ export default async function PanelLayout({ children }: { children: ReactNode })
           </div>
         </div>
       </header>
-      {store.status === "suspended" && (
+      {store.status === "suspended" ? (
         <p className="bg-amber-100 px-4 py-2 text-center text-sm text-amber-900">
-          Sua loja está suspensa e não aparece para os clientes. Fale com o suporte.
+          {oldestDue ? (
+            <>
+              Sua loja está fora do ar por falta de pagamento.{" "}
+              <Link href="/painel/assinatura" className="font-semibold underline">Pague a fatura</Link> e ela volta ao ar sozinha.
+            </>
+          ) : (
+            "Sua loja está suspensa e não aparece para os clientes. Fale com o suporte."
+          )}
         </p>
+      ) : (
+        oldestDue && (
+          <p className="bg-red-50 px-4 py-2 text-center text-sm text-red-800">
+            Fatura vencida em {formatDay(oldestDue)}. Pague até {formatDay(lastPayDay(oldestDue))} para a loja não sair do ar.{" "}
+            <Link href="/painel/assinatura" className="font-semibold underline">Pagar agora</Link>
+          </p>
+        )
       )}
       <main className="mx-auto max-w-6xl px-4 py-8">{children}</main>
     </div>

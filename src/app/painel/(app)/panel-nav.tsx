@@ -9,6 +9,7 @@ const LINKS = [
   { href: "/painel/produtos", label: "Produtos" },
   { href: "/painel/categorias", label: "Categorias" },
   { href: "/painel/configuracoes", label: "Configurações" },
+  { href: "/painel/assinatura", label: "Assinatura" },
   { href: "/painel/ajuda", label: "Ajuda" },
 ];
 

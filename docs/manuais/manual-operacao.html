@@ -103,6 +103,7 @@ footer { grid-column: 1 / -1; color: var(--muted); font-size: 13px; border-top: 
       <li><a href="#banco">Banco e migrations</a></li>
       <li><a href="#implantar">Implantar uma loja</a></li>
       <li><a href="#pagamentos">Pagamentos</a></li>
+      <li><a href="#cobranca">Cobrança dos lojistas</a></li>
       <li><a href="#frete">Frete</a></li>
       <li><a href="#emails">E-mails</a></li>
       <li><a href="#dev">Desenvolvimento e deploy</a></li>
@@ -194,7 +195,10 @@ footer { grid-column: 1 / -1; color: var(--muted); font-size: 13px; border-top: 
           <tr><td><code>MELHOR_ENVIO_CONTACT</code></td><td>E-mail técnico exigido pelo Melhor Envio</td><td>e-mail de contato</td></tr>
           <tr><td><code>RESEND_API_KEY</code></td><td>Envio de e-mails (chave só de envio)</td><td>resend.com → API Keys</td></tr>
           <tr><td><code>EMAIL_FROM</code></td><td>Remetente dos e-mails</td><td><code>pedidos@pmsapp.dev</code> (com o domínio verificado)</td></tr>
-          <tr><td><code>ALERT_EMAIL</code></td><td>Recebe os alertas de erro (pagamento, webhook, criação de pedido, consulta de status). No máximo 1 por tipo a cada 30 min; sem ela, não há alertas</td><td>O seu e-mail</td></tr>
+          <tr><td><code>ALERT_EMAIL</code></td><td>Recebe os alertas de erro (pagamento, webhook, criação de pedido, consulta de status). No máximo 1 por tipo a cada 30 min; sem ela, não há alertas. Também recebe a cópia de cada fatura paga e de cada loja suspensa</td><td>O seu e-mail</td></tr>
+          <tr><td><code>MP_PLATFORM_ACCESS_TOKEN</code></td><td>Access Token do Mercado Pago <strong>da plataforma</strong> (o seu, não o do lojista): recebe as faturas de implantação e mensalidade. Sem ele, o botão Pagar mostra "indisponível"</td><td>Sua conta MP → Suas integrações → aplicação → Credenciais (<code>TEST-</code> para testar, <code>APP_USR-</code> em produção)</td></tr>
+          <tr><td><code>MP_PLATFORM_WEBHOOK_SECRET</code></td><td>Opcional: confere a assinatura do webhook da cobrança</td><td>Mesma aplicação → Webhooks → assinatura secreta</td></tr>
+          <tr><td><code>CRON_SECRET</code></td><td>Senha da rotina diária da cobrança; a Vercel envia sozinha ao chamar o cron. Sem ela, a rotina não roda (401)</td><td>Qualquer texto aleatório longo (ex.: 32 caracteres)</td></tr>
         </tbody>
       </table></div>
       <div class="note warn"><strong>Variáveis <code>NEXT_PUBLIC_</code> entram no código na hora do build</strong>Depois de mudar qualquer uma delas na Vercel, faça <strong>Redeploy</strong> (Deployments → ⋯ → Redeploy). Sem isso, o site continua com o valor antigo.</div>
@@ -264,8 +268,24 @@ flowchart TD
       <div class="note bad"><strong>Credenciais: o que funciona para testar</strong>Use as credenciais <code>TEST-</code> da aplicação da conta real. <strong>Contas de teste (vendedor de teste, <code>APP_USR-</code> dele) não servem para Checkout Bricks</strong>: dão <code>401 Unauthorized use of live credentials</code>. A documentação oficial confirma.</div>
     </section>
 
+    <section id="cobranca">
+      <h2><span class="n">08</span>Cobrança dos lojistas</h2>
+      <p>Implantação de <strong>R$ 2.000,00</strong> e mensalidade de <strong>R$ 300,00</strong> (cada uma pode ser <strong>isenta</strong>), vencimento <strong>todo dia 9</strong> e suspensão com <strong>mais de 20 dias de atraso</strong>. Os valores ficam em <code>BILLING</code>, em <code>src/lib/billing.ts</code>.</p>
+      <ol class="steps">
+        <li><div><strong>Configurar a loja</strong><br><code>/admin</code> → loja → Cobrança: implantação, mensalidade e o vencimento da 1ª mensalidade (um dia 9). Ao salvar, a implantação vira fatura com vencimento em 3 dias e o lojista recebe o e-mail na hora. Loja nova começa isenta de tudo até você configurar.</div></li>
+        <li><div><strong>Rotina diária</strong> (Vercel Cron, <code>vercel.json</code>, 8h de Brasília → <code>/api/cron/cobranca</code>): emite a mensalidade 10 dias antes do dia 9, manda os avisos (fatura disponível, vencida no dia seguinte, último aviso com 15 dias de atraso) e, com mais de 20 dias, suspende a loja (<code>suspended_for_billing</code>) e avisa. Cada aviso sai uma vez por fatura (<code>store_invoices.notified_*</code>). Logs: Vercel → Logs, filtro <code>/api/cron/cobranca</code>.</div></li>
+        <li><div><strong>Pagamento</strong><br>Painel → Assinatura → Pagar cria um link do Checkout Pro na conta da plataforma (<code>external_reference</code> = id da fatura). O webhook <code>/api/webhooks/plataforma</code> (e a volta do lojista para o painel) consulta o pagamento no Mercado Pago, baixa a fatura e reativa a loja se ela foi suspensa pela cobrança. Pagamento duplicado ou de fatura cancelada gera alerta para devolver.</div></li>
+      </ol>
+      <ul>
+        <li><strong>Recebeu por fora</strong> (transferência, dinheiro): <code>/admin</code> → loja → Cobrança → "marcar como paga". <strong>Perdoar</strong> uma fatura: "cancelar". As duas ações reativam a loja se ela estava suspensa pela cobrança.</li>
+        <li><strong>Dar mais prazo</strong> a uma loja suspensa: reative em Situação. O job suspende só uma vez por fatura, então ela fica no ar até a fatura seguinte vencer.</li>
+        <li>Rodar a rotina na mão (teste): <code>curl -H "Authorization: Bearer $CRON_SECRET" https://www.pmsapp.dev/api/cron/cobranca</code>. Pode rodar quantas vezes quiser: não duplica fatura nem e-mail.</li>
+      </ul>
+      <div class="note warn"><strong>Antes de cobrar de verdade</strong>Cadastre <code>MP_PLATFORM_ACCESS_TOKEN</code> (produção, <code>APP_USR-</code>) e <code>CRON_SECRET</code> na Vercel e faça Redeploy. Teste primeiro com o token <code>TEST-</code> e uma loja de teste.</div>
+    </section>
+
     <section id="frete">
-      <h2><span class="n">08</span>Frete (Melhor Envio)</h2>
+      <h2><span class="n">09</span>Frete (Melhor Envio)</h2>
       <ul>
         <li>A cotação usa o CEP de origem da loja, o CEP do cliente e o peso e as medidas de cada variação. Sem token ou sem CEP de origem, o checkout oferece só a retirada.</li>
         <li>O ambiente é escolhido <strong>por loja</strong> no <code>/admin</code> (sandbox ou produção). Um token do sandbox não funciona em produção, nem o contrário.</li>
@@ -275,7 +295,7 @@ flowchart TD
     </section>
 
     <section id="emails">
-      <h2><span class="n">09</span>E-mails (Resend)</h2>
+      <h2><span class="n">10</span>E-mails (Resend)</h2>
       <div class="table"><table>
         <thead><tr><th>E-mail</th><th>Quando sai</th><th>Para</th></tr></thead>
         <tbody>
@@ -289,7 +309,7 @@ flowchart TD
     </section>
 
     <section id="dev">
-      <h2><span class="n">10</span>Desenvolvimento e deploy</h2>
+      <h2><span class="n">11</span>Desenvolvimento e deploy</h2>
       <pre><code>npm install
 npm run dev            # loja de teste: http://loja-teste.localhost:3000
                        # plataforma:    http://localhost:3000
@@ -306,7 +326,7 @@ npx next build         # build de produção (rode antes de subir)</code></pre>
     </section>
 
     <section id="testes">
-      <h2><span class="n">11</span>Como testar</h2>
+      <h2><span class="n">12</span>Como testar</h2>
       <h3>Testes automatizados</h3>
       <p><code>npm test</code> roda os testes de unidade (Vitest, pasta <code>tests/</code>): dinheiro, CPF, carrinho, desconto no Pix, frete grátis e a conferência de pagamentos (<code>recordPayment</code>). Não usam banco nem rede. A cada envio para a <code>main</code>, o GitHub Actions roda lint, <code>npm run typecheck</code> e os testes (<code>.github/workflows/ci.yml</code>); um X vermelho no commit indica falha. Mudou regra de preço ou pagamento? Acrescente um teste.</p>
       <h3>Compra com cartão (sandbox)</h3>
@@ -328,7 +348,7 @@ npx next build         # build de produção (rode antes de subir)</code></pre>
     </section>
 
     <section id="problemas">
-      <h2><span class="n">12</span>Problemas conhecidos</h2>
+      <h2><span class="n">13</span>Problemas conhecidos</h2>
       <div class="table"><table>
         <thead><tr><th>Sintoma</th><th>Causa</th><th>Solução</th></tr></thead>
         <tbody>
@@ -345,7 +365,7 @@ npx next build         # build de produção (rode antes de subir)</code></pre>
     </section>
 
     <section id="rotinas">
-      <h2><span class="n">13</span>Rotinas de operação</h2>
+      <h2><span class="n">14</span>Rotinas de operação</h2>
       <h3>Suspender ou reativar uma loja</h3>
       <p><code>/admin</code> → loja → Situação. Suspensa, a vitrine dá 404, e o painel continua acessível, com um aviso.</p>
       <h3>Trocar uma credencial</h3>
@@ -370,7 +390,7 @@ npx next build         # build de produção (rode antes de subir)</code></pre>
     </section>
 
     <section id="pendencias">
-      <h2><span class="n">14</span>Pendências</h2>
+      <h2><span class="n">15</span>Pendências</h2>
       <ul>
         <li><span class="pill warn">e-mail</span> Verificar <code>pmsapp.dev</code> no Resend e trocar o <code>EMAIL_FROM</code>.</li>
         <li><span class="pill warn">Vercel</span> Conferir as variáveis de produção (Resend, Melhor Envio, <code>PLATFORM_URL</code>) e fazer Redeploy.</li>

@@ -3,10 +3,14 @@
 import { randomBytes } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { after } from "next/server";
 import { normalizeDomain, requireAdmin } from "@/lib/admin";
 import { removeStoreLogo, uploadStoreLogo, validateLogo } from "@/lib/branding";
 import { slugify } from "@/lib/slug";
 import { isEmail, isUuid, onlyDigits } from "@/lib/validation";
+import { BILLING, isDueDay, todayBR } from "@/lib/billing";
+import { issueInvoices, reactivateIfClear } from "@/lib/billing-server";
+import { notifyInvoice } from "@/lib/email";
 
 // Tudo aqui usa a service role (createAdminClient), sempre depois de requireAdmin().
 
@@ -99,6 +103,8 @@ export async function setStoreStatus(form: FormData) {
   const status = form.get("status") === "suspended" ? "suspended" : "active";
   if (!isUuid(id)) return;
   await db.from("stores").update({ status }).eq("id", id);
+  // Decisão manual do admin: a loja deixa de contar como "suspensa pela cobrança" (coluna do SQL 20261024000000).
+  await db.from("stores").update({ suspended_for_billing: false }).eq("id", id);
   refresh(id);
 }
 
@@ -242,4 +248,75 @@ export async function updateBranding(_prev: AdminState, form: FormData): Promise
   refresh(storeId);
   revalidatePath("/painel", "layout");
   return { ok: "Identidade salva. A vitrine atualiza em até 1 minuto." };
+}
+
+// ---------------------------------------------------------------- cobrança (implantação e mensalidade)
+
+export async function saveBilling(_prev: AdminState, form: FormData): Promise<AdminState> {
+  const { db } = await requireAdmin();
+  const storeId = String(form.get("storeId") ?? "");
+  if (!isUuid(storeId)) return { error: "Loja inválida." };
+  const setup = Number(form.get("setup_fee_cents"));
+  const monthly = Number(form.get("monthly_fee_cents"));
+  const startsOn = String(form.get("billing_starts_on") ?? "");
+  if (![0, BILLING.setupFeeCents].includes(setup) || ![0, BILLING.monthlyFeeCents].includes(monthly)) return { error: "Valor inválido." };
+  if (monthly && !isDueDay(startsOn)) return { error: `Escolha o vencimento da 1ª mensalidade (dia ${BILLING.dueDay}).` };
+
+  const { error } = await db
+    .from("stores")
+    .update({ setup_fee_cents: setup, monthly_fee_cents: monthly, billing_starts_on: monthly ? startsOn : null })
+    .eq("id", storeId);
+  if (error) return { error: "Não foi possível salvar. O SQL da cobrança (20261024000000) já foi rodado?" };
+
+  // Isento: cancela o que estava em aberto.
+  const today = todayBR();
+  if (!setup) await db.from("store_invoices").update({ status: "canceled" }).eq("store_id", storeId).eq("kind", "setup").eq("status", "open");
+  if (!monthly) await db.from("store_invoices").update({ status: "canceled" }).eq("store_id", storeId).eq("kind", "monthly").eq("status", "open");
+  const created = await issueInvoices(db, today, storeId);
+  await reactivateIfClear(db, storeId, today);
+
+  // Fatura nova: o lojista recebe o e-mail na hora (as vencidas ficam com o aviso de atraso do job diário).
+  const { data: fresh } = await db
+    .from("store_invoices")
+    .select("id")
+    .eq("store_id", storeId)
+    .eq("status", "open")
+    .is("notified_issued_at", null)
+    .gte("due_date", today);
+  after(async () => {
+    for (const inv of fresh ?? []) await notifyInvoice(inv.id, "issued");
+  });
+
+  refresh(storeId);
+  return { ok: created ? `Cobrança salva. ${created} fatura(s) emitida(s) e enviada(s) por e-mail ao lojista.` : "Cobrança salva." };
+}
+
+// Pagamento recebido fora do Mercado Pago (transferência, dinheiro): baixa manual.
+export async function markInvoicePaid(form: FormData) {
+  const { db } = await requireAdmin();
+  const storeId = String(form.get("storeId") ?? "");
+  const invoiceId = String(form.get("invoiceId") ?? "");
+  if (!isUuid(storeId) || !isUuid(invoiceId)) return;
+  const { data } = await db
+    .from("store_invoices")
+    .update({ status: "paid", paid_at: new Date().toISOString(), payment_method: "manual" })
+    .eq("id", invoiceId)
+    .eq("store_id", storeId)
+    .eq("status", "open")
+    .select("id");
+  if (data?.length) {
+    await reactivateIfClear(db, storeId);
+    after(() => notifyInvoice(invoiceId, "paid"));
+  }
+  refresh(storeId);
+}
+
+export async function cancelInvoice(form: FormData) {
+  const { db } = await requireAdmin();
+  const storeId = String(form.get("storeId") ?? "");
+  const invoiceId = String(form.get("invoiceId") ?? "");
+  if (!isUuid(storeId) || !isUuid(invoiceId)) return;
+  await db.from("store_invoices").update({ status: "canceled" }).eq("id", invoiceId).eq("store_id", storeId).eq("status", "open");
+  await reactivateIfClear(db, storeId);
+  refresh(storeId);
 }

@@ -2,7 +2,9 @@
 
 import { useActionState, useEffect, useRef, useState } from "react";
 import { submitKeepingValues } from "@/lib/form-submit";
-import { addDomain, addMember, createStore, saveSecrets, updateBranding, type AdminState } from "./actions";
+import { addDomain, addMember, createStore, saveBilling, saveSecrets, updateBranding, type AdminState } from "./actions";
+import { BILLING } from "@/lib/billing";
+import { formatBRL } from "@/lib/money";
 
 const input = "w-full rounded-lg border px-3 py-2 text-sm";
 const primaryButton =
@@ -258,6 +260,63 @@ export function BrandingForm({
       <Feedback state={state} />
       <button type="submit" disabled={pending} className={primaryButton}>
         {pending ? "Salvando…" : "Salvar identidade"}
+      </button>
+    </form>
+  );
+}
+
+export function BillingForm({
+  storeId,
+  setupFee,
+  monthlyFee,
+  startsOn,
+  dueOptions,
+}: {
+  storeId: string;
+  setupFee: number;
+  monthlyFee: number;
+  startsOn: string | null;
+  dueOptions: { value: string; label: string }[];
+}) {
+  const [state, action, pending] = useActionState<AdminState, FormData>(saveBilling, null);
+  const [monthly, setMonthly] = useState(String(monthlyFee));
+  return (
+    <form onSubmit={submitKeepingValues(action)} className="space-y-3">
+      <input type="hidden" name="storeId" value={storeId} />
+      <div className="grid gap-3 sm:grid-cols-2">
+        <label className="block space-y-1 text-sm">
+          <span className="font-medium text-neutral-700">Implantação</span>
+          <select name="setup_fee_cents" defaultValue={String(setupFee)} className={input}>
+            <option value={BILLING.setupFeeCents}>{formatBRL(BILLING.setupFeeCents)}</option>
+            <option value="0">Isenta</option>
+          </select>
+        </label>
+        <label className="block space-y-1 text-sm">
+          <span className="font-medium text-neutral-700">Mensalidade</span>
+          <select name="monthly_fee_cents" value={monthly} onChange={(e) => setMonthly(e.target.value)} className={input}>
+            <option value={BILLING.monthlyFeeCents}>{formatBRL(BILLING.monthlyFeeCents)}</option>
+            <option value="0">Isenta</option>
+          </select>
+        </label>
+      </div>
+      {monthly !== "0" && (
+        <label className="block space-y-1 text-sm">
+          <span className="font-medium text-neutral-700">1ª mensalidade vence em</span>
+          <select name="billing_starts_on" defaultValue={startsOn ?? dueOptions[1]?.value} className={input}>
+            {dueOptions.map((o) => (
+              <option key={o.value} value={o.value}>{o.label}</option>
+            ))}
+          </select>
+        </label>
+      )}
+      <p className="text-xs text-neutral-500">
+        A implantação vence {BILLING.setupDueDays} dias depois de salvar. Cada mensalidade é emitida {BILLING.issueDaysBefore} dias antes do dia {BILLING.dueDay} e
+        enviada por e-mail; com mais de {BILLING.graceDays} dias de atraso a loja é suspensa e volta sozinha ao pagar. Marcar como isenta cancela o que estiver
+        em aberto.
+      </p>
+      <Feedback state={state} />
+      <button type="submit" disabled={pending} className={primaryButton}>
+        {pending ? "Salvando…" : "Salvar cobrança"}
       </button>
     </form>
   );

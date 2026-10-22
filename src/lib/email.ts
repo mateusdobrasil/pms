@@ -2,7 +2,8 @@ import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { formatBRL } from "@/lib/money";
 import { formatPhone } from "@/lib/format";
-import { storeBaseUrl } from "@/lib/urls";
+import { platformUrl, storeBaseUrl } from "@/lib/urls";
+import { type InvoiceKind, formatDay, invoiceTitle, lastPayDay } from "@/lib/billing";
 
 // E-mails transacionais via API do Resend. Sem RESEND_API_KEY, só registra no log (dev).
 // EMAIL_FROM: endereço de um domínio verificado no Resend, ex.: pedidos@pmsapp.dev
@@ -115,7 +116,7 @@ export async function notifyOrderPaid(orderId: string) {
       replyTo: o.stores.email,
       idempotencyKey: `paid-${o.id}`,
       subject: `Pedido ${o.code} confirmado`,
-      html: layout(o, `
+      html: layout(o.stores, `
         <h1 style="margin:0 0 8px;font-size:22px">Pagamento confirmado!</h1>
         <p style="margin:0 0 20px;color:#525252">Olá, ${esc(firstName(o.customer_name))}. Recebemos o pagamento do pedido <strong>${o.code}</strong>.
         ${o.shipping_method === "pickup" ? "Avisaremos quando estiver pronto para retirada." : "Avisaremos quando for enviado, com o código de rastreio."}</p>
@@ -130,7 +131,7 @@ export async function notifyOrderPaid(orderId: string) {
         fromName: "PMS app",
         idempotencyKey: `paid-store-${o.id}`,
         subject: `Nova venda: pedido ${o.code} (${formatBRL(o.total_cents)})`,
-        html: layout(o, `
+        html: layout(o.stores, `
           <h1 style="margin:0 0 8px;font-size:22px">Nova venda 🎉</h1>
           <p style="margin:0 0 20px;color:#525252">Pedido <strong>${o.code}</strong> pago por ${esc(o.customer_name)}
           (${esc(o.customer_email)}${o.customer_phone ? `, ${esc(formatPhone(o.customer_phone))}` : ""}).</p>
@@ -162,7 +163,7 @@ export async function notifyOrderShipped(orderId: string) {
       replyTo: o.stores.email,
       idempotencyKey: `shipped-${o.id}`,
       subject: pickup ? `Pedido ${o.code} pronto para retirada` : `Pedido ${o.code} enviado`,
-      html: layout(o, (pickup
+      html: layout(o.stores, (pickup
         ? `<h1 style="margin:0 0 8px;font-size:22px">Pronto para retirada!</h1>
            <p style="margin:0 0 20px;color:#525252">Olá, ${esc(firstName(o.customer_name))}. Seu pedido <strong>${o.code}</strong> já pode ser retirado na loja.
            ${o.stores.whatsapp ? `Dúvidas? Fale com a gente pelo <a href="https://wa.me/${o.stores.whatsapp}">WhatsApp</a>.` : ""}</p>`
@@ -174,6 +175,118 @@ export async function notifyOrderShipped(orderId: string) {
     if (!ok) await release(orderId, "notified_shipped_at");
   } catch (err) {
     console.error("Falha ao notificar envio", { orderId, err });
+  }
+}
+
+// ---------------------------------------------------------------- cobrança da plataforma (faturas do lojista)
+
+export type InvoiceNotice = "issued" | "overdue" | "warning" | "suspended" | "paid";
+
+type InvoiceForEmail = {
+  id: string;
+  store_id: string;
+  kind: InvoiceKind;
+  reference_month: string | null;
+  amount_cents: number;
+  due_date: string;
+  stores: { name: string; email: string | null };
+};
+
+const PLATFORM_BRAND = { name: "PMS app", primary_color: "#0a2e82" };
+
+// Sem e-mail da loja (o lojista pode apagar em Configurações), a cobrança vai para o login do dono.
+async function ownerEmail(storeId: string) {
+  const db = createAdminClient();
+  const { data: owner } = await db.from("store_members").select("user_id").eq("store_id", storeId).eq("role", "owner").order("created_at").limit(1).maybeSingle();
+  if (!owner) return null;
+  const { data } = await db.auth.admin.getUserById(owner.user_id);
+  return data.user?.email ?? null;
+}
+
+// Cada aviso sai uma vez por fatura (coluna notified_<aviso>_at). Devolve true se enviou.
+export async function notifyInvoice(invoiceId: string, notice: InvoiceNotice) {
+  const column = `notified_${notice}_at`;
+  const db = createAdminClient();
+  try {
+    const { data } = await db
+      .from("store_invoices")
+      .update({ [column]: new Date().toISOString() })
+      .eq("id", invoiceId)
+      .is(column, null)
+      .eq("status", notice === "paid" ? "paid" : "open")
+      .select("id, store_id, kind, reference_month, amount_cents, due_date, stores(name, email)");
+    const inv = data?.[0] as unknown as InvoiceForEmail | undefined;
+    if (!inv) return false;
+
+    const title = invoiceTitle(inv);
+    const value = formatBRL(inv.amount_cents);
+    const due = formatDay(inv.due_date);
+    const limit = formatDay(lastPayDay(inv.due_date));
+    const pay = button(platformUrl("/painel/assinatura"), "Pagar fatura", PLATFORM_BRAND.primary_color);
+    const summary = `<p style="margin:0 0 4px;padding:14px;border-radius:8px;background:#f5f5f5;font-size:15px">${esc(title)}<br>
+      <strong style="font-size:20px">${value}</strong><br><span style="color:#525252">vencimento ${due}</span></p>`;
+    const hello = `<p style="margin:0 0 16px;color:#525252">Olá, ${esc(inv.stores.name)}.`;
+    const content: Record<InvoiceNotice, { subject: string; body: string }> = {
+      issued: {
+        subject: `Sua fatura do PMS app: ${title} (${value})`,
+        body: `<h1 style="margin:0 0 8px;font-size:22px">Fatura disponível</h1>
+          ${hello} A fatura abaixo já pode ser paga por Pix, cartão ou boleto.</p>${summary}${pay}`,
+      },
+      overdue: {
+        subject: `Fatura vencida: ${title}`,
+        body: `<h1 style="margin:0 0 8px;font-size:22px">Fatura vencida</h1>
+          ${hello} Não identificamos o pagamento da fatura abaixo. Pague até <strong>${limit}</strong> para a loja continuar no ar.</p>${summary}${pay}`,
+      },
+      warning: {
+        subject: `Último aviso: sua loja será suspensa depois de ${limit}`,
+        body: `<h1 style="margin:0 0 8px;font-size:22px">Sua loja será suspensa</h1>
+          ${hello} A fatura abaixo continua em aberto. Se não for paga até <strong>${limit}</strong>, a loja sai do ar até o pagamento.</p>${summary}${pay}`,
+      },
+      suspended: {
+        subject: `Sua loja ${inv.stores.name} foi suspensa`,
+        body: `<h1 style="margin:0 0 8px;font-size:22px">Loja suspensa por falta de pagamento</h1>
+          ${hello} A loja saiu do ar porque a fatura abaixo passou de 20 dias de atraso. O painel continua funcionando.
+          Assim que o pagamento for confirmado, a loja volta ao ar sozinha.</p>${summary}${pay}`,
+      },
+      paid: {
+        subject: `Pagamento recebido: ${title}`,
+        body: `<h1 style="margin:0 0 8px;font-size:22px">Pagamento recebido. Obrigado!</h1>
+          ${hello} Confirmamos o pagamento de <strong>${esc(title)}</strong> (${value}).</p>
+          ${button(platformUrl("/painel/assinatura"), "Ver faturas", PLATFORM_BRAND.primary_color)}`,
+      },
+    };
+
+    const email = content[notice];
+    const to = inv.stores.email || (await ownerEmail(inv.store_id));
+    const ok = to
+      ? await sendEmail({
+          to,
+          fromName: "PMS app",
+          idempotencyKey: `invoice-${notice}-${inv.id}`,
+          subject: email.subject,
+          html: layout(PLATFORM_BRAND, email.body),
+        })
+      : false;
+    if (!ok) {
+      console.error("Aviso de fatura não enviado", { invoiceId, notice, semEmail: !to });
+      await db.from("store_invoices").update({ [column]: null }).eq("id", invoiceId);
+    }
+
+    // Cópia para a plataforma: dinheiro que entrou e loja que saiu do ar.
+    const alertTo = process.env.ALERT_EMAIL;
+    if (alertTo && (notice === "paid" || notice === "suspended")) {
+      await sendEmail({
+        to: alertTo,
+        fromName: "PMS app cobrança",
+        idempotencyKey: `invoice-${notice}-${inv.id}-plataforma`,
+        subject: notice === "paid" ? `${inv.stores.name} pagou ${title} (${value})` : `${inv.stores.name} foi suspensa por atraso`,
+        html: layout(PLATFORM_BRAND, `<p style="margin:0">${esc(inv.stores.name)} · ${esc(title)} · ${value} · vencimento ${due}</p>`),
+      });
+    }
+    return ok;
+  } catch (err) {
+    console.error("Falha ao avisar fatura", { invoiceId, notice, err });
+    return false;
   }
 }
 
@@ -267,13 +380,13 @@ function button(url: string, label: string, color: string) {
   return `<p style="margin:28px 0 0"><a href="${esc(url)}" style="display:inline-block;padding:12px 22px;border-radius:8px;background:${safeColor(color)};color:#fff;text-decoration:none;font-weight:bold">${esc(label)}</a></p>`;
 }
 
-function layout(o: OrderForEmail, body: string) {
-  const color = safeColor(o.stores.primary_color);
+function layout(store: { name: string; primary_color: string }, body: string) {
+  const color = safeColor(store.primary_color);
   return `<!doctype html><html lang="pt-BR"><body style="margin:0;background:#f5f5f5;font-family:Arial,Helvetica,sans-serif;color:#171717">
     <table role="presentation" style="width:100%;border-collapse:collapse"><tr><td style="padding:24px 12px">
       <table role="presentation" style="max-width:560px;margin:0 auto;border-collapse:collapse;background:#fff;border-radius:12px;overflow:hidden">
         <tr><td style="height:6px;background:${color}"></td></tr>
-        <tr><td style="padding:24px 28px 0;font-size:18px;font-weight:bold">${esc(o.stores.name)}</td></tr>
+        <tr><td style="padding:24px 28px 0;font-size:18px;font-weight:bold">${esc(store.name)}</td></tr>
         <tr><td style="padding:20px 28px 28px">${body}</td></tr>
       </table>
       <p style="max-width:560px;margin:16px auto 0;text-align:center;font-size:12px;color:#a3a3a3">Loja criada com PMS app</p>
