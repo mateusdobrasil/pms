@@ -251,6 +251,8 @@ flowchart TD
       </pre>
       <ul>
         <li>O pedido nasce em <span class="pill warn">aguardando pagamento</span> e vale <strong>60 minutos</strong>. Ao gerar um Pix, o prazo passa a ser o do Pix (30 min, o mínimo do Mercado Pago). Um Pix pago depois de expirar ainda confirma o pedido.</li>
+        <li><strong>Desconto no Pix</strong> (<code>stores.pix_discount_percent</code>): na criação, o pedido grava <code>pix_discount_cents</code> (sobre o subtotal). O Pix cobra <code>subtotal + frete - pix_discount_cents</code>, e o cartão cobra <code>subtotal + frete</code>. <code>recordPayment</code> confere o valor pago contra essa conta, nunca contra <code>total_cents</code>. Quando um Pix com desconto confirma o pedido, <code>total_cents</code> vira o valor pago e <code>discount_cents</code> recebe o desconto.</li>
+        <li><strong>Frete grátis</strong> (<code>stores.free_shipping_min_cents</code>): aplicado em <code>getShippingOptions</code> à opção mais barata do Melhor Envio quando o subtotal atinge o mínimo. Cotação e criação do pedido passam pela mesma função.</li>
         <li>A cada 5 minutos, o job <code>expirar-pedidos</code> do pg_cron passa os vencidos para <strong>expirado</strong> (<code>select * from cron.job_run_details order by start_time desc limit 5</code> mostra as últimas execuções).</li>
         <li>O webhook chega em <code>PLATFORM_URL/api/webhooks/payments?store=&lt;id&gt;</code>. Ele confere a assinatura <code>x-signature</code> quando a loja tem o segredo cadastrado e <strong>sempre consulta o pagamento</strong> com o token da loja antes de confirmar.</li>
         <li>A página do pedido consulta o status a cada 5 s. Isso confirma o pagamento mesmo sem webhook (desenvolvimento local) ou com webhook atrasado.</li>

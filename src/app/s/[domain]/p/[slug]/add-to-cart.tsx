@@ -14,10 +14,12 @@ export function AddToCart({
   productName,
   variants,
   installments,
+  pixDiscountPercent,
 }: {
   productName: string;
   variants: Variant[];
   installments: Installments;
+  pixDiscountPercent: number;
 }) {
   const single = variants.length === 1;
   const firstAvailable = variants.find((v) => v.stock > 0) ?? variants[0];
@@ -56,7 +58,11 @@ export function AddToCart({
           <span className="ml-3 text-lg text-neutral-400 line-through">{formatBRL(shown.compareAtCents)}</span>
         )}
       </p>
-      <InstallmentsHint installments={installments} priceCents={selected ? selected.priceCents : Math.min(...prices)} />
+      <InstallmentsHint
+        installments={installments}
+        priceCents={selected ? selected.priceCents : Math.min(...prices)}
+        pixDiscountPercent={pixDiscountPercent}
+      />
 
       {!single && (
         <fieldset className="space-y-2">
@@ -129,19 +135,37 @@ export function AddToCart({
 
 // Parcelamento como o Mercado Pago da loja oferece: com parcelas sem juros, mostra o valor de cada uma;
 // com juros, só o número máximo (o valor com juros aparece no pagamento).
-function InstallmentsHint({ installments, priceCents }: { installments: Installments; priceCents: number }) {
-  if (!installments || installments.max < 2) return null;
+function InstallmentsHint({
+  installments,
+  priceCents,
+  pixDiscountPercent,
+}: {
+  installments: Installments;
+  priceCents: number;
+  pixDiscountPercent: number;
+}) {
+  // Mesma conta de lib/promotions (desconto sobre o produto, centavos para baixo).
+  const pixPrice = priceCents - Math.floor((priceCents * pixDiscountPercent) / 100);
+  const pix = pixDiscountPercent > 0 && (
+    <p className="-mt-3 text-sm font-medium text-emerald-700">
+      {formatBRL(pixPrice)} no Pix <span className="font-normal">({pixDiscountPercent}% de desconto)</span>
+    </p>
+  );
+  if (!installments || installments.max < 2) return pix || null;
   const n = installments.interestFree;
   return (
-    <p className="-mt-3 text-sm text-neutral-600">
-      {n > 1 ? (
-        <>
-          em até <strong>{n}x de {formatBRL(Math.ceil(priceCents / n))} sem juros</strong> no cartão
-        </>
-      ) : (
-        <>em até {installments.max}x no cartão</>
-      )}
-      <span className="text-neutral-400"> · ou Pix</span>
-    </p>
+    <>
+      {pix}
+      <p className="-mt-3 text-sm text-neutral-600">
+        {n > 1 ? (
+          <>
+            em até <strong>{n}x de {formatBRL(Math.ceil(priceCents / n))} sem juros</strong> no cartão
+          </>
+        ) : (
+          <>em até {installments.max}x no cartão</>
+        )}
+        {!pix && <span className="text-neutral-400"> · ou Pix</span>}
+      </p>
+    </>
   );
 }

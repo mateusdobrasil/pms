@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireStore } from "@/lib/panel";
 import { isEmail, onlyDigits } from "@/lib/validation";
 import { isValidBannerLink } from "@/lib/banner";
+import { parseBRL } from "@/lib/money";
 
 export type SettingsState = { error?: string; ok?: string } | null;
 
@@ -44,6 +45,17 @@ export async function saveSettings(_prev: SettingsState, form: FormData): Promis
     }
   }
 
+  // Promoções: só vêm no formulário quando as colunas existem no banco.
+  const hasPromos = form.get("promos_enabled") === "1";
+  const pixPercentText = String(form.get("pix_discount_percent") ?? "").trim();
+  const pixPercent = pixPercentText === "" ? 0 : Number(pixPercentText);
+  const freeShippingText = String(form.get("free_shipping_min") ?? "").trim();
+  const freeShippingMin = freeShippingText === "" ? null : parseBRL(freeShippingText);
+  if (hasPromos) {
+    if (!Number.isInteger(pixPercent) || pixPercent < 0 || pixPercent > 30) return { error: "Desconto no Pix: use um número inteiro de 0 a 30 (%)." };
+    if (freeShippingText && (freeShippingMin === null || freeShippingMin <= 0)) return { error: "Frete grátis: valor inválido. Use o formato 199,90." };
+  }
+
   const { data, error } = await supabase
     .from("stores")
     .update({
@@ -54,6 +66,7 @@ export async function saveSettings(_prev: SettingsState, form: FormData): Promis
       origin_zip: originZip || null,
       logo_url: logoUrl || null,
       ...(hasBanner ? banner : {}),
+      ...(hasPromos ? { pix_discount_percent: pixPercent, free_shipping_min_cents: freeShippingMin } : {}),
     })
     .eq("id", store.id)
     .select("id");

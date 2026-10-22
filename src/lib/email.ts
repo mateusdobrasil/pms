@@ -53,6 +53,7 @@ type OrderForEmail = {
   shipping_address: Record<string, string> | null;
   subtotal_cents: number;
   shipping_cents: number;
+  discount_cents: number;
   total_cents: number;
   tracking_code: string | null;
   stock_issue: boolean;
@@ -64,7 +65,7 @@ async function loadOrder(orderId: string) {
   const { data } = await createAdminClient()
     .from("orders")
     .select(
-      "id, code, public_token, status, customer_name, customer_email, customer_phone, shipping_method, shipping_address, subtotal_cents, shipping_cents, total_cents, tracking_code, stock_issue, stores(name, email, whatsapp, primary_color, store_domains(domain, is_primary)), order_items(product_name, variant_name, unit_price_cents, quantity)",
+      "id, code, public_token, status, customer_name, customer_email, customer_phone, shipping_method, shipping_address, subtotal_cents, shipping_cents, discount_cents, total_cents, tracking_code, stock_issue, stores(name, email, whatsapp, primary_color, store_domains(domain, is_primary)), order_items(product_name, variant_name, unit_price_cents, quantity)",
     )
     .eq("id", orderId)
     .single();
@@ -193,7 +194,10 @@ function itemsTable(o: OrderForEmail) {
   const shippingLabel = o.shipping_method === "pickup" ? "Retirada na loja" : esc(o.shipping_method);
   return `<table style="width:100%;border-collapse:collapse;font-size:14px">${rows}
     <tr><td style="padding:8px 0;color:#525252">Subtotal</td><td style="padding:8px 0;text-align:right">${formatBRL(o.subtotal_cents)}</td></tr>
-    <tr><td style="padding:0 0 8px;color:#525252">${shippingLabel}</td><td style="padding:0 0 8px;text-align:right">${o.shipping_cents ? formatBRL(o.shipping_cents) : "Grátis"}</td></tr>
+    <tr><td style="padding:0 0 8px;color:#525252">${shippingLabel}</td><td style="padding:0 0 8px;text-align:right">${o.shipping_cents ? formatBRL(o.shipping_cents) : "Grátis"}</td></tr>${
+      o.discount_cents ? `
+    <tr><td style="padding:0 0 8px;color:#047857">Desconto Pix</td><td style="padding:0 0 8px;text-align:right;color:#047857">−${formatBRL(o.discount_cents)}</td></tr>` : ""
+    }
     <tr><td style="padding:8px 0;border-top:2px solid #171717;font-weight:bold">Total</td><td style="padding:8px 0;border-top:2px solid #171717;text-align:right;font-weight:bold">${formatBRL(o.total_cents)}</td></tr>
   </table>`;
 }

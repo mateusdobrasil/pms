@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getStoreFromRequest } from "@/lib/request-store";
 import { parseCartItems, priceCart } from "@/lib/orders";
 import { getShippingOptions } from "@/lib/shipping";
+import { getPromotions } from "@/lib/promotions";
 
 // Recalcula o carrinho (preços atuais, estoque) e, com CEP, cota o frete.
 export async function POST(req: Request) {
@@ -15,7 +16,10 @@ export async function POST(req: Request) {
 
   const { lines, subtotalCents, problems } = await priceCart(createAdminClient(), store.id, items);
   const zip = typeof body?.zip === "string" ? body.zip : null;
-  const shipping = lines.length ? await getShippingOptions(store, lines, zip) : { options: [], error: null };
+  const [shipping, promotions] = await Promise.all([
+    lines.length ? getShippingOptions(store, lines, zip) : { options: [], error: null },
+    getPromotions(store.id),
+  ]);
 
   return NextResponse.json({
     lines,
@@ -23,5 +27,7 @@ export async function POST(req: Request) {
     shippingOptions: shipping.options,
     shippingError: shipping.error,
     problems,
+    pixDiscountPercent: promotions.pixDiscountPercent,
+    freeShippingMinCents: promotions.freeShippingMinCents,
   });
 }

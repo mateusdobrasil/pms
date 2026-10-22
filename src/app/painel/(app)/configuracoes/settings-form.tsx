@@ -23,6 +23,8 @@ type BannerSettings = {
   banner_link: string | null;
 } | null;
 
+type PromoSettings = { pix_discount_percent: number; free_shipping_min_cents: number | null } | null;
+
 const input = "w-full rounded-lg border px-3 py-2 text-sm";
 const LOGO_TYPES: Record<string, string> = { "image/png": "png", "image/jpeg": "jpg", "image/webp": "webp" };
 
@@ -30,10 +32,12 @@ export function SettingsForm({
   storeId,
   settings,
   banner,
+  promos,
 }: {
   storeId: string;
   settings: Settings;
   banner: BannerSettings;
+  promos: PromoSettings;
 }) {
   const [state, action, pending] = useActionState<SettingsState, FormData>(saveSettings, null);
   const [color, setColor] = useState(settings.primary_color);
@@ -176,6 +180,44 @@ export function SettingsForm({
             <input name="banner_link" defaultValue={banner.banner_link ?? ""} placeholder="/c/promocoes" className={input} />
             <span className="text-xs text-neutral-500">
               Uma página da loja, como /c/nome-da-categoria ou /p/nome-do-produto, ou um endereço começando com https://.
+            </span>
+          </label>
+        </section>
+      )}
+
+      {promos && (
+        <section className="space-y-4 rounded-xl border bg-white p-5 shadow-sm">
+          <h2 className="font-semibold">Promoções</h2>
+          <input type="hidden" name="promos_enabled" value="1" />
+          <label className="block space-y-1 text-sm">
+            <span className="font-medium text-neutral-700">Desconto no Pix (%)</span>
+            <input
+              name="pix_discount_percent"
+              type="number"
+              min={0}
+              max={30}
+              step={1}
+              defaultValue={promos.pix_discount_percent || ""}
+              placeholder="0"
+              className="w-28 rounded-lg border px-3 py-2 text-sm"
+            />
+            <span className="block text-xs text-neutral-500">
+              Desconto sobre os produtos (não sobre o frete) para quem paga com Pix. O Pix custa menos que o cartão para
+              você, e o desconto incentiva o cliente a escolhê-lo. Deixe vazio ou 0 para não dar desconto.
+            </span>
+          </label>
+          <label className="block space-y-1 text-sm">
+            <span className="font-medium text-neutral-700">Frete grátis a partir de (R$)</span>
+            <input
+              name="free_shipping_min"
+              inputMode="decimal"
+              defaultValue={promos.free_shipping_min_cents ? (promos.free_shipping_min_cents / 100).toFixed(2).replace(".", ",") : ""}
+              placeholder="Ex.: 199,90"
+              className="w-40 rounded-lg border px-3 py-2 text-sm"
+            />
+            <span className="block text-xs text-neutral-500">
+              Compras com produtos a partir desse valor ganham a opção de entrega mais barata de graça. O custo do envio
+              continua sendo seu no Melhor Envio. Deixe vazio para não oferecer.
             </span>
           </label>
         </section>

@@ -4,7 +4,24 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { notifyOrderPaid } from "@/lib/email";
 import { PROVIDER, type GatewayPayment } from "@/lib/payments/mercadopago";
 
-type OrderRef = { id: string; store_id: string; total_cents: number };
+// Campos do pedido que toda chamada precisa selecionar.
+export const ORDER_PAYMENT_FIELDS = "id, store_id, status, subtotal_cents, shipping_cents, pix_discount_cents";
+
+type OrderRef = {
+  id: string;
+  store_id: string;
+  status: string;
+  subtotal_cents: number;
+  shipping_cents: number;
+  pix_discount_cents: number;
+};
+
+// Valor que cada forma de pagamento cobra. Calculado de campos que não mudam depois da criação
+// (total_cents muda quando um Pix com desconto é aprovado), para continuar idempotente.
+export function amountFor(order: OrderRef, method: "pix" | "card") {
+  const full = order.subtotal_cents + order.shipping_cents;
+  return method === "pix" ? full - order.pix_discount_cents : full;
+}
 
 // Grava o pagamento consultado no gateway e, se aprovado, confirma o pedido (baixa estoque).
 // Idempotente: pode ser chamado pelo checkout, pelo polling de status e pelo webhook.
@@ -13,8 +30,9 @@ export async function recordPayment(db: SupabaseClient, order: OrderRef, payment
     console.error("Pagamento de outro pedido", { orderId: order.id, paymentId: payment.id });
     return false;
   }
-  if (payment.amountCents !== order.total_cents) {
-    console.error("Valor divergente", { orderId: order.id, pago: payment.amountCents, esperado: order.total_cents });
+  const expected = amountFor(order, payment.method);
+  if (payment.amountCents !== expected) {
+    console.error("Valor divergente", { orderId: order.id, metodo: payment.method, pago: payment.amountCents, esperado: expected });
     return false;
   }
 
@@ -36,6 +54,17 @@ export async function recordPayment(db: SupabaseClient, order: OrderRef, payment
   if (payment.status === "approved") {
     const { error } = await db.rpc("confirm_order_payment", { p_order_id: order.id });
     if (error) throw error;
+    // Pix com desconto: o pedido passa a valer o que foi pago. Só quando este pagamento é o que
+    // confirmou o pedido (num pagamento em dobro, o pedido já estava pago e fica como está).
+    const confirmedNow = order.status === "pending_payment" || order.status === "expired";
+    if (payment.method === "pix" && order.pix_discount_cents > 0 && confirmedNow) {
+      const { error: discErr } = await db
+        .from("orders")
+        .update({ total_cents: expected, discount_cents: order.pix_discount_cents })
+        .eq("id", order.id)
+        .eq("discount_cents", 0);
+      if (discErr) throw discErr;
+    }
     // E-mails depois da resposta (não atrasam o webhook). A trava em notified_paid_at evita duplicados.
     after(() => notifyOrderPaid(order.id));
   }

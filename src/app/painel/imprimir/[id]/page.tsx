@@ -20,6 +20,7 @@ type Order = {
   subtotal_cents: number;
   shipping_cents: number;
   total_cents: number;
+  discount_cents: number;
   created_at: string;
   paid_at: string | null;
   order_items: { id: string; product_name: string; variant_name: string; unit_price_cents: number; quantity: number }[];
@@ -34,7 +35,7 @@ export default async function PrintOrderPage({ params }: { params: Promise<{ id:
   const { data } = await supabase
     .from("orders")
     .select(
-      "code, status, customer_name, customer_email, customer_cpf, customer_phone, shipping_address, shipping_method, subtotal_cents, shipping_cents, total_cents, created_at, paid_at, order_items(id, product_name, variant_name, unit_price_cents, quantity)",
+      "code, status, customer_name, customer_email, customer_cpf, customer_phone, shipping_address, shipping_method, subtotal_cents, shipping_cents, total_cents, discount_cents, created_at, paid_at, order_items(id, product_name, variant_name, unit_price_cents, quantity)",
     )
     .eq("id", id)
     .eq("store_id", store.id)
@@ -126,6 +127,9 @@ export default async function PrintOrderPage({ params }: { params: Promise<{ id:
           <div className="ml-auto mt-3 w-64 space-y-0.5">
             <p className="flex justify-between"><span>Subtotal</span><span>{formatBRL(order.subtotal_cents)}</span></p>
             <p className="flex justify-between"><span>Frete</span><span>{formatBRL(order.shipping_cents)}</span></p>
+            {order.discount_cents > 0 && (
+              <p className="flex justify-between"><span>Desconto Pix</span><span>−{formatBRL(order.discount_cents)}</span></p>
+            )}
             <p className="flex justify-between border-t border-black pt-1 font-bold"><span>Total</span><span>{formatBRL(order.total_cents)}</span></p>
           </div>
         </section>

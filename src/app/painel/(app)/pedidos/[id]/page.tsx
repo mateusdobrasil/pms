@@ -20,6 +20,7 @@ type Order = {
   subtotal_cents: number;
   shipping_cents: number;
   total_cents: number;
+  discount_cents: number;
   tracking_code: string | null;
   stock_issue: boolean;
   paid_at: string | null;
@@ -44,7 +45,7 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
   const { data } = await supabase
     .from("orders")
     .select(
-      "id, code, status, customer_name, customer_email, customer_cpf, customer_phone, shipping_address, shipping_method, subtotal_cents, shipping_cents, total_cents, tracking_code, stock_issue, paid_at, created_at, order_items(id, product_name, variant_name, unit_price_cents, quantity), payments(id, method, status, amount_cents, created_at)",
+      "id, code, status, customer_name, customer_email, customer_cpf, customer_phone, shipping_address, shipping_method, subtotal_cents, shipping_cents, total_cents, discount_cents, tracking_code, stock_issue, paid_at, created_at, order_items(id, product_name, variant_name, unit_price_cents, quantity), payments(id, method, status, amount_cents, created_at)",
     )
     .eq("id", id)
     .eq("store_id", store.id)
@@ -106,6 +107,9 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
                 <span>{isPickup ? "Retirada na loja" : order.shipping_method}</span>
                 <span>{formatBRL(order.shipping_cents)}</span>
               </p>
+              {order.discount_cents > 0 && (
+                <p className="flex justify-between text-emerald-700"><span>Desconto Pix</span><span>−{formatBRL(order.discount_cents)}</span></p>
+              )}
               <p className="flex justify-between font-semibold"><span>Total</span><span>{formatBRL(order.total_cents)}</span></p>
             </div>
           </section>

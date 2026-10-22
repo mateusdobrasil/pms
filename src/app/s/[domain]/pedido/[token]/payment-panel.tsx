@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { formatBRL } from "@/lib/money";
 
 type PixData = { qrCode: string; qrCodeBase64: string; expiresAt: string | null };
 type PayResponse = { status?: string; message?: string; pix?: PixData; error?: string };
@@ -28,11 +29,13 @@ declare global {
 export function PaymentPanel({
   token,
   totalCents,
+  pixTotalCents,
   publicKey,
   payerEmail,
 }: {
   token: string;
-  totalCents: number;
+  totalCents: number; // cartão
+  pixTotalCents: number; // Pix (com o desconto da loja, quando houver)
   publicKey: string | null;
   payerEmail: string;
 }) {
@@ -117,13 +120,21 @@ export function PaymentPanel({
       <div className="flex gap-2">
         <button type="button" className={tabClass(method === "pix")} onClick={() => setMethod("pix")}>
           Pix
+          <span className="block text-xs">{formatBRL(pixTotalCents)}</span>
         </button>
         {publicKey && (
           <button type="button" className={tabClass(method === "card")} onClick={() => setMethod("card")}>
             Cartão de crédito
+            <span className="block text-xs">{formatBRL(totalCents)}</span>
           </button>
         )}
       </div>
+
+      {method === "pix" && pixTotalCents < totalCents && (
+        <p className="rounded-lg bg-emerald-50 px-4 py-2 text-sm text-emerald-800">
+          Pagando com Pix você economiza <strong>{formatBRL(totalCents - pixTotalCents)}</strong>.
+        </p>
+      )}
 
       {method === "pix" && !pix && (
         <button

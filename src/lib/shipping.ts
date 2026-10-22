@@ -3,6 +3,7 @@ import type { Store } from "@/lib/store";
 import type { PricedLine } from "@/lib/orders";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { onlyDigits } from "@/lib/validation";
+import { getPromotions } from "@/lib/promotions";
 
 export type ShippingOption = {
   id: string; // 'pickup' ou 'me:<id do serviço no Melhor Envio>'
@@ -10,6 +11,7 @@ export type ShippingOption = {
   priceCents: number;
   deliveryDays: number | null;
   requiresAddress: boolean;
+  originalPriceCents?: number; // preço antes do frete grátis (só para mostrar riscado)
 };
 
 export type ShippingQuote = { options: ShippingOption[]; error: string | null };
@@ -90,7 +92,7 @@ export async function getShippingOptions(store: Store, lines: PricedLine[], zip?
     }
 
     const quotes = (await res.json()) as MeQuote[];
-    const delivery = quotes
+    const delivery: ShippingOption[] = quotes
       .filter((q) => !q.error && (q.custom_price ?? q.price))
       .map((q) => ({
         id: `me:${q.id}`,
@@ -104,6 +106,13 @@ export async function getShippingOptions(store: Store, lines: PricedLine[], zip?
 
     if (delivery.length === 0) {
       return { options: [PICKUP], error: "Nenhuma transportadora entrega neste CEP. Confira o CEP ou escolha a retirada." };
+    }
+
+    // Frete grátis acima do valor configurado: vale para a opção mais barata (as outras seguem pagas).
+    const { freeShippingMinCents } = await getPromotions(store.id);
+    const subtotalCents = lines.reduce((sum, l) => sum + l.totalCents, 0);
+    if (freeShippingMinCents && subtotalCents >= freeShippingMinCents && delivery[0].priceCents > 0) {
+      delivery[0] = { ...delivery[0], originalPriceCents: delivery[0].priceCents, priceCents: 0 };
     }
     return { options: [...delivery, PICKUP], error: null };
   } catch (err) {

@@ -6,13 +6,22 @@ import { useRouter } from "next/navigation";
 import { clearCart, readCart } from "@/lib/cart";
 import { formatBRL } from "@/lib/money";
 
-type Option = { id: string; name: string; priceCents: number; deliveryDays: number | null; requiresAddress: boolean };
+type Option = {
+  id: string;
+  name: string;
+  priceCents: number;
+  deliveryDays: number | null;
+  requiresAddress: boolean;
+  originalPriceCents?: number; // frete grátis: preço original, mostrado riscado
+};
 type Quote = {
   lines: { variantId: string; productName: string; variantName: string; quantity: number; totalCents: number }[];
   subtotalCents: number;
   shippingOptions: Option[];
   shippingError: string | null;
   problems: string[];
+  pixDiscountPercent?: number;
+  freeShippingMinCents?: number | null;
 };
 type Address = { street: string; number: string; complement: string; district: string; city: string; state: string };
 
@@ -135,6 +144,9 @@ export function CheckoutForm() {
   const shipping = quote.shippingOptions.find((o) => o.id === shippingId);
   const total = quote.subtotalCents + (shipping?.priceCents ?? 0);
   const blocked = quote.problems.length > 0;
+  // Mesmas contas do servidor (lib/promotions): só exibição; o pedido é recalculado lá.
+  const pixDiscount = quote.pixDiscountPercent ? Math.floor((quote.subtotalCents * quote.pixDiscountPercent) / 100) : 0;
+  const missingForFreeShipping = quote.freeShippingMinCents ? Math.max(0, quote.freeShippingMinCents - quote.subtotalCents) : 0;
   const zipReady = digits(cep).length === 8;
   const setField = (field: keyof Address) => (e: { target: { value: string } }) =>
     setAddress((a) => ({ ...a, [field]: e.target.value }));
@@ -225,7 +237,10 @@ export function CheckoutForm() {
                   )}
                 </span>
               </span>
-              <span className="font-medium">{o.priceCents === 0 ? "Grátis" : formatBRL(o.priceCents)}</span>
+              <span className="text-right font-medium">
+                {o.originalPriceCents && <span className="mr-2 text-neutral-400 line-through">{formatBRL(o.originalPriceCents)}</span>}
+                {o.priceCents === 0 ? <span className="text-emerald-700">Grátis</span> : formatBRL(o.priceCents)}
+              </span>
             </label>
           ))}
         </div>
@@ -246,6 +261,17 @@ export function CheckoutForm() {
         <p className="flex justify-between"><span>Subtotal</span><span>{formatBRL(quote.subtotalCents)}</span></p>
         <p className="flex justify-between"><span>Entrega</span><span>{shipping?.priceCents ? formatBRL(shipping.priceCents) : "Grátis"}</span></p>
         <p className="flex justify-between text-base font-semibold"><span>Total</span><span>{formatBRL(total)}</span></p>
+        {pixDiscount > 0 && (
+          <p className="flex justify-between font-medium text-emerald-700">
+            <span>No Pix ({quote.pixDiscountPercent}% de desconto)</span>
+            <span>{formatBRL(total - pixDiscount)}</span>
+          </p>
+        )}
+        {missingForFreeShipping > 0 && (
+          <p className="pt-1 text-neutral-600">
+            Faltam <strong>{formatBRL(missingForFreeShipping)}</strong> em produtos para ganhar frete grátis.
+          </p>
+        )}
       </section>
 
       {errors.length > 0 && (

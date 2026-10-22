@@ -4,6 +4,7 @@ import { cache } from "react";
 import { getStoreByDomain, productImageUrl } from "@/lib/store";
 import { createPublicClient } from "@/lib/supabase/public";
 import { getInstallmentsInfo } from "@/lib/payments/installments";
+import { getPromotions } from "@/lib/promotions";
 import { AddToCart } from "./add-to-cart";
 import { Gallery, type Media } from "./gallery";
 import { productVideoUrl } from "@/lib/images";
@@ -70,7 +71,7 @@ export default async function ProductPage({ params }: Params) {
 
   // Dados estruturados (schema.org/Product): o Google mostra preço e disponibilidade na busca.
   const prices = product.product_variants.map((v) => v.price_cents);
-  const [installments, { data: videos }] = await Promise.all([
+  const [installments, { data: videos }, promotions] = await Promise.all([
     getInstallmentsInfo(store.id, Math.min(...prices)),
     // Consulta à parte: sem a tabela de vídeos (SQL não rodado), o produto aparece só com as fotos.
     createPublicClient()
@@ -79,6 +80,7 @@ export default async function ProductPage({ params }: Params) {
       .eq("store_id", store.id)
       .eq("product_id", product.id)
       .order("position"),
+    getPromotions(store.id),
   ]);
   const media: Media[] = [
     ...product.product_images.map((i) => ({ type: "image" as const, url: productImageUrl(i.path), alt: i.alt })),
@@ -126,6 +128,7 @@ export default async function ProductPage({ params }: Params) {
         <AddToCart
           productName={product.name}
           installments={installments}
+          pixDiscountPercent={promotions.pixDiscountPercent}
           variants={product.product_variants.map((v) => ({
             id: v.id,
             name: v.name,

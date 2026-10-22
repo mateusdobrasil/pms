@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isUuid } from "@/lib/validation";
-import { recordPayment } from "@/lib/payments/record";
+import { ORDER_PAYMENT_FIELDS, recordPayment } from "@/lib/payments/record";
 import { PROVIDER, getPayment, verifyWebhookSignature } from "@/lib/payments/mercadopago";
 
 // URL de notificação enviada em cada pagamento (notification_url):
@@ -75,7 +75,7 @@ export async function POST(req: Request) {
   if (payment.orderId && isUuid(payment.orderId)) {
     const { data: order } = await db
       .from("orders")
-      .select("id, store_id, total_cents")
+      .select(ORDER_PAYMENT_FIELDS)
       .eq("id", payment.orderId)
       .eq("store_id", storeId)
       .maybeSingle();

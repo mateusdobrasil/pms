@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getStoreFromRequest } from "@/lib/request-store";
 import { isUuid } from "@/lib/validation";
-import { recordPayment } from "@/lib/payments/record";
+import { ORDER_PAYMENT_FIELDS, recordPayment } from "@/lib/payments/record";
 import { getPayment } from "@/lib/payments/mercadopago";
 
 // Polling da página do pedido. Se ainda está aguardando, consulta o gateway direto:
@@ -17,7 +17,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ token: s
   const db = createAdminClient();
   const { data: order } = await db
     .from("orders")
-    .select("id, store_id, status, total_cents")
+    .select(ORDER_PAYMENT_FIELDS)
     .eq("store_id", store.id)
     .eq("public_token", token)
     .maybeSingle();

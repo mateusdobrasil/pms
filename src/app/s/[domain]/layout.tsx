@@ -2,6 +2,8 @@ import type { CSSProperties, ReactNode } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getCategories, getStoreByDomain } from "@/lib/store";
+import { getPromotions } from "@/lib/promotions";
+import { formatBRL } from "@/lib/money";
 import { storeBaseUrl } from "@/lib/urls";
 import { CartLink } from "./cart-link";
 import { StoreWhatsappButton } from "./store-whatsapp";
@@ -31,14 +33,27 @@ export default async function StoreLayout({
   const { domain } = await params;
   const store = await getStoreByDomain(domain);
   if (!store) notFound();
-  const categories = await getCategories(store.id);
+  const [categories, promotions] = await Promise.all([getCategories(store.id), getPromotions(store.id)]);
+  // Faixa no topo anunciando as promoções da loja (some quando não há nenhuma).
+  const promoText = [
+    promotions.freeShippingMinCents && `Frete grátis acima de ${formatBRL(promotions.freeShippingMinCents)}`,
+    promotions.pixDiscountPercent > 0 && `${promotions.pixDiscountPercent}% de desconto no Pix`,
+  ]
+    .filter(Boolean)
+    .join(" · ");
 
   // --brand: cor da loja; --focus: anel de foco dos campos na mesma cor.
   const theme = { "--brand": store.primary_color, "--focus": store.primary_color } as CSSProperties;
 
   return (
     <div style={theme} className="flex min-h-screen flex-col bg-white">
-      <div className="h-1" style={{ background: "var(--brand)" }} />
+      {promoText ? (
+        <p className="px-4 py-1.5 text-center text-xs font-medium text-white sm:text-sm" style={{ background: "var(--brand)" }}>
+          {promoText}
+        </p>
+      ) : (
+        <div className="h-1" style={{ background: "var(--brand)" }} />
+      )}
       <header className="sticky top-0 z-20 border-b bg-white/95 shadow-sm backdrop-blur">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-x-6 gap-y-3 px-4 py-3">
           <Link href="/" className="flex items-center gap-3">

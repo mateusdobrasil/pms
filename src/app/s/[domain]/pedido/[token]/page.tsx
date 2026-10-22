@@ -24,7 +24,7 @@ export default async function OrderPage({ params }: { params: Promise<{ domain: 
   const { data: order } = await db
     .from("orders")
     .select(
-      "id, code, status, customer_email, shipping_method, shipping_address, subtotal_cents, shipping_cents, total_cents, tracking_code, expires_at, order_items(id, product_name, variant_name, unit_price_cents, quantity)",
+      "id, code, status, customer_email, shipping_method, shipping_address, subtotal_cents, shipping_cents, total_cents, pix_discount_cents, discount_cents, tracking_code, expires_at, order_items(id, product_name, variant_name, unit_price_cents, quantity)",
     )
     .eq("store_id", store.id)
     .eq("public_token", token)
@@ -69,7 +69,8 @@ export default async function OrderPage({ params }: { params: Promise<{ domain: 
       {awaitingPayment && (
         <PaymentPanel
           token={token}
-          totalCents={order.total_cents}
+          totalCents={order.subtotal_cents + order.shipping_cents}
+          pixTotalCents={order.subtotal_cents + order.shipping_cents - order.pix_discount_cents}
           publicKey={publicKey}
           payerEmail={order.customer_email}
         />
@@ -94,7 +95,16 @@ export default async function OrderPage({ params }: { params: Promise<{ domain: 
             <span>{order.shipping_method === "pickup" ? "Retirada na loja" : order.shipping_method}</span>
             <span>{formatBRL(order.shipping_cents)}</span>
           </p>
+          {order.discount_cents > 0 && (
+            <p className="flex justify-between text-emerald-700"><span>Desconto Pix</span><span>−{formatBRL(order.discount_cents)}</span></p>
+          )}
           <p className="flex justify-between text-base font-semibold"><span>Total</span><span>{formatBRL(order.total_cents)}</span></p>
+          {awaitingPayment && order.pix_discount_cents > 0 && (
+            <p className="flex justify-between font-medium text-emerald-700">
+              <span>No Pix</span>
+              <span>{formatBRL(order.total_cents - order.pix_discount_cents)}</span>
+            </p>
+          )}
         </div>
         {order.shipping_address && (
           <div className="mt-4 rounded-xl border bg-neutral-50 px-4 py-3 text-sm">

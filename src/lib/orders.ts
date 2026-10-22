@@ -2,6 +2,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Store } from "@/lib/store";
 import { getShippingOptions } from "@/lib/shipping";
+import { getPromotions, pixDiscountCents } from "@/lib/promotions";
 import { isEmail, isUuid, isValidCPF, onlyDigits } from "@/lib/validation";
 
 export type CartItemInput = { variantId: string; quantity: number };
@@ -181,6 +182,9 @@ export async function createOrder(db: SupabaseClient, store: Store, body: unknow
   const shipping = options.find((o) => o.id === b.shippingOptionId);
   if (!shipping) return { ok: false, errors: ["A forma de entrega escolhida não está mais disponível. Recalcule o frete."] };
 
+  // Desconto do Pix fica gravado no pedido: o valor do Pix não muda se a loja alterar o percentual depois.
+  const pixDiscount = pixDiscountCents(subtotalCents, (await getPromotions(store.id)).pixDiscountPercent);
+
   const { data: order, error } = await db
     .from("orders")
     .insert({
@@ -195,6 +199,7 @@ export async function createOrder(db: SupabaseClient, store: Store, body: unknow
       subtotal_cents: subtotalCents,
       shipping_cents: shipping.priceCents,
       total_cents: subtotalCents + shipping.priceCents,
+      ...(pixDiscount > 0 ? { pix_discount_cents: pixDiscount } : {}),
       expires_at: new Date(Date.now() + ORDER_TTL_MINUTES * 60_000).toISOString(),
     })
     .select("id, public_token")

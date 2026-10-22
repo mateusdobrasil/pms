@@ -18,6 +18,7 @@ type Row = {
   shipping_address: Record<string, string> | null;
   subtotal_cents: number;
   shipping_cents: number;
+  discount_cents: number;
   total_cents: number;
   tracking_code: string | null;
   order_items: { product_name: string; variant_name: string; quantity: number }[];
@@ -44,7 +45,7 @@ export async function GET(req: Request) {
     let query = supabase
       .from("orders")
       .select(
-        "code, status, created_at, paid_at, customer_name, customer_email, customer_cpf, customer_phone, shipping_method, shipping_address, subtotal_cents, shipping_cents, total_cents, tracking_code, order_items(product_name, variant_name, quantity)",
+        "code, status, created_at, paid_at, customer_name, customer_email, customer_cpf, customer_phone, shipping_method, shipping_address, subtotal_cents, shipping_cents, discount_cents, total_cents, tracking_code, order_items(product_name, variant_name, quantity)",
       )
       .eq("store_id", store.id)
       .order("created_at", { ascending: false })
@@ -59,7 +60,7 @@ export async function GET(req: Request) {
 
   const header = [
     "Pedido", "Data", "Status", "Pago em", "Cliente", "E-mail", "CPF", "Telefone", "Itens",
-    "Entrega", "Endereço", "Bairro", "Cidade", "UF", "CEP", "Subtotal", "Frete", "Total", "Rastreio",
+    "Entrega", "Endereço", "Bairro", "Cidade", "UF", "CEP", "Subtotal", "Frete", "Desconto", "Total", "Rastreio",
   ];
   const lines = rows.map((o) => {
     const a = o.shipping_address;
@@ -84,12 +85,13 @@ export async function GET(req: Request) {
       a?.cep,
       money(o.subtotal_cents),
       money(o.shipping_cents),
+      money(o.discount_cents),
       money(o.total_cents),
       o.tracking_code,
     ].map(cell).join(";");
   });
 
-  const csv = "﻿" + [header.join(";"), ...lines].join("\r\n");
+  const csv = "\uFEFF" + [header.join(";"), ...lines].join("\r\n");
   const day = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(new Date());
   return new Response(csv, {
     headers: {

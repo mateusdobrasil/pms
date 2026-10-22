@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getStoreFromRequest } from "@/lib/request-store";
 import { isUuid } from "@/lib/validation";
-import { recordPayment } from "@/lib/payments/record";
+import { ORDER_PAYMENT_FIELDS, amountFor, recordPayment } from "@/lib/payments/record";
 import { rateLimit } from "@/lib/rate-limit";
 import {
   MercadoPagoError,
@@ -45,7 +45,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ token: 
   const db = createAdminClient();
   const { data: order } = await db
     .from("orders")
-    .select("id, store_id, code, status, total_cents, expires_at, customer_name, customer_email, customer_cpf")
+    .select(`${ORDER_PAYMENT_FIELDS}, code, expires_at, customer_name, customer_email, customer_cpf`)
     .eq("store_id", store.id)
     .eq("public_token", token)
     .maybeSingle();
@@ -67,7 +67,6 @@ export async function POST(req: Request, { params }: { params: Promise<{ token: 
     accessToken: secret.gateway_access_token as string,
     storeId: store.id,
     orderId: order.id,
-    amountCents: order.total_cents,
     description: `Pedido ${order.code} - ${store.name}`,
   };
   const payer = { name: order.customer_name, email: order.customer_email, cpf: order.customer_cpf };
@@ -90,7 +89,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ token: 
       }
 
       const expiresAt = new Date(Date.now() + PIX_TTL_MINUTES * 60_000);
-      const payment = await createPixPayment({ ...common, payer, expiresAt });
+      const payment = await createPixPayment({ ...common, amountCents: amountFor(order, "pix"), payer, expiresAt });
       if (!payment.pix) throw new Error("Pix sem QR code");
       await recordPayment(db, order, payment);
 
@@ -109,7 +108,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ token: 
       const card = parseCard(body);
       if (!card) return fail("Dados do cartão incompletos.");
 
-      const payment = await createCardPayment({ ...common, payer, card });
+      const payment = await createCardPayment({ ...common, amountCents: amountFor(order, "card"), payer, card });
       if (!(await recordPayment(db, order, payment))) return fail("Não foi possível registrar o pagamento.", 500);
       return NextResponse.json({ status: payment.status, message: cardStatusMessage(payment) });
     }
