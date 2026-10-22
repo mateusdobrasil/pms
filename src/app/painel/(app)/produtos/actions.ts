@@ -6,6 +6,7 @@ import { requireStore } from "@/lib/panel";
 import { centsToInput, parseBRL } from "@/lib/money";
 import { slugify } from "@/lib/slug";
 import { isUuid } from "@/lib/validation";
+import { thumbPath } from "@/lib/images";
 
 // Tudo com o cliente da sessão: o RLS ("members manage ...") restringe à loja do lojista.
 // Mesmo assim filtramos por store_id em toda consulta, como manda a regra do projeto.
@@ -50,10 +51,12 @@ async function assertCategory(supabase: Awaited<ReturnType<typeof requireStore>>
   return !!data;
 }
 
-// Remove arquivos do bucket. Uma falha não desfaz a exclusão no banco; só deixa o arquivo órfão (fica no log).
+// Remove fotos (e as miniaturas) do bucket. Uma falha não desfaz a exclusão no banco; só deixa o arquivo órfão (fica no log).
 async function removeFiles(supabase: Awaited<ReturnType<typeof requireStore>>["supabase"], paths: string[]) {
-  const { data, error } = await supabase.storage.from("product-images").remove(paths);
-  if (error || (data?.length ?? 0) < paths.length) {
+  const { data, error } = await supabase.storage.from("product-images").remove([...paths, ...paths.map(thumbPath)]);
+  // Fotos antigas não têm miniatura: confere só as fotos.
+  const removed = new Set(data?.map((o) => o.name));
+  if (error || paths.some((p) => !removed.has(p))) {
     console.error("Arquivos não removidos do Storage", { paths, removed: data?.length ?? 0, error });
   }
 }
@@ -202,6 +205,7 @@ export async function duplicateProduct(form: FormData) {
       console.error("Foto não copiada ao duplicar produto", { from: img.path, error: cErr.message });
       continue;
     }
+    await supabase.storage.from("product-images").copy(thumbPath(img.path), thumbPath(path)); // sem miniatura, a loja usa a foto
     await supabase.from("product_images").insert({ store_id: store.id, product_id: copy.id, path, position: img.position });
   }
 

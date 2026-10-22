@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 import { NoPhoto } from "../../no-photo";
+import { ThumbImage } from "@/lib/thumb-image";
 
-export function Gallery({ name, images }: { name: string; images: { url: string; alt: string | null }[] }) {
+export function Gallery({ name, images }: { name: string; images: { url: string; path: string; alt: string | null }[] }) {
   const [index, setIndex] = useState(0);
   const current = images[index];
 
@@ -28,8 +29,7 @@ export function Gallery({ name, images }: { name: string; images: { url: string;
                 style={i === index ? { borderColor: "var(--brand)" } : undefined}
                 aria-label={`Foto ${i + 1}`}
               >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={img.url} alt="" loading="lazy" className="h-full w-full object-cover" />
+                <ThumbImage path={img.path} alt="" lazy className="h-full w-full object-cover" />
               </button>
             </li>
           ))}

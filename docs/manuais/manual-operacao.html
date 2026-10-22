@@ -129,7 +129,7 @@ footer { grid-column: 1 / -1; color: var(--muted); font-size: 13px; border-top: 
       <h3>Stack</h3>
       <ul>
         <li><strong>Next.js 16</strong> (App Router, TypeScript, Tailwind 4), hospedado na <strong>Vercel</strong>. Código em <code>github.com/mateusdobrasil/pms</code>.</li>
-        <li><strong>Supabase</strong> na nuvem: Postgres com RLS, Auth (login do painel) e Storage (fotos e logos no bucket <code>product-images</code>, até 5 MB; o navegador reduz as fotos antes do envio). Vídeos ficam no Instagram da loja (link por produto), não no Storage.</li>
+        <li><strong>Supabase</strong> na nuvem: Postgres com RLS, Auth (login do painel) e Storage (fotos e logos no bucket <code>product-images</code>, até 5 MB; o navegador reduz as fotos antes do envio, em WebP ou JPEG no Safari). Cada foto de produto ganha, no envio, uma miniatura <code>&lt;foto&gt;-thumb.jpg</code> (quadrado central de 600 px, ~50 KB, função <code>thumbPath</code> em <code>src/lib/images.ts</code>) usada na grade, no carrinho e nas listas; se faltar, o componente <code>ThumbImage</code> mostra a foto original. Excluir e duplicar produto levam a miniatura junto. Vídeos ficam no Instagram da loja (link por produto), não no Storage.</li>
         <li><strong>Mercado Pago</strong>: Pix pela Payments API e cartão pelo Card Payment Brick. Cada loja usa as credenciais da própria conta, então o dinheiro cai direto para o lojista.</li>
         <li><strong>Melhor Envio</strong> para frete, além da opção de retirada na loja.</li>
         <li><strong>Resend</strong> para e-mails transacionais.</li>

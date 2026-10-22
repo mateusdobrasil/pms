@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { readCart, writeCart, type CartItem } from "@/lib/cart";
 import { formatBRL } from "@/lib/money";
-import { productImageUrl } from "@/lib/images";
+import { ThumbImage } from "@/lib/thumb-image";
 import { NoPhoto } from "../no-photo";
 
 type Line = {
@@ -89,8 +89,7 @@ export function CartView() {
           <li key={l.variantId} className="flex gap-4 p-4">
             <Link href={`/p/${l.productSlug}`} className="h-20 w-20 shrink-0 overflow-hidden rounded bg-neutral-100">
               {l.imagePath ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={productImageUrl(l.imagePath)} alt={l.productName} className="h-full w-full object-cover" />
+                <ThumbImage path={l.imagePath} alt={l.productName} className="h-full w-full object-cover" />
               ) : (
                 <NoPhoto />
               )}

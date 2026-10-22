@@ -3,8 +3,9 @@
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
-import { productImageUrl } from "@/lib/images";
-import { MAX_ORIGINAL_BYTES, compressImage } from "@/lib/compress-image";
+import { thumbPath } from "@/lib/images";
+import { ThumbImage } from "@/lib/thumb-image";
+import { MAX_ORIGINAL_BYTES, compressImage, makeThumbnail } from "@/lib/compress-image";
 import { addImage, moveImage, removeImage } from "./actions";
 
 const MAX_BYTES = 5 * 1024 * 1024;
@@ -57,9 +58,16 @@ export function ImagesManager({
         problems.push(`${file.name}: falha no envio.`);
         continue;
       }
+      // Miniatura para a grade da loja. Se falhar, a loja usa a foto inteira no lugar.
+      const thumb = await makeThumbnail(file);
+      if (thumb) {
+        await supabase.storage
+          .from("product-images")
+          .upload(thumbPath(path), thumb, { contentType: "image/jpeg", cacheControl: "31536000", upsert: true });
+      }
       const result = await addImage(productId, path);
       if (result?.error) {
-        await supabase.storage.from("product-images").remove([path]);
+        await supabase.storage.from("product-images").remove([path, thumbPath(path)]);
         problems.push(`${file.name}: ${result.error}`);
       }
     }
@@ -91,8 +99,7 @@ export function ImagesManager({
           {images.map((img, i) => (
             <li key={img.id} className="space-y-1">
               <div className="relative aspect-square overflow-hidden rounded bg-neutral-100">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={productImageUrl(img.path)} alt="" className="h-full w-full object-cover" />
+                <ThumbImage path={img.path} alt="" className="h-full w-full object-cover" />
                 {i === 0 && <span className="absolute left-1 top-1 rounded bg-black/70 px-1.5 py-0.5 text-xs text-white">Capa</span>}
               </div>
               <div className="flex justify-between text-sm">

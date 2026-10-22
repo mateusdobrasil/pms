@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { requireStore } from "@/lib/panel";
 import { formatBRL } from "@/lib/money";
-import { productImageUrl } from "@/lib/store";
+import { ThumbImage } from "@/lib/thumb-image";
 import { isUuid } from "@/lib/validation";
 
 const PAGE_SIZE = 30;
@@ -132,10 +132,7 @@ export default async function ProductsPage({
               <li key={p.id}>
                 <Link href={`/painel/produtos/${p.id}`} className="flex items-center gap-4 px-4 py-3 text-sm hover:bg-neutral-50">
                   <div className="h-12 w-12 shrink-0 overflow-hidden rounded bg-neutral-100">
-                    {cover && (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={productImageUrl(cover.path)} alt="" className="h-full w-full object-cover" />
-                    )}
+                    {cover && <ThumbImage path={cover.path} alt="" className="h-full w-full object-cover" />}
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="truncate font-medium">

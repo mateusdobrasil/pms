@@ -106,7 +106,7 @@ export default async function ProductPage({ params }: Params) {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replaceAll("<", String.fromCharCode(92) + "u003c") }}
       />
       <div className="space-y-3">
-        <Gallery name={product.name} images={product.product_images.map((i) => ({ url: productImageUrl(i.path), alt: i.alt }))} />
+        <Gallery name={product.name} images={product.product_images.map((i) => ({ url: productImageUrl(i.path), path: i.path, alt: i.alt }))} />
         {instagramUrl && (
           <a
             href={instagramUrl}

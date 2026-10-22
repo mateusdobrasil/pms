@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { createPublicClient } from "@/lib/supabase/public";
-import { productImageUrl } from "@/lib/store";
+import { ThumbImage } from "@/lib/thumb-image";
 import { formatBRL } from "@/lib/money";
 import { NoPhoto } from "./no-photo";
 import type { Sort } from "./sort-options";
@@ -56,11 +56,10 @@ export function ProductGrid({ products }: { products: Row[] }) {
             <Link href={`/p/${p.slug}`} className="group block">
               <div className="relative aspect-square overflow-hidden rounded-xl bg-neutral-100 ring-1 ring-neutral-200 transition group-hover:shadow-md">
                 {cover ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={productImageUrl(cover.path)}
+                  <ThumbImage
+                    path={cover.path}
                     alt={p.name}
-                    loading="lazy"
+                    lazy
                     className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
                   />
                 ) : (
