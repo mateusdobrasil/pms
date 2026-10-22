@@ -72,7 +72,10 @@ export function ImagesManager({
 
   return (
     <section className="space-y-3 rounded-xl border bg-white shadow-sm p-4">
-      <h2 className="font-medium">Fotos</h2>
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h2 className="font-medium">Fotos</h2>
+        <span className="text-xs text-emerald-700">✓ Salvas automaticamente ao enviar</span>
+      </div>
 
       {images.length === 0 ? (
         <p className="text-sm text-neutral-500">Nenhuma foto ainda. A primeira foto é a capa do produto.</p>

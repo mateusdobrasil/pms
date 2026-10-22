@@ -3,8 +3,7 @@ import { notFound } from "next/navigation";
 import { requireStore } from "@/lib/panel";
 import { centsToInput } from "@/lib/money";
 import { isUuid } from "@/lib/validation";
-import { ProductForm } from "../product-form";
-import { VariantsEditor } from "../variants-editor";
+import { ProductEditor } from "../product-editor";
 import { ImagesManager } from "../images-manager";
 import { VideosManager } from "../videos-manager";
 import { DeleteProductButton } from "../delete-product-button";
@@ -84,14 +83,16 @@ export default async function EditProductPage({
         )}
       </div>
 
-      <ProductForm product={product} categories={categories ?? []} />
-
-      <ImagesManager storeId={store.id} productId={product.id} images={images} />
-
-      {!videosError && <VideosManager storeId={store.id} productId={product.id} videos={videos ?? []} />}
-
-      <VariantsEditor
-        productId={product.id}
+      <ProductEditor
+        product={product}
+        categories={categories ?? []}
+        media={
+          <>
+            <ImagesManager storeId={store.id} productId={product.id} images={images} />
+            {!videosError && <VideosManager storeId={store.id} productId={product.id} videos={videos ?? []} />}
+          </>
+        }
+        footer={<DeleteProductButton id={product.id} />}
         variants={variants.map((v) => ({
           id: v.id,
           name: v.name,
@@ -106,8 +107,6 @@ export default async function EditProductPage({
           active: v.active,
         }))}
       />
-
-      <DeleteProductButton id={product.id} />
     </div>
   );
 }

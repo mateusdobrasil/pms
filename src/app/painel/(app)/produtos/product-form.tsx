@@ -1,10 +1,10 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { startTransition, useActionState, useState } from "react";
 import { slugify } from "@/lib/slug";
-import { createProduct, updateProduct, type FormState } from "./actions";
+import { createProduct, type FormState } from "./actions";
 
-type Product = {
+export type ProductData = {
   id: string;
   name: string;
   slug: string;
@@ -16,20 +16,20 @@ type Product = {
 
 const inputClass = "w-full rounded-md border bg-white px-3 py-2 text-sm";
 
-export function ProductForm({
+// Campos do produto, usados no cadastro (ProductForm) e na edição (ProductEditor).
+export function ProductFields({
   product,
   categories,
 }: {
-  product?: Product;
+  product?: ProductData;
   categories: { id: string; name: string }[];
 }) {
-  const [state, action, pending] = useActionState<FormState, FormData>(product ? updateProduct : createProduct, null);
   const [name, setName] = useState(product?.name ?? "");
   const [slug, setSlug] = useState(product?.slug ?? "");
   const [slugTouched, setSlugTouched] = useState(!!product);
 
   return (
-    <form action={action} className="space-y-4 rounded-xl border bg-white shadow-sm p-4">
+    <>
       {product && <input type="hidden" name="id" value={product.id} />}
 
       <label className="block space-y-1 text-sm">
@@ -92,7 +92,7 @@ export function ProductForm({
             <input name="stock" type="number" min={0} step={1} defaultValue={0} required className={inputClass} />
           </label>
           <p className="col-span-2 text-xs text-neutral-500">
-            Tamanhos, cores e outras variações você adiciona depois de salvar.
+            Fotos, vídeos, tamanhos, cores e outras variações você adiciona depois de criar.
           </p>
         </div>
       )}
@@ -107,12 +107,28 @@ export function ProductForm({
           Destaque na página inicial
         </label>
       </div>
+    </>
+  );
+}
 
+// Cadastro de produto novo. Ao criar, o servidor leva para a página de edição.
+export function ProductForm({ categories }: { categories: { id: string; name: string }[] }) {
+  const [state, action, pending] = useActionState<FormState, FormData>(createProduct, null);
+
+  return (
+    <form
+      // Envio manual: com action={action}, o React limpa o formulário e um erro apagaria o que foi digitado.
+      onSubmit={(e) => {
+        e.preventDefault();
+        const data = new FormData(e.currentTarget);
+        startTransition(() => action(data));
+      }}
+      className="space-y-4 rounded-xl border bg-white shadow-sm p-4"
+    >
+      <ProductFields categories={categories} />
       {state?.error && <p className="text-sm text-red-700">{state.error}</p>}
-      {state?.ok && <p className="text-sm text-green-700">{state.ok}</p>}
-
       <button type="submit" disabled={pending} className="rounded-md bg-primary-600 hover:bg-primary-700 px-4 py-2 text-sm font-medium text-white disabled:opacity-50">
-        {pending ? "Salvando…" : product ? "Salvar produto" : "Criar produto"}
+        {pending ? "Criando…" : "Criar produto"}
       </button>
     </form>
   );

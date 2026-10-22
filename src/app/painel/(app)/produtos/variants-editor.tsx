@@ -1,20 +1,24 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { saveVariants, type VariantInput, type VariantRow, type VariantsState } from "./actions";
+import { useState } from "react";
+import type { VariantInput, VariantRow } from "./actions";
 
-type Draft = VariantInput & { key: string };
+export type Draft = VariantInput & { key: string };
 
-function toDraft(v: VariantRow): Draft {
+export function toDraft(v: VariantRow): Draft {
   return { ...v, key: v.id, sku: v.sku ?? "", stockOriginal: v.stock };
 }
 
 const cell = "w-full min-w-0 rounded border px-2 py-1";
 
-export function VariantsEditor({ productId, variants }: { productId: string; variants: VariantRow[] }) {
-  const [rows, setRows] = useState<Draft[]>(() => variants.map(toDraft));
-  const [state, setState] = useState<VariantsState>(null);
-  const [pending, startTransition] = useTransition();
+// Tabela de variações. Quem salva é o ProductEditor (botão único "Salvar alterações").
+export function VariantsEditor({
+  rows,
+  setRows,
+}: {
+  rows: Draft[];
+  setRows: (update: (rows: Draft[]) => Draft[]) => void;
+}) {
   const [showSizes, setShowSizes] = useState(false);
 
   const update = (key: string, patch: Partial<Draft>) =>
@@ -40,16 +44,6 @@ export function VariantsEditor({ productId, variants }: { productId: string; var
         active: true,
       },
     ]);
-  }
-
-  function save() {
-    setState(null);
-    startTransition(async () => {
-      const result = await saveVariants(productId, rows); // "key" é só da tela e o servidor ignora
-      setState(result);
-      // O servidor devolve as variações gravadas (ids novos e estoque atual).
-      if (result?.variants) setRows(result.variants.map(toDraft));
-    });
   }
 
   return (
@@ -124,11 +118,6 @@ export function VariantsEditor({ productId, variants }: { productId: string; var
 
       <div className="flex flex-wrap items-center gap-3">
         <button type="button" onClick={addRow} className="rounded-md border px-3 py-2 text-sm">+ Variação</button>
-        <button type="button" onClick={save} disabled={pending} className="rounded-md bg-primary-600 hover:bg-primary-700 px-4 py-2 text-sm font-medium text-white disabled:opacity-50">
-          {pending ? "Salvando…" : "Salvar variações"}
-        </button>
-        {state?.error && <p className="text-sm text-red-700">{state.error}</p>}
-        {state?.ok && <p className="text-sm text-green-700">{state.ok}</p>}
       </div>
     </section>
   );

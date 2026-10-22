@@ -84,7 +84,10 @@ export function VideosManager({
 
   return (
     <section className="space-y-3 rounded-xl border bg-white shadow-sm p-4">
-      <h2 className="font-medium">Vídeos</h2>
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h2 className="font-medium">Vídeos</h2>
+        <span className="text-xs text-emerald-700">✓ Salvos automaticamente ao enviar</span>
+      </div>
 
       {videos.length === 0 ? (
         <p className="text-sm text-neutral-500">
