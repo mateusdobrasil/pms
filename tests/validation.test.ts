@@ -31,11 +31,11 @@ describe("outros campos", () => {
 
 describe("Instagram da loja", () => {
   it.each([
-    ["@kadosh.hair", "kadosh.hair"],
-    ["kadosh.hair", "kadosh.hair"],
-    ["https://www.instagram.com/kadosh.hair/", "kadosh.hair"],
-    ["instagram.com/kadosh.hair?igsh=abc", "kadosh.hair"], // link colado sem https://
-    ["www.instagram.com/kadosh.hair", "kadosh.hair"],
+    ["@minha.loja", "minha.loja"],
+    ["minha.loja", "minha.loja"],
+    ["https://www.instagram.com/minha.loja/", "minha.loja"],
+    ["instagram.com/minha.loja?igsh=abc", "minha.loja"], // link colado sem https://
+    ["www.instagram.com/minha.loja", "minha.loja"],
     ["https://instagram.com/loja_x?utm=1", "loja_x"],
   ])("%s → %s", (input, handle) => {
     expect(parseInstagramHandle(input)).toBe(handle);

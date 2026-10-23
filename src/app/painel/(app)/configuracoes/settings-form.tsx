@@ -186,7 +186,7 @@ export function SettingsForm({
           </label>
           <label className="block space-y-1 text-sm">
             <span className="font-medium text-neutral-700">Texto (opcional)</span>
-            <input name="banner_subtitle" maxLength={160} defaultValue={banner.banner_subtitle ?? ""} placeholder="Ex.: Até 30% de desconto na linha de tratamento" className={input} />
+            <input name="banner_subtitle" maxLength={160} defaultValue={banner.banner_subtitle ?? ""} placeholder="Ex.: Até 30% de desconto em peças selecionadas" className={input} />
           </label>
           <label className="block space-y-1 text-sm">
             <span className="font-medium text-neutral-700">Link ao clicar (opcional)</span>

@@ -123,7 +123,7 @@ footer { grid-column: 1 / -1; color: var(--muted); font-size: 13px; border-top: 
           <tr><td><code>www.pmsapp.dev</code></td><td>Site da plataforma, com contato por WhatsApp</td><td>Interessados</td></tr>
           <tr><td><code>www.pmsapp.dev/painel</code></td><td>Painel do lojista: pedidos, produtos, configurações</td><td>Lojistas</td></tr>
           <tr><td><code>www.pmsapp.dev/admin</code></td><td>Super-admin: lojas, domínios, credenciais</td><td>Dono da plataforma</td></tr>
-          <tr><td><code>www.kadosh.hair</code> (e cada domínio de loja)</td><td>Vitrine da loja</td><td>Clientes finais</td></tr>
+          <tr><td><code>www.minhaloja.com.br</code> (e cada domínio de loja)</td><td>Vitrine da loja</td><td>Clientes finais</td></tr>
           <tr><td><code>loja.minhaloja.promo</code></td><td>Vitrine da loja no endereço da plataforma (para quem não tem domínio próprio)</td><td>Clientes finais</td></tr>
         </tbody>
       </table></div>
@@ -148,7 +148,7 @@ footer { grid-column: 1 / -1; color: var(--muted); font-size: 13px; border-top: 
     <section id="arquitetura">
       <h2><span class="n">02</span>Arquitetura</h2>
       <p>O <code>src/proxy.ts</code> (o antigo middleware) olha o domínio de cada requisição. Se for um domínio da plataforma, a requisição segue normal. Se for qualquer outro, ela é reescrita para a rota interna da loja:</p>
-      <pre><code>www.kadosh.hair/p/escova   →   /s/www.kadosh.hair/p/escova   (rota interna, invisível ao cliente)</code></pre>
+      <pre><code>www.minhaloja.com.br/p/camiseta   →   /s/www.minhaloja.com.br/p/camiseta   (rota interna, invisível ao cliente)</code></pre>
       <p>A plataforma reconhece como dela os domínios em <code>NEXT_PUBLIC_ROOT_DOMAINS</code> (aceita curinga, como <code>*.vercel.app</code>) e também os domínios que a própria Vercel informa no deploy. Rotas <code>/api</code> não são reescritas: nelas, a loja é descoberta pelo cabeçalho <code>Host</code>.</p>
       <div class="table"><table>
         <thead><tr><th>Pasta</th><th>Conteúdo</th></tr></thead>
@@ -237,7 +237,7 @@ footer { grid-column: 1 / -1; color: var(--muted); font-size: 13px; border-top: 
 
     <section id="implantar">
       <h2><span class="n">06</span>Implantar uma loja nova</h2>
-      <p>O roteiro abaixo é o que usamos na <strong>Kadosh Cabelos</strong>. A loja nasce em <strong>modo de teste</strong> e só vira produção depois de uma compra de teste completa.</p>
+      <p>O roteiro abaixo vale para qualquer loja nova (no exemplo, a <strong>Minha Loja</strong>). A loja nasce em <strong>modo de teste</strong> e só vira produção depois de uma compra de teste completa.</p>
       <ol class="steps">
         <li><div><strong>Criar no <code>/admin</code></strong><br>"Nova loja": nome, identificador, e-mail do dono, domínio, cor e logo (PNG transparente de até 2 MB; a plataforma otimiza). Se o dono ainda não tem usuário, aparece uma <strong>senha temporária, uma única vez</strong>: envie a ele, que troca em Painel → Minha conta.</div></li>
         <li><div><strong>Domínio</strong><br><strong>Sem domínio próprio</strong>: vincule <code>slug.minhaloja.promo</code> no <code>/admin</code> como principal e pule o próximo passo: o curinga da Vercel já cobre o endereço. <strong>Com domínio próprio</strong>: Vercel → projeto → Settings → Domains: adicione <code>dominio.com.br</code> e <code>www.dominio.com.br</code>. A Vercel costuma redirecionar o domínio raiz para o <code>www</code>, então no <code>/admin</code> vincule os dois e deixe o <code>www</code> como <strong>principal</strong>, porque ele vai nos links dos e-mails.</div></li>

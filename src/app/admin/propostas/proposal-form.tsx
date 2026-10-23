@@ -42,7 +42,7 @@ export function ProposalForm({ proposal, defaultValidUntil }: { proposal: Propos
           <input name="client_name" required defaultValue={proposal?.client_name} placeholder="Maria da Silva" className={input} />
         </Field>
         <Field label="Nome do negócio">
-          <input name="business_name" required defaultValue={proposal?.business_name} placeholder="Kadosh Cabelos" className={input} />
+          <input name="business_name" required defaultValue={proposal?.business_name} placeholder="Minha Loja" className={input} />
         </Field>
         <Field label="E-mail (para enviar a proposta)">
           <input name="email" type="email" defaultValue={proposal?.email ?? ""} className={input} />

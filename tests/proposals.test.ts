@@ -23,8 +23,8 @@ describe("textos", () => {
   });
 
   it("mensagem do WhatsApp usa o primeiro nome", () => {
-    expect(proposalWhatsappText({ client_name: "Maria da Silva", business_name: "Kadosh" }, "https://x/p")).toBe(
-      "Olá, Maria! Aqui é da PMS app. Segue a proposta da loja virtual para a Kadosh: https://x/p",
+    expect(proposalWhatsappText({ client_name: "Maria da Silva", business_name: "Minha Loja" }, "https://x/p")).toBe(
+      "Olá, Maria! Aqui é da PMS app. Segue a proposta da loja virtual para a Minha Loja: https://x/p",
     );
   });
 });

@@ -89,7 +89,7 @@ export function AddMemberForm({ storeId }: { storeId: string }) {
     <form ref={formRef} onSubmit={submitKeepingValues(action)} className="space-y-2">
       <input type="hidden" name="storeId" value={storeId} />
       <div className="flex gap-2">
-        <input name="email" type="email" required placeholder="email@lojista.com.br" className={input} />
+        <input name="email" type="email" required placeholder="contato@minhaloja.com.br" className={input} />
         <button type="submit" disabled={pending} className={primaryButton}>Adicionar</button>
       </div>
       <Feedback state={state} />

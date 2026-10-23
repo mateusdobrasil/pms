@@ -53,7 +53,7 @@ export function LegalSection({
         <input type="hidden" name="legal_enabled" value="1" />
         <label className="block space-y-1 text-sm">
           <span className="font-medium text-neutral-700">Nome empresarial (razão social)</span>
-          <input name="legal_name" defaultValue={legal.legal_name ?? ""} placeholder="Ex.: Kadosh Cabelos Ltda" className={input} />
+          <input name="legal_name" defaultValue={legal.legal_name ?? ""} placeholder="Ex.: Minha Loja Ltda" className={input} />
           <span className="text-xs text-neutral-500">Se você vende como pessoa física, use o seu nome completo.</span>
         </label>
         <label className="block space-y-1 text-sm">
