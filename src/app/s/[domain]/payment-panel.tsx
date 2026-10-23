@@ -32,14 +32,17 @@ export function PaymentPanel({
   pixTotalCents,
   publicKey,
   payerEmail,
+  apiBase,
 }: {
   token: string;
+  apiBase?: string; // pedidos: /api/orders/<token>; agendamentos: /api/bookings/<token>
   totalCents: number; // cartão
   pixTotalCents: number; // Pix (com o desconto da loja, quando houver)
   publicKey: string | null;
   payerEmail: string;
 }) {
   const router = useRouter();
+  const api = apiBase ?? `/api/orders/${token}`;
   const [method, setMethod] = useState<"pix" | "card">("pix");
   const [pix, setPix] = useState<PixData | null>(null);
   const [loading, setLoading] = useState(false);
@@ -51,7 +54,7 @@ export function PaymentPanel({
   useEffect(() => {
     if (!polling) return;
     const timer = setInterval(async () => {
-      const res = await fetch(`/api/orders/${token}/status`, { cache: "no-store" }).catch(() => null);
+      const res = await fetch(`${api}/status`, { cache: "no-store" }).catch(() => null);
       if (!res?.ok) return;
       const { status } = await res.json();
       if (status !== "pending_payment") {
@@ -60,10 +63,10 @@ export function PaymentPanel({
       }
     }, 5000);
     return () => clearInterval(timer);
-  }, [polling, token, router]);
+  }, [polling, api, router]);
 
   async function pay(body: object): Promise<PayResponse> {
-    const res = await fetch(`/api/orders/${token}/pay`, {
+    const res = await fetch(`${api}/pay`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
@@ -217,7 +220,7 @@ function CardBrick({
         if (cancelled || !window.MercadoPago) return;
         const mp = new window.MercadoPago(publicKey, { locale: "pt-BR" });
         const created = await mp.bricks().create("cardPayment", "card-brick", {
-          // O valor aqui é só exibição/parcelas; o servidor cobra o total do pedido.
+          // O valor aqui é só exibição/parcelas; quem define o valor cobrado é o servidor.
           initialization: { amount: amountCents / 100, payer: { email } },
           customization: { paymentMethods: { maxInstallments: 12 } },
           callbacks: {

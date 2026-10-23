@@ -14,6 +14,8 @@ import { CartLink } from "./cart-link";
 import { StoreWhatsappButton } from "./store-whatsapp";
 import { TestModeBanner } from "./test-mode-banner";
 import { storeTestMode } from "@/lib/test-mode";
+import { getBookingSettings } from "@/lib/booking-server";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export async function generateMetadata({ params }: { params: Promise<{ domain: string }> }) {
   const { domain } = await params;
@@ -43,13 +45,15 @@ export default async function StoreLayout({
   const { domain } = await params;
   const store = await getStoreByDomain(domain);
   if (!store) notFound();
-  const [categories, promotions, marketing, legal, testMode] = await Promise.all([
+  const [categories, promotions, marketing, legal, testMode, booking] = await Promise.all([
     getCategories(store.id),
     getPromotions(store.id),
     getStoreMarketing(store.id),
     getStoreLegal(store.id),
     storeTestMode(store.id),
+    getBookingSettings(createAdminClient(), store.id),
   ]);
+  const bookingOn = !!booking?.enabled;
   // Identificação exigida no comércio eletrônico (Decreto 7.962/2013): nome empresarial, CPF/CNPJ e endereço.
   const identification = [
     legal.legalName,
@@ -106,6 +110,15 @@ export default async function StoreLayout({
             />
           </form>
           <div className="flex items-center gap-2">
+            {bookingOn && (
+              <Link
+                href="/agendar"
+                className="rounded-full px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:brightness-110"
+                style={{ background: "var(--brand)" }}
+              >
+                Agendar
+              </Link>
+            )}
             <Link
               href="/meus-pedidos"
               aria-label="Meus pedidos"
@@ -174,6 +187,7 @@ export default async function StoreLayout({
           <div className="space-y-1">
             <p className="font-semibold text-white">Navegue</p>
             <Link href="/" className="block py-1.5 hover:text-white">Início</Link>
+            {bookingOn && <Link href="/agendar" className="block py-1.5 hover:text-white">Agendar horário</Link>}
             <Link href="/carrinho" className="block py-1.5 hover:text-white">Carrinho</Link>
             <Link href="/meus-pedidos" className="block py-1.5 hover:text-white">Meus pedidos</Link>
             <Link href="/trocas-e-devolucoes" className="block py-1.5 hover:text-white">Trocas e devoluções</Link>

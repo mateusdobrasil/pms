@@ -1,0 +1,276 @@
+import "server-only";
+import { after } from "next/server";
+import type { createAdminClient } from "@/lib/supabase/admin";
+import { notifyPlatformError } from "@/lib/email";
+import { PROVIDER, type GatewayPayment } from "@/lib/payments/mercadopago";
+import { onlineCents, parseTime, type PaymentMode } from "@/lib/booking";
+import { type Interval, bookingDays, dayStartMs, daySlots, instantOf, mergeSlots, weekdayOf } from "@/lib/booking-slots";
+import { todayBR } from "@/lib/billing";
+import { isEmail, isValidCPF, onlyDigits } from "@/lib/validation";
+
+// Agendamentos na loja: catálogo, horários livres, criação da reserva e pagamento.
+// Tudo com a service role, sempre filtrando store_id.
+
+type Db = ReturnType<typeof createAdminClient>;
+
+export const BOOKING_HOLD_MINUTES = 30; // horário segurado enquanto o cliente paga (o mínimo do Pix)
+export const ACTIVE_STATUSES = ["pending_payment", "confirmed", "completed"];
+
+export type BookingSettings = { enabled: boolean; slotMinutes: number; minNoticeMinutes: number; maxDays: number; cancelHours: number };
+
+// null = SQL dos agendamentos ainda não rodado.
+export async function getBookingSettings(db: Db, storeId: string): Promise<BookingSettings | null> {
+  const { data, error } = await db
+    .from("stores")
+    .select("booking_enabled, booking_slot_minutes, booking_min_notice_minutes, booking_max_days, booking_cancel_hours")
+    .eq("id", storeId)
+    .maybeSingle();
+  if (error || !data) return null;
+  return {
+    enabled: data.booking_enabled,
+    slotMinutes: data.booking_slot_minutes,
+    minNoticeMinutes: data.booking_min_notice_minutes,
+    maxDays: data.booking_max_days,
+    cancelHours: data.booking_cancel_hours,
+  };
+}
+
+export type BookableService = {
+  id: string;
+  name: string;
+  description: string | null;
+  duration_minutes: number;
+  price_cents: number;
+  payment_mode: PaymentMode;
+  deposit_percent: number | null;
+};
+type ProRow = {
+  id: string;
+  name: string;
+  working_hours: { weekday: number; start_time: string; end_time: string }[];
+  professional_services: { service_id: string }[];
+};
+
+// Serviços que dá para agendar (com algum profissional ativo que faz e tem horário) e os profissionais.
+export async function loadCatalog(db: Db, storeId: string) {
+  const [{ data: services }, { data: pros }] = await Promise.all([
+    db
+      .from("services")
+      .select("id, name, description, duration_minutes, price_cents, payment_mode, deposit_percent")
+      .eq("store_id", storeId)
+      .eq("active", true)
+      .order("position")
+      .order("name"),
+    db
+      .from("professionals")
+      .select("id, name, working_hours(weekday, start_time, end_time), professional_services(service_id)")
+      .eq("store_id", storeId)
+      .eq("active", true)
+      .order("position")
+      .order("name"),
+  ]);
+  const professionals = ((pros ?? []) as ProRow[])
+    .filter((p) => p.working_hours.length)
+    .map((p) => ({
+      id: p.id,
+      name: p.name,
+      serviceIds: p.professional_services.map((s) => s.service_id),
+      weekdays: [...new Set(p.working_hours.map((h) => h.weekday))],
+      hours: p.working_hours,
+    }));
+  const bookable = ((services ?? []) as BookableService[]).filter((s) => professionals.some((p) => p.serviceIds.includes(s.id)));
+  return { services: bookable, professionals };
+}
+
+const toMinutes = (t: string) => parseTime(t.slice(0, 5))!;
+
+// Horários livres de um serviço num dia (de um profissional ou de todos que fazem o serviço).
+export async function availability(
+  db: Db,
+  storeId: string,
+  settings: BookingSettings,
+  serviceId: string,
+  date: string,
+  professionalId: string | null,
+) {
+  if (!bookingDays(todayBR(), settings.maxDays).includes(date)) return { service: null, slots: [] };
+  const { services, professionals } = await loadCatalog(db, storeId);
+  const service = services.find((s) => s.id === serviceId) ?? null;
+  if (!service) return { service: null, slots: [] };
+  const pros = professionals.filter((p) => p.serviceIds.includes(serviceId) && (!professionalId || p.id === professionalId));
+  if (!pros.length) return { service, slots: [] };
+
+  const from = new Date(dayStartMs(date)).toISOString();
+  const to = new Date(dayStartMs(date) + 86_400_000).toISOString();
+  const ids = pros.map((p) => p.id);
+  const now = Date.now();
+  const [{ data: bookings }, { data: blocks }] = await Promise.all([
+    db
+      .from("bookings")
+      .select("professional_id, starts_at, ends_at, status, expires_at")
+      .eq("store_id", storeId)
+      .in("professional_id", ids)
+      .in("status", ACTIVE_STATUSES)
+      .lt("starts_at", to)
+      .gt("ends_at", from),
+    db
+      .from("time_off")
+      .select("professional_id, starts_at, ends_at")
+      .eq("store_id", storeId)
+      .lt("starts_at", to)
+      .gt("ends_at", from),
+  ]);
+  // Reserva aguardando pagamento que já passou do prazo não segura mais o horário.
+  const live = (bookings ?? []).filter((b) => b.status !== "pending_payment" || !b.expires_at || Date.parse(b.expires_at) > now);
+  const weekday = weekdayOf(date);
+
+  const byPro = pros.map((p) => {
+    const ranges = p.hours.filter((h) => h.weekday === weekday).map((h) => [toMinutes(h.start_time), toMinutes(h.end_time)] as [number, number]);
+    const busy: Interval[] = [
+      ...live.filter((b) => b.professional_id === p.id).map((b) => [Date.parse(b.starts_at), Date.parse(b.ends_at)] as Interval),
+      ...(blocks ?? []).filter((t) => !t.professional_id || t.professional_id === p.id).map((t) => [Date.parse(t.starts_at), Date.parse(t.ends_at)] as Interval),
+    ];
+    return {
+      id: p.id,
+      slots: daySlots({ date, ranges, duration: service.duration_minutes, step: settings.slotMinutes, busy, now, minNoticeMinutes: settings.minNoticeMinutes }),
+    };
+  });
+  return { service, slots: mergeSlots(byPro), professionals: pros };
+}
+
+export type BookingInput = {
+  serviceId: string;
+  professionalId: string | null;
+  date: string;
+  time: number; // minutos desde a meia-noite
+  name: string;
+  email: string;
+  phone: string;
+  cpf: string;
+  notes: string;
+};
+
+// Cria a reserva. Sem pagamento online, já fica confirmada; com pagamento, segura o horário por 30 min.
+export async function createBooking(db: Db, storeId: string, input: BookingInput): Promise<{ token: string } | { error: string }> {
+  const settings = await getBookingSettings(db, storeId);
+  if (!settings?.enabled) return { error: "Esta loja não está aceitando agendamentos no momento." };
+
+  const name = input.name.trim().replace(/\s+/g, " ");
+  const email = input.email.trim().toLowerCase();
+  const phone = onlyDigits(input.phone).replace(/^55(?=\d{10,11}$)/, "");
+  const cpf = onlyDigits(input.cpf);
+  if (name.length < 3 || !name.includes(" ")) return { error: "Informe o nome e o sobrenome." };
+  if (!isEmail(email)) return { error: "Informe um e-mail válido: a confirmação chega por ele." };
+  if (!/^\d{10,11}$/.test(phone)) return { error: "Informe o celular com DDD." };
+
+  const { service, slots, professionals } = await availability(db, storeId, settings, input.serviceId, input.date, input.professionalId);
+  if (!service) return { error: "Serviço indisponível para essa data." };
+  const slot = slots.find((s) => s.time === input.time);
+  if (!slot) return { error: "Esse horário não está mais livre. Escolha outro." };
+  // "Qualquer um": o primeiro livre na ordem de cadastro.
+  const proId = input.professionalId ?? slot.professionals[0];
+  const pro = professionals?.find((p) => p.id === proId);
+  if (!pro || !slot.professionals.includes(pro.id)) return { error: "Esse horário não está mais livre. Escolha outro." };
+
+  const online = onlineCents(service.price_cents, service.payment_mode, service.deposit_percent);
+  if (online > 0) {
+    if (!isValidCPF(cpf)) return { error: "Informe um CPF válido: ele é exigido para o pagamento." };
+    const { data: secret } = await db.from("store_secrets").select("gateway_access_token").eq("store_id", storeId).maybeSingle();
+    if (!secret?.gateway_access_token) return { error: "Pagamento online indisponível nesta loja no momento. Fale com o salão." };
+  }
+
+  // Reserva aguardando pagamento que passou do prazo já aparece como livre; expira agora
+  // (sem esperar o job de 5 min), senão o banco ainda recusaria o horário.
+  await db
+    .from("bookings")
+    .update({ status: "expired" })
+    .eq("store_id", storeId)
+    .eq("professional_id", pro.id)
+    .eq("status", "pending_payment")
+    .lt("expires_at", new Date().toISOString());
+
+  const startsAt = instantOf(input.date, input.time);
+  const { data, error } = await db
+    .from("bookings")
+    .insert({
+      store_id: storeId,
+      service_id: service.id,
+      service_name: service.name,
+      professional_id: pro.id,
+      professional_name: pro.name,
+      starts_at: new Date(startsAt).toISOString(),
+      ends_at: new Date(startsAt + service.duration_minutes * 60_000).toISOString(),
+      status: online > 0 ? "pending_payment" : "confirmed",
+      expires_at: online > 0 ? new Date(Date.now() + BOOKING_HOLD_MINUTES * 60_000).toISOString() : null,
+      customer_name: name,
+      customer_email: email,
+      customer_phone: phone,
+      customer_cpf: online > 0 ? cpf : null,
+      notes: input.notes.trim().slice(0, 500) || null,
+      price_cents: service.price_cents,
+      payment_mode: service.payment_mode,
+      online_cents: online,
+    })
+    .select("public_token")
+    .single();
+  // 23P01: o banco recusou por sobreposição (outro cliente pegou o horário no mesmo instante).
+  if (error?.code === "23P01") return { error: "Esse horário acabou de ser reservado por outra pessoa. Escolha outro." };
+  if (error || !data) {
+    console.error("Agendamento não criado", { storeId, error });
+    return { error: "Não foi possível agendar agora. Tente de novo." };
+  }
+  return { token: data.public_token };
+}
+
+export const BOOKING_PAYMENT_FIELDS = "id, store_id, code, status, online_cents, paid_cents, expires_at, customer_name, customer_email, customer_cpf, service_name, starts_at";
+
+type BookingRef = { id: string; store_id: string; code: string; status: string; online_cents: number };
+
+// Grava o pagamento consultado no Mercado Pago e, se aprovado, confirma o agendamento. Idempotente.
+export async function recordBookingPayment(db: Db, booking: BookingRef, payment: GatewayPayment) {
+  if (payment.orderId !== `booking:${booking.id}`) return false;
+  if (payment.amountCents !== booking.online_cents) {
+    after(() =>
+      notifyPlatformError("agendamento:valor-divergente", "Pagamento de agendamento com valor diferente", {
+        agendamento: booking.code,
+        pagamento: payment.id,
+        pago: payment.amountCents,
+        esperado: booking.online_cents,
+      }),
+    );
+    return false;
+  }
+  const { error } = await db.from("booking_payments").upsert(
+    {
+      store_id: booking.store_id,
+      booking_id: booking.id,
+      provider: PROVIDER,
+      provider_payment_id: payment.id,
+      method: payment.method,
+      status: payment.status,
+      amount_cents: payment.amountCents,
+      raw: payment.raw,
+    },
+    { onConflict: "provider,provider_payment_id" },
+  );
+  if (error) throw error;
+
+  if (payment.status === "approved") {
+    const { error: upErr } = await db
+      .from("bookings")
+      .update({ status: "confirmed", paid_cents: payment.amountCents, expires_at: null })
+      .eq("id", booking.id)
+      .in("status", ["pending_payment", "expired"]);
+    // Pagou depois de o horário expirar e alguém já pegou: o dinheiro entrou sem horário. Avisa para devolver.
+    if (upErr?.code === "23P01") {
+      after(() =>
+        notifyPlatformError(`agendamento:sem-horario:${booking.id}`, "Agendamento pago depois de o horário ser ocupado", {
+          agendamento: booking.code,
+          pagamento: payment.id,
+          acao: "Combinar outro horário com o cliente ou estornar no painel",
+        }),
+      );
+    } else if (upErr) throw upErr;
+  }
+  return true;
+}

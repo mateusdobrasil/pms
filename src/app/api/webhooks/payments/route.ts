@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { isUuid } from "@/lib/validation";
 import { ORDER_PAYMENT_FIELDS, recordPayment } from "@/lib/payments/record";
 import { PROVIDER, getPayment, verifyWebhookSignature } from "@/lib/payments/mercadopago";
+import { BOOKING_PAYMENT_FIELDS, recordBookingPayment } from "@/lib/booking-server";
 
 // URL de notificação enviada em cada pagamento (notification_url):
 //   https://pmsapp.dev/api/webhooks/payments?store=<store_id>
@@ -74,6 +75,13 @@ export async function POST(req: Request) {
   // Erro aqui → alerta + 500 → o gateway reenvia.
   try {
     const payment = await getPayment(paymentId, secret.gateway_access_token);
+
+    // Agendamento (external_reference "booking:<id>").
+    const bookingId = payment.orderId?.startsWith("booking:") ? payment.orderId.slice(8) : null;
+    if (bookingId && isUuid(bookingId)) {
+      const { data: booking } = await db.from("bookings").select(BOOKING_PAYMENT_FIELDS).eq("id", bookingId).eq("store_id", storeId).maybeSingle();
+      if (booking) await recordBookingPayment(db, booking, payment);
+    }
 
     if (payment.orderId && isUuid(payment.orderId)) {
       const { data: order } = await db

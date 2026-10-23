@@ -12,26 +12,10 @@ import {
   createCardPayment,
   createPixPayment,
   toGatewayPayment,
-  type CardInput,
 } from "@/lib/payments/mercadopago";
+import { parseCard } from "@/lib/payments/card-input";
 
 const fail = (error: string, status = 400) => NextResponse.json({ error }, { status });
-
-function parseCard(b: Record<string, unknown>): CardInput | null {
-  const id = (b.payer as { identification?: { type?: unknown; number?: unknown } } | undefined)?.identification;
-  const installments = Number(b.installments);
-  if (typeof b.token !== "string" || !b.token) return null;
-  if (typeof b.paymentMethodId !== "string" || !b.paymentMethodId) return null;
-  if (!Number.isInteger(installments) || installments < 1 || installments > 24) return null;
-  if (typeof id?.type !== "string" || typeof id?.number !== "string") return null;
-  return {
-    token: b.token,
-    installments,
-    paymentMethodId: b.paymentMethodId,
-    issuerId: b.issuerId == null || b.issuerId === "" ? null : String(b.issuerId),
-    identification: { type: id.type, number: id.number },
-  };
-}
 
 export async function POST(req: Request, { params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;

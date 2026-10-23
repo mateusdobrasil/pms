@@ -5,7 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { formatBRL } from "@/lib/money";
 import { isUuid } from "@/lib/validation";
 import { statusLabel } from "@/lib/order-status";
-import { PaymentPanel } from "./payment-panel";
+import { PaymentPanel } from "../../payment-panel";
 import { CopyOrderLink } from "./copy-link";
 import { TrackPurchase } from "./track-purchase";
 
