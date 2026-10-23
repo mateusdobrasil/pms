@@ -124,8 +124,17 @@ footer { grid-column: 1 / -1; color: var(--muted); font-size: 13px; border-top: 
           <tr><td><code>www.pmsapp.dev/painel</code></td><td>Painel do lojista: pedidos, produtos, configurações</td><td>Lojistas</td></tr>
           <tr><td><code>www.pmsapp.dev/admin</code></td><td>Super-admin: lojas, domínios, credenciais</td><td>Dono da plataforma</td></tr>
           <tr><td><code>www.kadosh.hair</code> (e cada domínio de loja)</td><td>Vitrine da loja</td><td>Clientes finais</td></tr>
+          <tr><td><code>loja.minhaloja.promo</code></td><td>Vitrine da loja no endereço da plataforma (para quem não tem domínio próprio)</td><td>Clientes finais</td></tr>
         </tbody>
       </table></div>
+      <h3>Endereços das lojas: minhaloja.promo</h3>
+      <p>O domínio <code>minhaloja.promo</code> (comprado na Vercel) dá a cada loja um subdomínio, como <code>pms.minhaloja.promo</code> (Loja Teste). Para o sistema, o subdomínio é um domínio como outro qualquer: a loja é encontrada pelo endereço exato em <code>store_domains</code>. Não precisa mudar código nem <code>NEXT_PUBLIC_ROOT_DOMAINS</code>.</p>
+      <ul>
+        <li><strong>Na Vercel, uma vez só</strong> (projeto → Settings → Domains): <code>*.minhaloja.promo</code> (curinga, cobre todos os subdomínios e gera o HTTPS sozinho), mais <code>minhaloja.promo</code> e <code>www.minhaloja.promo</code> com <strong>redirect para <code>pmsapp.dev</code></strong>. Sem o redirect, o domínio raiz abriria a página de loja não encontrada.</li>
+        <li><strong>DNS</strong>: como o domínio está na Vercel, os nameservers já são dela e não há registro para criar. Se um dia houver e-mail em <code>@minhaloja.promo</code>, os registros MX vão no DNS da Vercel.</li>
+        <li><strong>Por loja</strong>: só vincular <code>slug.minhaloja.promo</code> no <code>/admin</code>. Não precisa adicionar o subdomínio na Vercel.</li>
+        <li><strong>Evite</strong> subdomínios que confundem com a plataforma: <code>www</code>, <code>admin</code>, <code>painel</code>, <code>api</code>, <code>mail</code>.</li>
+      </ul>
       <h3>Stack</h3>
       <ul>
         <li><strong>Next.js 16</strong> (App Router, TypeScript, Tailwind 4), hospedado na <strong>Vercel</strong>. Código em <code>github.com/mateusdobrasil/pms</code>.</li>
@@ -231,8 +240,8 @@ footer { grid-column: 1 / -1; color: var(--muted); font-size: 13px; border-top: 
       <p>O roteiro abaixo é o que usamos na <strong>Kadosh Cabelos</strong>. A loja nasce em <strong>modo de teste</strong> e só vira produção depois de uma compra de teste completa.</p>
       <ol class="steps">
         <li><div><strong>Criar no <code>/admin</code></strong><br>"Nova loja": nome, identificador, e-mail do dono, domínio, cor e logo (PNG transparente de até 2 MB; a plataforma otimiza). Se o dono ainda não tem usuário, aparece uma <strong>senha temporária, uma única vez</strong>: envie a ele, que troca em Painel → Minha conta.</div></li>
-        <li><div><strong>Domínio na Vercel</strong><br>Vercel → projeto → Settings → Domains: adicione <code>dominio.com.br</code> e <code>www.dominio.com.br</code>. A Vercel costuma redirecionar o domínio raiz para o <code>www</code>, então no <code>/admin</code> vincule os dois e deixe o <code>www</code> como <strong>principal</strong>, porque ele vai nos links dos e-mails.</div></li>
-        <li><div><strong>DNS no registrador</strong><br>Cadastre os registros que a Vercel mostrar. Normalmente: <code>A @ 76.76.21.21</code> e <code>CNAME www cname.vercel-dns.com</code>. A propagação leva de minutos a horas.</div></li>
+        <li><div><strong>Domínio</strong><br><strong>Sem domínio próprio</strong>: vincule <code>slug.minhaloja.promo</code> no <code>/admin</code> como principal e pule o próximo passo: o curinga da Vercel já cobre o endereço. <strong>Com domínio próprio</strong>: Vercel → projeto → Settings → Domains: adicione <code>dominio.com.br</code> e <code>www.dominio.com.br</code>. A Vercel costuma redirecionar o domínio raiz para o <code>www</code>, então no <code>/admin</code> vincule os dois e deixe o <code>www</code> como <strong>principal</strong>, porque ele vai nos links dos e-mails.</div></li>
+        <li><div><strong>DNS no registrador</strong> (só domínio próprio)<br>Cadastre os registros que a Vercel mostrar. Normalmente: <code>A @ 76.76.21.21</code> e <code>CNAME www cname.vercel-dns.com</code>. A propagação leva de minutos a horas.</div></li>
         <li><div><strong>Credenciais de teste</strong><br>Em "Pagamento e frete": Access Token e Public Key <code>TEST-</code> do Mercado Pago, token do Melhor Envio do sandbox com a opção "sandbox" marcada, e o CEP de origem.</div></li>
         <li><div><strong>Lojista configura</strong><br>Configurações (WhatsApp, e-mail da loja, CEP), categorias e produtos com fotos, peso e medidas.</div></li>
         <li><div><strong>Compra de teste completa</strong><br>Com credencial <code>TEST-</code> (ou sem credencial) a loja fica em <strong>modo de teste</strong>: a vitrine mostra "Loja em preparação" e <code>/api/checkout</code> recusa pedidos (403). Abra primeiro o link de acesso (<code>/admin</code> → loja → Pagamento e frete, ou a faixa do painel: <code>loja/acesso-teste?c=&lt;HMAC do id da loja&gt;</code>, que grava o cookie <code>acesso-teste</code> por 30 dias; <code>?sair=1</code> apaga). No domínio real: frete por CEP, Pix (gera o QR), cartão APRO (aprova) e OTHE (recusa). Confira no painel e no Resend. Ao trocar para credenciais <code>APP_USR-</code>, o modo de teste acaba sozinho.</div></li>
@@ -364,6 +373,7 @@ npx next build         # build de produção (rode antes de subir)</code></pre>
         <thead><tr><th>Sintoma</th><th>Causa</th><th>Solução</th></tr></thead>
         <tbody>
           <tr><td>Domínio da loja dá 404</td><td>A Vercel redireciona para <code>www</code>, mas só o domínio sem <code>www</code> está vinculado</td><td>Vincular <code>www.…</code> no <code>/admin</code> e torná-lo principal</td></tr>
+          <tr><td><code>loja.minhaloja.promo</code> não abre ou mostra loja não encontrada</td><td>Curinga <code>*.minhaloja.promo</code> fora do projeto na Vercel, ou subdomínio não vinculado à loja</td><td>Conferir o curinga em Settings → Domains e vincular o subdomínio exato no <code>/admin</code></td></tr>
           <tr><td>Site inteiro dá 404 na Vercel</td><td>Domínio da plataforma não reconhecido como raiz</td><td>Conferir <code>NEXT_PUBLIC_ROOT_DOMAINS</code> e fazer Redeploy</td></tr>
           <tr><td>Cartão recusado: <code>excludes_by_rule</code></td><td>E-mail do comprador <code>@example.com</code> (bloqueado pelo antifraude)</td><td>Usar um e-mail real ou <code>delivered@resend.dev</code></td></tr>
           <tr><td><code>401 Unauthorized use of live credentials</code></td><td>Credenciais de conta de teste do MP, ou de produção ainda não ativadas</td><td>Para testar: <code>TEST-</code> da conta real. Para produção: ativar as credenciais na conta do lojista</td></tr>

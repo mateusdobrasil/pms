@@ -18,7 +18,10 @@ const LINE = "#b9caf0";
 const GREEN = "#16a34a";
 
 const STEPS = [
-  { title: "Sua loja, com a sua marca", text: "Montamos a loja no seu domínio, com o seu logo e as suas cores, pronta para vender." },
+  {
+    title: "Sua loja, com a sua marca",
+    text: "Montamos a loja com o seu logo e as suas cores, pronta para vender: num endereço nosso (sualoja.minhaloja.promo) ou no seu domínio.",
+  },
   { title: "O cliente escolhe e compra", text: "Produtos com fotos, tamanhos e estoque. Compra sem cadastro, direto pelo celular." },
   { title: "Paga com Pix ou cartão", text: "Pagamento pelo Mercado Pago, confirmado na hora e com o dinheiro direto na sua conta." },
   { title: "O pedido cai no seu painel", text: "Você vê o pedido pago, os dados do cliente e o resumo de vendas do dia e do mês." },
@@ -184,6 +187,31 @@ function Scene1({ still = false }: { still?: boolean }) {
   ];
   return (
     <g>
+      {/* Barra de endereço: começa no endereço da plataforma e troca para o domínio próprio */}
+      <g transform="translate(190 12)">
+        <g className={anim("hiw-drop")}>
+          <g filter="url(#hiw-shadow)">
+            <rect width="260" height="32" rx="16" fill="#fff" />
+          </g>
+          <g transform="translate(22 16)">
+            <rect x="-6" y="-2" width="12" height="9" rx="2" fill={GREEN} />
+            <path d="M-3.5 -2 v-3 a3.5 3.5 0 0 1 7 0 v3" fill="none" stroke={GREEN} strokeWidth="2" />
+          </g>
+          <g className={anim("hiw-out")} style={d(2.8)}>
+            <text x="140" y="21" textAnchor="middle" fontSize="13" fontWeight="600" fill={NAVY_DARK}>
+              sualoja.<tspan fill={CORAL}>minhaloja.promo</tspan>
+            </text>
+          </g>
+          {!still && (
+            <g className="hiw-fade" style={d(3.1)}>
+              <text x="140" y="21" textAnchor="middle" fontSize="13" fontWeight="600" fill={NAVY_DARK}>
+                sualoja<tspan fill={CORAL}>.com.br</tspan>
+              </text>
+            </g>
+          )}
+        </g>
+      </g>
+
       <Phone x={245} y={55}>
         <g className={anim("hiw-drop")} style={d(0.2)}>
           <rect x="7" y="22" width="136" height="32" fill={CORAL} />

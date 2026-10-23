@@ -9,7 +9,10 @@ const FEATURES = [
   { title: "Catálogo completo", text: "Produtos com fotos, tamanhos e cores, estoque por variação e categorias." },
   { title: "Checkout sem cadastro", text: "O cliente compra em poucos passos e acompanha o pedido por um link." },
   { title: "Painel simples", text: "Pedidos, rastreio, produtos e o resumo de vendas do dia e do mês." },
-  { title: "Seu domínio", text: "A loja no endereço da sua marca, com as suas cores e logo." },
+  {
+    title: "Endereço pronto ou domínio próprio",
+    text: "Comece já em sualoja.minhaloja.promo, sem comprar nada, ou use o domínio da sua marca. Sempre com as suas cores e logo.",
+  },
   { title: "WhatsApp", text: "Botão de atendimento em todas as páginas da loja." },
 ];
 
