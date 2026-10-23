@@ -135,6 +135,7 @@ export default function PlatformHome() {
             <a href={`mailto:${PLATFORM_CONTACT.email}`} className="hover:text-neutral-900">
               {PLATFORM_CONTACT.email}
             </a>
+            <Link href="/termos" className="hover:text-neutral-900">Termos de uso</Link>
             <Link href="/painel/login" className="hover:text-neutral-900">Acesso do lojista</Link>
             <a href={PLATFORM_CONTACT.webmailUrl} target="_blank" rel="noopener noreferrer" className="hover:text-neutral-900">
               Webmail

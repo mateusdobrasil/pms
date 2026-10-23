@@ -19,6 +19,9 @@ export default async function ProposalPage({ params, searchParams }: { params: P
   const { data } = await db.from("proposals").select(PROPOSAL_FIELDS).eq("id", id).maybeSingle();
   if (!data) notFound();
   const p = data as Proposal;
+  // Prova do aceite dos Termos de uso (colunas do SQL 20261028000000, lidas à parte).
+  const { data: proofRow } = await db.from("proposals").select("terms_version, accepted_ip, accepted_user_agent").eq("id", id).maybeSingle();
+  const proof = proofRow as { terms_version: string | null; accepted_ip: string | null; accepted_user_agent: string | null } | null;
   const url = platformUrl(`/proposta/${p.public_token}`);
   const created = (await searchParams).criada;
   const status = proposalStatus(p, todayBR());
@@ -72,6 +75,14 @@ export default async function ProposalPage({ params, searchParams }: { params: P
               <li>Aberta pelo cliente: {p.viewed_at ? formatDateTime(p.viewed_at) : "ainda não"}</li>
               <li>Aceita: {p.accepted_at ? formatDateTime(p.accepted_at) : "ainda não"}</li>
             </ul>
+            {p.accepted_at && proof?.terms_version && (
+              <p className="rounded-lg bg-neutral-50 px-3 py-2 text-xs text-neutral-600">
+                Aceitou os{" "}
+                <a href="/termos" target="_blank" rel="noopener" className="underline">Termos de uso</a> versão {proof.terms_version}
+                {proof.accepted_ip && ` · IP ${proof.accepted_ip}`}
+                {proof.accepted_user_agent && <span className="block truncate" title={proof.accepted_user_agent}>{proof.accepted_user_agent}</span>}
+              </p>
+            )}
             {p.accepted_at && (
               <Link href={createStoreHref} className="block rounded-lg bg-primary-600 px-4 py-2 text-center text-sm font-semibold text-white hover:bg-primary-700">
                 Criar a loja deste cliente

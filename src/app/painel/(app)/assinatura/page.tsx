@@ -7,6 +7,8 @@ import { getPayment, type GatewayPayment } from "@/lib/payments/mercadopago";
 import { BILLING, daysLate, formatDay, invoiceTitle, lastPayDay, todayBR } from "@/lib/billing";
 import { INVOICE_FIELDS, type InvoiceRow, platformAccessToken, recordInvoicePayment } from "@/lib/billing-server";
 import { payInvoice } from "./actions";
+import { TERMS_PATH } from "@/lib/terms";
+import { platformUrl } from "@/lib/urls";
 
 export const metadata = { title: "Assinatura · PMS app" };
 
@@ -147,7 +149,8 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
 
       <p className="text-xs text-neutral-500">
         A fatura da mensalidade fica disponível {BILLING.issueDaysBefore} dias antes do vencimento, e avisamos por e-mail. Com mais de {BILLING.graceDays} dias de
-        atraso a loja sai do ar, e volta sozinha quando o pagamento é confirmado.
+        atraso a loja sai do ar, e volta sozinha quando o pagamento é confirmado. Condições completas nos{" "}
+        <a href={platformUrl(TERMS_PATH)} target="_blank" rel="noopener" className="underline">Termos de uso</a>.
       </p>
     </div>
   );

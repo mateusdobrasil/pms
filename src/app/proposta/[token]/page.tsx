@@ -9,6 +9,7 @@ import { PLATFORM_CONTACT, platformWhatsappUrl } from "@/lib/platform";
 import { PROPOSAL_FIELDS, type Proposal, proposalItems } from "@/lib/proposals";
 import { acceptProposal } from "./actions";
 import { PrintButton } from "./print-button";
+import { TERMS_PATH } from "@/lib/terms";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Proposta comercial · PMS app", robots: { index: false, follow: false } };
@@ -16,8 +17,15 @@ export const metadata = { title: "Proposta comercial · PMS app", robots: { inde
 const longDate = (iso: string) =>
   new Date(iso).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo", day: "numeric", month: "long", year: "numeric" });
 
-export default async function PublicProposalPage({ params }: { params: Promise<{ token: string }> }) {
+export default async function PublicProposalPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ token: string }>;
+  searchParams: Promise<{ termos?: string }>;
+}) {
   const { token } = await params;
+  const missingTerms = !!(await searchParams).termos;
   if (!isUuid(token)) notFound();
   const db = createAdminClient();
   const { data } = await db.from("proposals").select(PROPOSAL_FIELDS).eq("public_token", token).maybeSingle();
@@ -117,8 +125,19 @@ export default async function PublicProposalPage({ params }: { params: Promise<{
             )}
             <div className="mt-4 flex flex-wrap gap-3 print:hidden">
               {!p.accepted_at && !expired && (
-                <form action={acceptProposal}>
+                <form action={acceptProposal} className="w-full space-y-3">
                   <input type="hidden" name="token" value={p.public_token} />
+                  <label className="flex items-start gap-2 text-sm text-neutral-700">
+                    <input type="checkbox" name="terms" required className="mt-0.5 h-4 w-4" />
+                    <span>
+                      Li e concordo com os{" "}
+                      <a href={TERMS_PATH} target="_blank" rel="noopener" className="font-medium text-primary-700 underline">
+                        Termos de uso
+                      </a>{" "}
+                      da PMS app.
+                    </span>
+                  </label>
+                  {missingTerms && <p className="text-sm text-red-700">Para aceitar, marque que leu e concorda com os Termos de uso.</p>}
                   <button type="submit" className="rounded-lg bg-emerald-600 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700">
                     Aceitar proposta
                   </button>
