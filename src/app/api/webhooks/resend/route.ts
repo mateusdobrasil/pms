@@ -1,7 +1,7 @@
 import { NextResponse, after } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { notifyPlatformError } from "@/lib/email";
-import { type EmailStatus, STATUS_BY_EVENT, emailStatusLabel, isProblem, nextStatus, verifyResendSignature } from "@/lib/resend-webhook";
+import { type EmailStatus, STATUS_BY_EVENT, bounceReason, emailStatusLabel, isProblem, nextStatus, verifyResendSignature } from "@/lib/resend-webhook";
 
 // Avisos do Resend sobre os e-mails enviados (cadastrado no painel do Resend → Webhooks):
 //   https://www.pmsapp.dev/api/webhooks/resend  — eventos delivered, delivery_delayed, bounced e complained.
@@ -27,7 +27,7 @@ export async function POST(req: Request) {
   const valid = verifyResendSignature({ id, timestamp: req.headers.get("svix-timestamp"), signature: req.headers.get("svix-signature"), body, secret });
   if (!valid) return NextResponse.json({ error: "assinatura inválida" }, { status: 401 });
 
-  let event: { type?: string; data?: { email_id?: string; bounce?: { message?: string; subType?: string } } };
+  let event: { type?: string; data?: { email_id?: string; bounce?: { type?: string; subType?: string } } };
   try {
     event = JSON.parse(body);
   } catch {
@@ -47,7 +47,7 @@ export async function POST(req: Request) {
 
   const status = nextStatus(row.status as EmailStatus, incoming);
   if (status === row.status) return NextResponse.json({ ok: true, unchanged: true });
-  const detail = incoming === "bounced" ? (event.data?.bounce?.message ?? event.data?.bounce?.subType ?? null)?.slice(0, 300) ?? null : null;
+  const detail = incoming === "bounced" ? bounceReason(event.data?.bounce) : null;
   await db.from("sent_emails").update({ status, detail, updated_at: new Date().toISOString() }).eq("resend_id", emailId);
 
   const title = ALERT_TITLE[row.kind];

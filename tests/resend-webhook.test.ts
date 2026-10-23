@@ -1,6 +1,6 @@
 import { createHmac } from "node:crypto";
 import { describe, expect, it } from "vitest";
-import { emailStatusLabel, nextStatus, verifyResendSignature } from "@/lib/resend-webhook";
+import { bounceReason, emailStatusLabel, nextStatus, verifyResendSignature } from "@/lib/resend-webhook";
 
 const secret = "whsec_" + Buffer.from("segredo-de-teste-123").toString("base64");
 const sign = (id: string, ts: string, body: string) =>
@@ -30,6 +30,14 @@ describe("status", () => {
     expect(nextStatus("delivered", "delayed")).toBe("delivered");
     expect(nextStatus("delivered", "complained")).toBe("complained");
     expect(nextStatus("bounced", "delivered")).toBe("bounced");
+  });
+
+  it("motivo da devolução em português", () => {
+    expect(bounceReason({ type: "Permanent", subType: "General" })).toBe("endereço não existe ou foi recusado");
+    expect(bounceReason({ type: "Permanent", subType: "Suppressed" })).toBe("endereço bloqueado por devoluções anteriores");
+    expect(bounceReason({ type: "Transient", subType: "MailboxFull" })).toBe("caixa de entrada cheia");
+    expect(bounceReason({ type: "Transient", subType: "General" })).toBe("falha temporária no provedor do destinatário");
+    expect(bounceReason(undefined)).toBeNull();
   });
 
   it("textos", () => {

@@ -39,6 +39,23 @@ export function verifyResendSignature(args: {
 const RANK: Record<EmailStatus, number> = { sent: 0, delayed: 1, delivered: 2, bounced: 3, complained: 3 };
 export const nextStatus = (current: EmailStatus, incoming: EmailStatus) => (RANK[incoming] >= RANK[current] ? incoming : current);
 
+// Motivo curto da devolução, em português (o texto do provedor vem longo e em inglês).
+const BOUNCE_REASONS: Record<string, string> = {
+  Suppressed: "endereço bloqueado por devoluções anteriores",
+  OnAccountSuppressionList: "endereço bloqueado por devoluções anteriores",
+  MailboxFull: "caixa de entrada cheia",
+  MessageTooLarge: "mensagem grande demais para o provedor",
+  ContentRejected: "recusado pelo provedor do destinatário",
+  AttachmentRejected: "recusado pelo provedor do destinatário",
+  NoEmail: "endereço não existe",
+};
+export function bounceReason(bounce: { type?: string; subType?: string } | null | undefined) {
+  if (!bounce) return null;
+  if (bounce.subType && BOUNCE_REASONS[bounce.subType]) return BOUNCE_REASONS[bounce.subType];
+  if (bounce.type === "Transient") return "falha temporária no provedor do destinatário";
+  return "endereço não existe ou foi recusado";
+}
+
 export const isProblem = (status: string) => status === "bounced" || status === "complained";
 
 // Texto para o lojista/admin.
