@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { addToCart, readCart } from "@/lib/cart";
 import { formatBRL } from "@/lib/money";
 import { LOW_STOCK } from "@/lib/stock";
+import { NotifyMe } from "./notify-me";
 import { trackAddToCart, trackViewProduct } from "@/lib/tracking";
 
 type Variant = { id: string; name: string; priceCents: number; compareAtCents: number | null; stock: number };
@@ -35,6 +36,8 @@ export function AddToCart({
   const shown = selected ?? firstAvailable;
   const prices = new Set(variants.map((v) => v.priceCents));
   const soldOut = variants.every((v) => v.stock <= 0);
+  // Opção escolhida esgotada (ou produto único esgotado): no lugar do carrinho, o "avise-me".
+  const unavailable = selected ? selected.stock <= 0 : soldOut;
 
   // Depois do efeito do layout, que carrega o Pixel/Analytics (quando o visitante aceitou).
   useEffect(() => {
@@ -84,14 +87,14 @@ export function AddToCart({
               <button
                 key={v.id}
                 type="button"
-                disabled={v.stock <= 0}
+                aria-label={v.stock <= 0 ? `${v.name} (esgotado)` : v.name}
                 onClick={() => {
                   setSelectedId(v.id);
                   setAdded(false);
                   setMessage(null);
                   setQuantity(1);
                 }}
-                className={`min-w-12 rounded-lg border-2 px-4 py-2 text-sm font-medium transition disabled:cursor-not-allowed disabled:border-dashed disabled:text-neutral-400 disabled:line-through ${
+                className={`min-w-12 rounded-lg border-2 px-4 py-2 text-sm font-medium transition ${v.stock <= 0 ? "border-dashed text-neutral-400 line-through" : ""} ${
                   v.id === selectedId ? "" : "border-neutral-200 hover:border-neutral-400"
                 }`}
                 style={v.id === selectedId ? { borderColor: "var(--brand)", color: "var(--brand)" } : undefined}
@@ -103,8 +106,17 @@ export function AddToCart({
         </fieldset>
       )}
 
-      {soldOut ? (
-        <p className="rounded-lg bg-neutral-100 px-4 py-3 text-sm font-medium text-neutral-700">Produto esgotado no momento.</p>
+      {unavailable && (selected || single) ? (
+        <NotifyMe
+          key={(selected ?? variants[0]).id}
+          variantId={(selected ?? variants[0]).id}
+          title={single ? "Produto esgotado no momento." : `Opção ${(selected ?? variants[0]).name} esgotada no momento.`}
+          subject={single ? "o produto" : `a opção ${(selected ?? variants[0]).name}`}
+        />
+      ) : unavailable ? (
+        <p className="rounded-lg bg-neutral-100 px-4 py-3 text-sm font-medium text-neutral-700">
+          Produto esgotado no momento. Escolha a opção para ser avisado quando chegar.
+        </p>
       ) : (
         <div className="flex gap-3">
           <label className="sr-only" htmlFor="qty">Quantidade</label>

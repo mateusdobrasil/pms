@@ -86,6 +86,11 @@ export default async function PanelHome() {
   const periodCents = days.reduce((s, d) => s + d.cents, 0);
   const periodOrders = days.reduce((s, d) => s + d.orders, 0);
   const lowStock = (lowData ?? []) as unknown as LowStock[];
+  // "Avise-me" pendentes nas opções com estoque baixo (ajuda a decidir o que repor).
+  const { data: waitingRows } = lowStock.length
+    ? await supabase.from("stock_alerts").select("variant_id").is("notified_at", null).in("variant_id", lowStock.map((v) => v.id))
+    : { data: [] };
+  const waitingFor = (id: string) => (waitingRows ?? []).filter((a) => a.variant_id === id).length;
 
   // E-mails a clientes que não chegaram nos últimos 30 dias (voltaram ou viraram spam).
   const { data: badMailRows } = await supabase
@@ -207,6 +212,11 @@ export default async function PanelHome() {
                     {v.products.name}
                     {v.name !== "Único" && <span className="text-neutral-500"> · {v.name}</span>}
                   </span>
+                  {waitingFor(v.id) > 0 && (
+                    <span className="ml-auto shrink-0 text-xs text-sky-700">
+                      {waitingFor(v.id)} {waitingFor(v.id) === 1 ? "pessoa esperando" : "pessoas esperando"}
+                    </span>
+                  )}
                   <span
                     className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium ${
                       v.stock === 0 ? "bg-red-100 text-red-800" : "bg-amber-100 text-amber-800"

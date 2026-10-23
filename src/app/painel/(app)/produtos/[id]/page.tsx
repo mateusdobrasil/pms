@@ -49,6 +49,15 @@ export default async function EditProductPage({
   if (!product) notFound();
 
   const variants = [...(product.product_variants as Variant[])].sort((a, b) => a.position - b.position);
+  // Quem pediu "avise-me" nas opções deste produto (SQL 20261030000000; sem a tabela, nada aparece).
+  const { data: alertRows } = await supabase
+    .from("stock_alerts")
+    .select("variant_id")
+    .is("notified_at", null)
+    .in("variant_id", variants.map((v) => v.id));
+  const waiting = variants
+    .map((v) => ({ name: v.name, count: (alertRows ?? []).filter((a) => a.variant_id === v.id).length }))
+    .filter((w) => w.count > 0);
   const images = [...(product.product_images as { id: string; path: string; position: number }[])].sort(
     (a, b) => a.position - b.position || a.id.localeCompare(b.id),
   );
@@ -67,6 +76,13 @@ export default async function EditProductPage({
           </form>
         </div>
         {criado && <p className="mt-1 text-sm text-green-700">Produto criado. Agora adicione fotos e variações.</p>}
+        {waiting.length > 0 && (
+          <p className="mt-3 rounded-lg border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900">
+            <strong>Avise-me:</strong>{" "}
+            {waiting.map((w) => `${w.count} ${w.count === 1 ? "pessoa esperando" : "pessoas esperando"}${w.name === "Único" ? "" : ` ${w.name}`}`).join(" · ")}.
+            Quando você repuser o estoque e salvar, elas recebem um e-mail com o link do produto.
+          </p>
+        )}
         {copiado && (
           <p className="mt-1 text-sm text-green-700">
             Cópia criada, ainda escondida da loja e com estoque zerado. Ajuste nome, variações e estoque, e marque

@@ -2,6 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { after } from "next/server";
+import { notifyBackInStock } from "@/lib/email";
 import { requireStore } from "@/lib/panel";
 import { centsToInput, parseBRL } from "@/lib/money";
 import { slugify } from "@/lib/slug";
@@ -121,6 +123,7 @@ export async function updateProduct(_prev: FormState, form: FormData): Promise<F
   if (!data?.length) return { error: "Produto não encontrado." };
 
   revalidateProduct(id);
+  after(() => notifyBackInStock(store.id)); // produto que voltou a ficar visível
   return { ok: "Produto salvo." };
 }
 
@@ -346,6 +349,8 @@ export async function saveVariants(productId: string, input: VariantInput[]): Pr
   }
 
   revalidateProduct(productId);
+  // Estoque reposto: quem pediu "avise-me" recebe o e-mail (depois da resposta).
+  after(() => notifyBackInStock(store.id));
   const variants = await loadVariants(supabase, store.id, productId);
   if (stockConflicts.length) {
     return {

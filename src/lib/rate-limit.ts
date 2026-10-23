@@ -7,6 +7,7 @@ const LIMITS = {
   checkout: { limit: 10, windowSeconds: 10 * 60 }, // pedidos criados
   lookup: { limit: 15, windowSeconds: 15 * 60 }, // buscas em "Meus pedidos"
   pay: { limit: 12, windowSeconds: 10 * 60 }, // tentativas de pagamento (barra teste de cartões roubados)
+  stockAlert: { limit: 10, windowSeconds: 10 * 60 }, // pedidos de "avise-me quando chegar"
 } as const;
 
 export type RateLimitAction = keyof typeof LIMITS;

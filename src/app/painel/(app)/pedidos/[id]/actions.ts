@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { after } from "next/server";
-import { notifyOrderRefunded, notifyOrderShipped, notifyPlatformError } from "@/lib/email";
+import { notifyBackInStock, notifyOrderRefunded, notifyOrderShipped, notifyPlatformError } from "@/lib/email";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { MercadoPagoError, getPayment, refundPayment } from "@/lib/payments/mercadopago";
 import { requireStore } from "@/lib/panel";
@@ -126,5 +126,6 @@ export async function refundOrder(_prev: OrderActionState, form: FormData): Prom
   }
 
   after(() => notifyOrderRefunded(id, payment.method));
+  if (restock) after(() => notifyBackInStock(store.id));
   return done(id, restock ? "Pedido cancelado, valor estornado e itens devolvidos ao estoque." : "Pedido cancelado e valor estornado.");
 }

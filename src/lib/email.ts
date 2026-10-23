@@ -235,6 +235,63 @@ export async function notifyOrderRefunded(orderId: string, method: "pix" | "card
   }
 }
 
+// ---------------------------------------------------------------- avise-me quando chegar
+
+type PendingAlert = {
+  id: string;
+  email: string;
+  product_variants: { name: string; price_cents: number; stock: number; active: boolean; products: { name: string; slug: string; active: boolean } };
+};
+
+// Avisa quem pediu "avise-me" nas opções da loja que voltaram ao estoque (cada pedido sai uma vez).
+// Chamado depois de salvar o estoque no painel e de um estorno que devolve itens. Nunca lança erro.
+export async function notifyBackInStock(storeId: string) {
+  try {
+    const db = createAdminClient();
+    const { data } = await db
+      .from("stock_alerts")
+      .select("id, email, product_variants!inner(name, price_cents, stock, active, products!inner(name, slug, active))")
+      .eq("store_id", storeId)
+      .is("notified_at", null)
+      .gt("product_variants.stock", 0)
+      .eq("product_variants.active", true)
+      .eq("product_variants.products.active", true)
+      .limit(200);
+    const alerts = (data ?? []) as unknown as PendingAlert[];
+    if (!alerts.length) return;
+
+    const { data: store } = await db.from("stores").select("name, email, primary_color, store_domains(domain, is_primary)").eq("id", storeId).single();
+    if (!store) return;
+    const domains = store.store_domains as { domain: string; is_primary: boolean }[];
+    const domain = (domains.find((d) => d.is_primary) ?? domains[0])?.domain;
+    if (!domain) return;
+
+    for (const a of alerts) {
+      // Trava: só quem marcar notified_at envia.
+      const { data: claimed } = await db.from("stock_alerts").update({ notified_at: new Date().toISOString() }).eq("id", a.id).is("notified_at", null).select("id");
+      if (!claimed?.length) continue;
+      const v = a.product_variants;
+      const name = v.name === "Único" ? v.products.name : `${v.products.name} (${v.name})`;
+      const ok = await sendEmail({
+        to: a.email,
+        fromName: store.name,
+        replyTo: store.email,
+        idempotencyKey: `back-in-stock-${a.id}`,
+        subject: `${v.products.name} voltou ao estoque`,
+        html: layout(store, `
+          <h1 style="margin:0 0 8px;font-size:22px">Chegou! 🎉</h1>
+          <p style="margin:0 0 20px;color:#525252">Você pediu para avisar quando <strong>${esc(name)}</strong> voltasse ao estoque. Ele está de volta,
+          por ${formatBRL(v.price_cents)}. Garanta o seu antes que acabe de novo.</p>
+          ${button(`${storeBaseUrl(domain)}/p/${v.products.slug}`, "Ver produto", store.primary_color)}
+          <p style="margin:24px 0 0;font-size:12px;color:#a3a3a3">Você recebeu este e-mail porque pediu o aviso na loja. É um aviso único.</p>`),
+      });
+      if (!ok) await db.from("stock_alerts").update({ notified_at: null }).eq("id", a.id);
+    }
+  } catch (err) {
+    console.error("Falha ao avisar reposição de estoque", { storeId, err });
+  }
+}
+
 // ---------------------------------------------------------------- cobrança da plataforma (faturas do lojista)
 
 export type InvoiceNotice = "issued" | "overdue" | "warning" | "suspended" | "paid";
