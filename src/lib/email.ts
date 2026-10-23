@@ -9,7 +9,9 @@ import { type InvoiceKind, formatDay, invoiceTitle, lastPayDay } from "@/lib/bil
 // EMAIL_FROM: endereço de um domínio verificado no Resend, ex.: pedidos@pmsapp.dev
 // (para testes, "onboarding@resend.dev" envia só para o e-mail da sua conta Resend).
 
-type Email = { to: string; subject: string; html: string; replyTo?: string | null; fromName: string; idempotencyKey: string };
+// track: guarda o envio em sent_emails para o webhook do Resend avisar se o e-mail voltou ou virou spam.
+type Track = { kind: "order" | "store" | "invoice" | "proposal"; refId: string | null; storeId: string | null };
+type Email = { to: string; subject: string; html: string; replyTo?: string | null; fromName: string; idempotencyKey: string; track?: Track };
 
 async function sendEmail(email: Email) {
   return (await trySendEmail(email)) === null;
@@ -43,13 +45,27 @@ async function trySendEmail(email: Email): Promise<string | null> {
     console.error("Resend recusou o e-mail", res.status, body);
     return `Resend ${res.status}: ${body.slice(0, 300)}`;
   }
+  if (email.track) await trackEmail(email, (await res.json().catch(() => null)) as { id?: string } | null);
   return null;
+}
+
+// Registro do envio (se a tabela ainda não existir, o e-mail já saiu: só fica sem rastreio).
+async function trackEmail(email: Email, sent: { id?: string } | null) {
+  if (!sent?.id || !email.track) return;
+  const { error } = await createAdminClient()
+    .from("sent_emails")
+    .upsert(
+      { resend_id: sent.id, kind: email.track.kind, ref_id: email.track.refId, store_id: email.track.storeId, to_email: email.to, subject: email.subject },
+      { onConflict: "resend_id", ignoreDuplicates: true },
+    );
+  if (error) console.error("E-mail enviado sem rastreio", error.message);
 }
 
 // ---------------------------------------------------------------- dados do pedido
 
 type OrderForEmail = {
   id: string;
+  store_id: string;
   code: string;
   public_token: string;
   status: string;
@@ -72,7 +88,7 @@ async function loadOrder(orderId: string) {
   const { data } = await createAdminClient()
     .from("orders")
     .select(
-      "id, code, public_token, status, customer_name, customer_email, customer_phone, shipping_method, shipping_address, subtotal_cents, shipping_cents, discount_cents, total_cents, tracking_code, stock_issue, stores(name, email, whatsapp, primary_color, store_domains(domain, is_primary)), order_items(product_name, variant_name, unit_price_cents, quantity)",
+      "id, store_id, code, public_token, status, customer_name, customer_email, customer_phone, shipping_method, shipping_address, subtotal_cents, shipping_cents, discount_cents, total_cents, tracking_code, stock_issue, stores(name, email, whatsapp, primary_color, store_domains(domain, is_primary)), order_items(product_name, variant_name, unit_price_cents, quantity)",
     )
     .eq("id", orderId)
     .single();
@@ -123,6 +139,7 @@ export async function notifyOrderPaid(orderId: string) {
       fromName: o.stores.name,
       replyTo: o.stores.email,
       idempotencyKey: `paid-${o.id}`,
+      track: { kind: "order", refId: o.id, storeId: o.store_id },
       subject: `Pedido ${o.code} confirmado`,
       html: layout(o.stores, `
         <h1 style="margin:0 0 8px;font-size:22px">Pagamento confirmado!</h1>
@@ -138,6 +155,7 @@ export async function notifyOrderPaid(orderId: string) {
         to: o.stores.email,
         fromName: "PMS app",
         idempotencyKey: `paid-store-${o.id}`,
+        track: { kind: "store", refId: o.id, storeId: o.store_id },
         subject: `Nova venda: pedido ${o.code} (${formatBRL(o.total_cents)})`,
         html: layout(o.stores, `
           <h1 style="margin:0 0 8px;font-size:22px">Nova venda 🎉</h1>
@@ -170,6 +188,7 @@ export async function notifyOrderShipped(orderId: string) {
       fromName: o.stores.name,
       replyTo: o.stores.email,
       idempotencyKey: `shipped-${o.id}`,
+      track: { kind: "order", refId: o.id, storeId: o.store_id },
       subject: pickup ? `Pedido ${o.code} pronto para retirada` : `Pedido ${o.code} enviado`,
       html: layout(o.stores, (pickup
         ? `<h1 style="margin:0 0 8px;font-size:22px">Pronto para retirada!</h1>
@@ -201,6 +220,7 @@ export async function notifyOrderRefunded(orderId: string, method: "pix" | "card
       fromName: o.stores.name,
       replyTo: o.stores.email,
       idempotencyKey: `refunded-${o.id}`,
+      track: { kind: "order", refId: o.id, storeId: o.store_id },
       subject: `Pedido ${o.code} cancelado e estornado`,
       html: layout(o.stores, `
         <h1 style="margin:0 0 8px;font-size:22px">Pedido cancelado e estornado</h1>
@@ -301,6 +321,7 @@ export async function notifyInvoice(invoiceId: string, notice: InvoiceNotice): P
           to,
           fromName: "PMS app",
           idempotencyKey: `invoice-${notice}-${inv.id}`,
+          track: { kind: "invoice", refId: inv.id, storeId: inv.store_id },
           subject: email.subject,
           html: layout(PLATFORM_BRAND, email.body),
         })
@@ -342,6 +363,7 @@ export async function sendProposalEmail(p: ProposalForEmail, url: string): Promi
     to: p.email,
     fromName: "PMS app",
     idempotencyKey: `proposal-${p.id}-${Date.now()}`, // reenviar é permitido
+    track: { kind: "proposal", refId: p.id, storeId: null },
     subject: `Proposta da loja virtual para ${p.business_name}`,
     html: layout(PLATFORM_BRAND, `
       <h1 style="margin:0 0 8px;font-size:22px">Sua proposta de loja virtual</h1>

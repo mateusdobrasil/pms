@@ -87,6 +87,19 @@ export default async function PanelHome() {
   const periodOrders = days.reduce((s, d) => s + d.orders, 0);
   const lowStock = (lowData ?? []) as unknown as LowStock[];
 
+  // E-mails a clientes que não chegaram nos últimos 30 dias (voltaram ou viraram spam).
+  const { data: badMailRows } = await supabase
+    .from("sent_emails")
+    .select("ref_id, to_email")
+    .eq("store_id", store.id)
+    .eq("kind", "order")
+    .in("status", ["bounced", "complained"])
+    .gte("created_at", chartFrom);
+  const badMailOrders = [...new Map((badMailRows ?? []).map((m) => [m.ref_id as string, m.to_email as string])).entries()];
+  const { data: badMailCodes } = badMailOrders.length
+    ? await supabase.from("orders").select("id, code").in("id", badMailOrders.map(([id]) => id))
+    : { data: [] };
+
   const month = (sold ?? []) as { total_cents: number; paid_at: string }[];
   const todays = month.filter((o) => new Date(o.paid_at) >= startOfDay);
   // Vendas do mês sem a taxa informada pelo Mercado Pago ficam fora do "Você recebe" (e o cartão avisa quantas).
@@ -113,6 +126,19 @@ export default async function PanelHome() {
         <p className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
           {stockIssues} pedido(s) pago(s) sem estoque suficiente. Confira antes de enviar.
         </p>
+      )}
+
+      {(badMailCodes ?? []).length > 0 && (
+        <div className="rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          E-mail não chegou ao cliente (endereço errado ou caixa cheia) nos pedidos{" "}
+          {(badMailCodes ?? []).map((o, i) => (
+            <span key={o.id}>
+              {i > 0 && ", "}
+              <Link href={`/painel/pedidos/${o.id}`} className="font-mono font-semibold underline">{o.code}</Link>
+            </span>
+          ))}
+          . Fale com o cliente pelo WhatsApp.
+        </div>
       )}
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

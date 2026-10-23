@@ -8,6 +8,7 @@ import { todayBR } from "@/lib/billing";
 import { PROPOSAL_FIELDS, type Proposal, proposalStatus } from "@/lib/proposals";
 import { EmailProposalButton, ProposalForm } from "../proposal-form";
 import { StatusPill } from "../status-pill";
+import { emailStatusLabel, isProblem } from "@/lib/resend-webhook";
 import { deleteProposal, whatsappProposal } from "../actions";
 
 export const metadata = { title: "Proposta · PMS app" };
@@ -21,6 +22,7 @@ export default async function ProposalPage({ params, searchParams }: { params: P
   const p = data as Proposal;
   // Prova do aceite dos Termos de uso (colunas do SQL 20261028000000, lidas à parte).
   const { data: proofRow } = await db.from("proposals").select("terms_version, accepted_ip, accepted_user_agent").eq("id", id).maybeSingle();
+  const { data: lastMail } = await db.from("sent_emails").select("status, detail, to_email").eq("kind", "proposal").eq("ref_id", id).order("created_at", { ascending: false }).limit(1).maybeSingle();
   const proof = proofRow as { terms_version: string | null; accepted_ip: string | null; accepted_user_agent: string | null } | null;
   const url = platformUrl(`/proposta/${p.public_token}`);
   const created = (await searchParams).criada;
@@ -53,6 +55,12 @@ export default async function ProposalPage({ params, searchParams }: { params: P
               Ver como o cliente vê ↗
             </a>
             <code className="block break-all rounded bg-neutral-50 px-2 py-1.5 font-mono text-xs">{url}</code>
+            {lastMail && (
+              <p className={`rounded-lg px-3 py-2 text-xs ${isProblem(lastMail.status) ? "bg-amber-50 text-amber-900" : "bg-neutral-50 text-neutral-600"}`}>
+                Último e-mail para {lastMail.to_email}: <strong>{emailStatusLabel(lastMail.status, lastMail.detail)}</strong>
+                {isProblem(lastMail.status) && ". Confira o endereço ou envie pelo WhatsApp."}
+              </p>
+            )}
             <EmailProposalButton id={p.id} email={p.email} />
             <form action={whatsappProposal}>
               <input type="hidden" name="id" value={p.id} />

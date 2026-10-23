@@ -204,6 +204,7 @@ footer { grid-column: 1 / -1; color: var(--muted); font-size: 13px; border-top: 
           <tr><td><code>MELHOR_ENVIO_CONTACT</code></td><td>E-mail técnico exigido pelo Melhor Envio</td><td>e-mail de contato</td></tr>
           <tr><td><code>RESEND_API_KEY</code></td><td>Envio de e-mails (chave só de envio)</td><td>resend.com → API Keys</td></tr>
           <tr><td><code>EMAIL_FROM</code></td><td>Remetente dos e-mails</td><td><code>pedidos@pmsapp.dev</code> (com o domínio verificado)</td></tr>
+          <tr><td><code>RESEND_WEBHOOK_SECRET</code></td><td>Signing secret do webhook do Resend (<code>whsec_...</code>): sem ele, os avisos de e-mail que voltou são recusados</td><td>Resend → Webhooks → o webhook → Signing secret</td></tr>
           <tr><td><code>ALERT_EMAIL</code></td><td>Recebe os alertas de erro (pagamento, webhook, criação de pedido, consulta de status). No máximo 1 por tipo a cada 30 min; sem ela, não há alertas. Também recebe a cópia de cada fatura paga e de cada loja suspensa</td><td>O seu e-mail</td></tr>
           <tr><td><code>MP_PLATFORM_ACCESS_TOKEN</code></td><td>Access Token do Mercado Pago <strong>da plataforma</strong> (o seu, não o do lojista): recebe as faturas de implantação e mensalidade. Sem ele, o botão Pagar mostra "indisponível"</td><td>Sua conta MP → Suas integrações → aplicação → Credenciais (<code>TEST-</code> para testar, <code>APP_USR-</code> em produção)</td></tr>
           <tr><td><code>MP_PLATFORM_WEBHOOK_SECRET</code></td><td>Opcional: confere a assinatura do webhook da cobrança</td><td>Mesma aplicação → Webhooks → assinatura secreta</td></tr>
@@ -327,6 +328,8 @@ flowchart TD
       </table></div>
       <p>O nome do remetente é o da loja, e as respostas vão para o e-mail da loja. A trava é feita pelas colunas <code>notified_paid_at</code> e <code>notified_shipped_at</code>: só quem consegue preenchê-las envia, e se o envio falhar, a trava é liberada.</p>
       <div class="note warn"><strong>Hoje os e-mails só chegam para você</strong>Com <code>EMAIL_FROM=onboarding@resend.dev</code>, o Resend só entrega no e-mail da conta Resend. Para clientes reais, verifique <code>pmsapp.dev</code> em Resend → Domains (registros DNS) e troque para <code>pedidos@pmsapp.dev</code>, no <code>.env.local</code> e na Vercel.</div>
+          <h3>E-mails que não chegam</h3>
+      <p>Os e-mails de pedido, de venda para o lojista, de fatura e de proposta ficam registrados em <code>sent_emails</code> com o id do Resend. O webhook do Resend (<code>https://www.pmsapp.dev/api/webhooks/resend</code>, eventos <em>email.delivered</em>, <em>email.delivery_delayed</em>, <em>email.bounced</em> e <em>email.complained</em>, assinatura conferida com <code>RESEND_WEBHOOK_SECRET</code>) atualiza o status. E-mail de pedido que volta ou vira spam aparece no pedido e no Resumo do lojista; de fatura, de venda para o lojista ou de proposta gera alerta no <code>ALERT_EMAIL</code>, e a proposta mostra o status do último envio. Para testar sem incomodar ninguém, use os endereços de teste do Resend: <code>bounced@resend.dev</code>, <code>complained@resend.dev</code> e <code>delivered@resend.dev</code>.</p>
     </section>
 
     <section id="dev">

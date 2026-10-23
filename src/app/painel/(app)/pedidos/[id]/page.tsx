@@ -7,6 +7,7 @@ import { isUuid } from "@/lib/validation";
 import { MEMBER_TRANSITIONS, SOLD_STATUSES, statusLabel, statusTone, type OrderStatus } from "@/lib/order-status";
 import { OrderActions, RefundSection } from "./order-actions";
 import { FEE_FIELDS, feePercent, paymentFees } from "@/lib/payments/fees";
+import { emailStatusLabel, isProblem } from "@/lib/resend-webhook";
 
 type Order = {
   id: string;
@@ -60,6 +61,9 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
   // Estorno pelo painel (coluna do SQL 20261027000000, lida à parte).
   const { data: refund } = await supabase.from("orders").select("refunded_at").eq("id", order.id).maybeSingle();
   const refundedAt = (refund as { refunded_at: string | null } | null)?.refunded_at ?? null;
+  // E-mails ao cliente que voltaram ou viraram spam (SQL 20261029000000; sem a tabela, nada aparece).
+  const { data: mails } = await supabase.from("sent_emails").select("subject, status, detail").eq("kind", "order").eq("ref_id", order.id);
+  const badMails = (mails ?? []).filter((m) => isProblem(m.status));
   const refundable = SOLD_STATUSES.includes(order.status) && !!approved;
   // O que o lojista de fato recebe: pago menos a taxa do Mercado Pago (pedido cancelado/estornado não conta).
   const fees = refundable && approved ? paymentFees(approved.amount_cents, approved.fee, approved.net) : null;
@@ -86,6 +90,17 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
           {refundedAt && ` · estornado em ${formatDateTime(refundedAt)}`}
         </p>
       </div>
+
+      {badMails.length > 0 && (
+        <div className="rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          {badMails.map((m) => (
+            <p key={m.subject}>
+              O e-mail &quot;{m.subject}&quot; para {order.customer_email} {emailStatusLabel(m.status, m.detail)}.
+            </p>
+          ))}
+          <p className="mt-1">Confira o endereço com o cliente{order.customer_phone ? " pelo WhatsApp (ao lado)" : ""} e passe as informações do pedido por lá.</p>
+        </div>
+      )}
 
       {refundedAt && (
         <p className="rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
