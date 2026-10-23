@@ -133,7 +133,7 @@ export default async function PublicProposalPage({ params }: { params: Promise<{
         </div>
 
         <footer className="border-t px-8 py-5 text-sm text-neutral-500 print:py-2">
-          PMS app · WhatsApp e telefone {PLATFORM_CONTACT.phoneDisplay} · www.pmsapp.dev
+          PMS app · WhatsApp e telefone {PLATFORM_CONTACT.phoneDisplay} · {PLATFORM_CONTACT.email} · www.pmsapp.dev
         </footer>
       </article>
     </div>

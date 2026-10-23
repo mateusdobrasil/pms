@@ -94,11 +94,11 @@ export default function PlatformHome() {
             <div>
               <h2 className="text-2xl font-semibold tracking-tight">Quer uma loja virtual para o seu negócio?</h2>
               <p className="mt-3 text-neutral-600">
-                Fale com a gente pelo WhatsApp: tiramos suas dúvidas, mostramos como funciona e montamos a sua loja
+                Fale com a gente pelo WhatsApp ou por e-mail: tiramos suas dúvidas, mostramos como funciona e montamos a sua loja
                 com a sua marca.
               </p>
             </div>
-            <div className="flex flex-col gap-3 sm:flex-row md:justify-end">
+            <div className="grid gap-3 sm:grid-cols-2 md:ml-auto md:w-fit">
               <a
                 href={platformWhatsappUrl()}
                 target="_blank"
@@ -114,6 +114,12 @@ export default function PlatformHome() {
               >
                 Ligar: {PLATFORM_CONTACT.phoneDisplay}
               </a>
+              <a
+                href={`mailto:${PLATFORM_CONTACT.email}`}
+                className="inline-flex items-center justify-center rounded-lg sm:col-span-2 border border-primary-200 bg-white px-5 py-3 text-sm font-semibold text-primary-700 shadow-sm transition hover:border-primary-300"
+              >
+                {PLATFORM_CONTACT.email}
+              </a>
             </div>
           </div>
         </section>
@@ -126,7 +132,13 @@ export default function PlatformHome() {
             <a href={platformWhatsappUrl()} target="_blank" rel="noopener noreferrer" className="hover:text-neutral-900">
               WhatsApp {PLATFORM_CONTACT.phoneDisplay}
             </a>
+            <a href={`mailto:${PLATFORM_CONTACT.email}`} className="hover:text-neutral-900">
+              {PLATFORM_CONTACT.email}
+            </a>
             <Link href="/painel/login" className="hover:text-neutral-900">Acesso do lojista</Link>
+            <a href={PLATFORM_CONTACT.webmailUrl} target="_blank" rel="noopener noreferrer" className="hover:text-neutral-900">
+              Webmail
+            </a>
           </div>
         </div>
       </footer>
