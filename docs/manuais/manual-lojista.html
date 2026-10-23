@@ -200,6 +200,15 @@ footer { color: var(--muted); font-size: 14px; border-top: 1px solid var(--line)
       </li>
       <li><strong>E-mail da loja</strong>: recebe o aviso de <strong>cada venda</strong> e as respostas dos clientes aos e-mails do pedido.</li>
       <li><strong>CEP de origem</strong>: de onde os pedidos saem. <strong>Sem ele não há cálculo de frete</strong>, e a loja oferece só retirada.</li>
+      <li><strong>Entrega</strong>: escolha o que o cliente vê no checkout.
+        <ul>
+          <li><strong>Somente retirada na loja</strong>: o cliente não informa CEP nem paga frete.</li>
+          <li><strong>Retirada na loja ou Correios</strong>: retirada, PAC e SEDEX.</li>
+          <li><strong>Retirada na loja ou Melhor Envio</strong>: retirada e todas as transportadoras do Melhor Envio (Correios, Jadlog, Loggi e outras). É o padrão.</li>
+          <li><strong>Somente Melhor Envio</strong>: todas as transportadoras, sem retirada. Só pode ser escolhida com o Melhor Envio ligado e o CEP de origem preenchido, para a loja não ficar sem nenhuma forma de entrega.</li>
+        </ul>
+        Os Correios são cotados pelo Melhor Envio, com o desconto dele: a etiqueta também é gerada lá. As opções com frete precisam do Melhor Envio ligado na loja (o suporte do PMS app faz isso); a tela avisa se faltar.
+      </li>
     </ul>
     <p>As mudanças aparecem na vitrine em até 1 minuto.</p>
   </section>
@@ -284,6 +293,15 @@ footer { color: var(--muted); font-size: 14px; border-top: 1px solid var(--line)
       <li><strong>Remarcar ou cancelar pelo link</strong>: até o prazo que você escolheu em Configurações → Agendamentos (padrão: 24 horas antes), o cliente remarca para outro horário livre (o que ele pagou continua valendo) ou cancela. Se pagou online, o valor é <strong>devolvido automaticamente</strong> pelo Mercado Pago (sai do saldo da sua conta). Você recebe um e-mail a cada remarcação ou cancelamento. Depois do prazo, a página orienta o cliente a falar com você pelo WhatsApp.</li>
     </ul>
     <div class="tip bad"><strong>Dois clientes no mesmo horário?</strong>Não acontece: o sistema recusa o segundo, mesmo que os dois cliquem ao mesmo tempo, e mostra os horários que sobraram.</div>
+    <h3>A agenda do dia a dia</h3>
+    <ul>
+      <li><span class="where">Painel → Agenda</span> mostra o <strong>dia</strong>, com uma coluna por profissional e os agendamentos em ordem de horário (folgas e bloqueios aparecem em cinza). Use ← → para navegar, "Hoje" para voltar e <strong>Semana</strong> para ver os 7 dias de uma vez; clique num dia da semana para abrir.</li>
+      <li>Cada agendamento mostra o cliente (com o botão do WhatsApp), o serviço, a observação e quanto já foi pago online e quanto falta receber no salão.</li>
+      <li>Depois do atendimento, marque <strong>Atendido</strong>. Se o cliente não veio, <strong>Faltou</strong> (aparece depois do horário). Com sinal, o valor fica com você.</li>
+      <li><strong>Cancelar</strong> pelo salão vale a qualquer hora: se o cliente pagou online, o valor é devolvido pelo Mercado Pago (sai do saldo da sua conta) e ele recebe um e-mail.</li>
+      <li><strong>Encaixar cliente</strong>: para quem marcou no balcão ou no WhatsApp. Escolha serviço, profissional, dia e qualquer horário (até fora do expediente); só não deixa marcar em cima de outro agendamento. Com e-mail, o cliente recebe a confirmação e o link para remarcar ou cancelar. O pagamento é no salão.</li>
+      <li>No <strong>Resumo</strong>, o quadro <strong>Agendamentos de hoje</strong> lista os horários do dia.</li>
+    </ul>
     <div class="tip info"><strong>A aba Agenda mostra o passo a passo</strong>Enquanto a agenda não está pronta, a aba Agenda lista o que falta, com links para cada etapa.</div>
   </section>
 
@@ -335,7 +353,7 @@ footer { color: var(--muted); font-size: 14px; border-top: 1px solid var(--line)
 
   <section id="entrega">
     <h2>Entrega e frete</h2>
-    <p>O frete é cobrado do cliente automaticamente, pelas transportadoras do <strong>Melhor Envio</strong> (Correios, Jadlog e outras). Quando chega um pedido pago com entrega:</p>
+    <p>O frete é cobrado do cliente automaticamente, pelas transportadoras do <strong>Melhor Envio</strong> (Correios, Jadlog e outras). Quais opções aparecem depende da <strong>Entrega</strong> escolhida em Configurações (só retirada, retirada ou Correios, retirada ou Melhor Envio, ou só Melhor Envio). Quando chega um pedido pago com entrega:</p>
     <ol class="steps">
       <li><div>No <strong>site do Melhor Envio</strong>, gere a etiqueta do serviço que o cliente escolheu (está no pedido, por exemplo "Correios SEDEX") com o endereço do pedido.</div></li>
       <li><div>Embale, cole a etiqueta e poste, ou agende a coleta.</div></li>
@@ -368,7 +386,8 @@ footer { color: var(--muted); font-size: 14px; border-top: 1px solid var(--line)
     <details><summary>O cliente diz que pagou, mas o pedido continua "Aguardando pagamento".</summary><p>Pix leva alguns segundos e, raramente, alguns minutos. Peça para ele manter a página do pedido aberta: ela atualiza sozinha. Se passar de 30 minutos, confira o pagamento no seu Mercado Pago e fale com o suporte.</p></details>
     <details><summary>Vendi pela loja física. Como ajusto o estoque?</summary><p>Painel → Produtos → abra o produto → Variações e estoque → altere o número → Salvar alterações (no rodapé). Se aparecer o aviso de que o estoque mudou enquanto você editava, é porque saiu uma venda online nesse meio-tempo. O valor atual já aparece na tela: ajuste e salve de novo.</p></details>
     <details><summary>Posso mudar o preço de um produto que já tem pedidos?</summary><p>Pode. Pedidos já feitos mantêm o preço da época da compra.</p></details>
-    <details><summary>O frete não aparece no checkout, só a retirada.</summary><p>Confira se o CEP de origem está preenchido em Configurações. Se estiver, fale com o suporte: pode faltar configurar o frete da sua loja.</p></details>
+    <details><summary>O frete não aparece no checkout, só a retirada.</summary><p>Em Configurações, confira se a Entrega não está em "Somente retirada na loja" e se o CEP de origem está preenchido. Se estiver tudo certo, fale com o suporte: pode faltar ligar o Melhor Envio na sua loja.</p></details>
+    <details><summary>Quero oferecer só os Correios.</summary><p>Painel → Configurações → Entrega → "Retirada na loja ou Correios" → Salvar configurações. O checkout passa a mostrar só PAC e SEDEX, além da retirada.</p></details>
     <details><summary>O cliente não recebeu o e-mail do pedido.</summary><p>Se o e-mail voltou (endereço digitado errado ou caixa cheia), o painel avisa: aparece uma faixa amarela no Resumo com o número do pedido e um aviso dentro do pedido. Nesse caso, fale com o cliente pelo WhatsApp e confirme o endereço. Se não houver aviso, o e-mail foi entregue: Peça para ele olhar a caixa de spam. O link de acompanhamento também aparece na tela logo depois da compra, e ele pode encontrar o pedido a qualquer momento em "Meus pedidos", no topo da loja, com o CPF (ou o número do pedido) e o e-mail usado na compra. Você vê os dados de contato dele no pedido.</p></details>
     <details><summary>Minha loja mostra "Loja em preparação". O que é?</summary><p>A loja ainda está em <strong>modo de teste</strong>: os pagamentos são simulados, então ninguém consegue fazer pedido de verdade. Para testar uma compra, use o link "abra a loja por este link" que aparece no topo do painel: naquele navegador a faixa muda para "Modo de teste" e as compras com cartões de teste funcionam. Quando a PMS app liberar os pagamentos de verdade, o aviso some sozinho.</p></details>
     <details><summary>Como tiro um produto da loja sem apagar?</summary><p>Abra o produto e desmarque "Visível na loja". Para voltar, marque de novo.</p></details>

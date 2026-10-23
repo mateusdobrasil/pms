@@ -70,6 +70,17 @@ export default async function PanelHome() {
       .gte("orders.paid_at", startOfMonth.toISOString()),
   ]);
 
+  // Agendamentos de hoje (salões). Sem o SQL da agenda, a consulta falha e a seção não aparece.
+  const dayFrom = new Date(`${today}T00:00:00-03:00`);
+  const { data: todayBookings } = await supabase
+    .from("bookings")
+    .select("id, starts_at, customer_name, service_name, professional_name, status")
+    .eq("store_id", store.id)
+    .in("status", ["confirmed", "pending_payment", "completed", "no_show"])
+    .gte("starts_at", dayFrom.toISOString())
+    .lt("starts_at", new Date(dayFrom.getTime() + 86_400_000).toISOString())
+    .order("starts_at");
+
   // Você recebe = pago menos a taxa do Mercado Pago (um pagamento por pedido).
   let monthNet = 0;
   let monthFees = 0;
@@ -166,6 +177,29 @@ export default async function PanelHome() {
           );
         })}
       </div>
+
+      {(todayBookings ?? []).length > 0 && (
+        <section className="rounded-xl border bg-white shadow-sm">
+          <div className="flex items-baseline justify-between gap-3 border-b px-4 py-3">
+            <h2 className="font-medium">Agendamentos de hoje</h2>
+            <Link href="/painel/agenda" className="text-sm text-primary-700 hover:underline">Ver agenda</Link>
+          </div>
+          <ul className="divide-y text-sm">
+            {(todayBookings ?? []).map((b) => (
+              <li key={b.id} className={`flex flex-wrap items-center gap-x-3 gap-y-0.5 px-4 py-2.5 ${b.status === "completed" || b.status === "no_show" ? "text-neutral-400" : ""}`}>
+                <span className="w-12 font-semibold tabular-nums">
+                  {new Date(b.starts_at).toLocaleTimeString("pt-BR", { timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit" })}
+                </span>
+                <span className="min-w-0 flex-1 truncate">{b.customer_name} · {b.service_name}</span>
+                <span className="text-neutral-500">{b.professional_name}</span>
+                {b.status === "pending_payment" && <span className="text-xs text-amber-700">aguardando pagamento</span>}
+                {b.status === "completed" && <span className="text-xs">atendido</span>}
+                {b.status === "no_show" && <span className="text-xs">faltou</span>}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       <div className="grid gap-4 lg:grid-cols-3">
         <section className="rounded-xl border bg-white p-5 shadow-sm lg:col-span-2">

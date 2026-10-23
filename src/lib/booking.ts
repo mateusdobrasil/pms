@@ -65,3 +65,15 @@ export function googleCalendarUrl(e: { title: string; startsAt: string; endsAt: 
 
 // Até quando o cliente pode cancelar ou remarcar pelo link.
 export const canSelfManage = (startsAt: string, cancelHours: number, now = Date.now()) => Date.parse(startsAt) - cancelHours * 3_600_000 > now;
+
+export type BookingStatus = "pending_payment" | "confirmed" | "completed" | "no_show" | "canceled" | "expired";
+
+// Situação do agendamento no painel (rótulo e cor do selo).
+export const BOOKING_STATUS: Record<BookingStatus, { label: string; tone: string }> = {
+  pending_payment: { label: "Aguardando pagamento", tone: "bg-amber-100 text-amber-900 ring-amber-200" },
+  confirmed: { label: "Confirmado", tone: "bg-sky-100 text-sky-800 ring-sky-200" },
+  completed: { label: "Atendido", tone: "bg-emerald-100 text-emerald-800 ring-emerald-200" },
+  no_show: { label: "Faltou", tone: "bg-red-100 text-red-800 ring-red-200" },
+  canceled: { label: "Cancelado", tone: "bg-neutral-100 text-neutral-600 ring-neutral-200" },
+  expired: { label: "Não pagou", tone: "bg-neutral-100 text-neutral-500 ring-neutral-200" },
+};
