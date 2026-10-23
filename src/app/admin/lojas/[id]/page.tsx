@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { requireAdmin } from "@/lib/admin";
 import { isUuid } from "@/lib/validation";
 import { storeBaseUrl } from "@/lib/urls";
+import { STORE_BASE_DOMAIN } from "@/lib/store-domains";
 import { formatBRL } from "@/lib/money";
 import { formatDateTime } from "@/lib/format";
 import { daysLate, dueDateOptions, formatDay, invoiceTitle, todayBR } from "@/lib/billing";
@@ -109,8 +110,9 @@ export default async function AdminStorePage({ params }: { params: Promise<{ id:
           )}
           <AddDomainForm storeId={store.id} />
           <p className="text-xs text-neutral-500">
-            Depois de vincular, adicione o domínio em Vercel → Settings → Domains e aponte o DNS (CNAME para
-            cname.vercel-dns.com, ou registro A para o domínio sem www).
+            <strong>{`nome.${STORE_BASE_DOMAIN}`}</strong>: só vincular aqui, já fica no ar.{" "}
+            <strong>Domínio próprio</strong>: depois de vincular, adicione em Vercel → Settings → Domains e aponte o DNS
+            (CNAME para cname.vercel-dns.com, ou registro A para o domínio sem www). Use um tipo ou o outro, não os dois.
           </p>
         </section>
 

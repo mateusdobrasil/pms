@@ -7,6 +7,7 @@ import { after } from "next/server";
 import { normalizeDomain, requireAdmin } from "@/lib/admin";
 import { removeStoreLogo, uploadStoreLogo, validateLogo } from "@/lib/branding";
 import { slugify } from "@/lib/slug";
+import { isStoreSubdomain, storeDomainError, storeSubdomain } from "@/lib/store-domains";
 import { isEmail, isUuid, onlyDigits } from "@/lib/validation";
 import { BILLING, isDueDay, todayBR } from "@/lib/billing";
 import { parseBRL } from "@/lib/money";
@@ -63,8 +64,13 @@ export async function createStore(_prev: AdminState, form: FormData): Promise<Ad
   if (logoError) return { error: logoError };
   if (!slug) return { error: "Identificador (slug) inválido." };
   if (!isEmail(ownerEmail)) return { error: "E-mail do dono inválido." };
-  const domain = rawDomain ? normalizeDomain(rawDomain) : null;
-  if (rawDomain && !domain) return { error: "Domínio inválido (ex.: www.minhaloja.com.br)." };
+  // Sem domínio próprio, a loja nasce em <identificador>.minhaloja.promo.
+  const domain = normalizeDomain(rawDomain || storeSubdomain(slug));
+  if (!domain) {
+    return { error: rawDomain ? "Domínio inválido (ex.: www.minhaloja.com.br)." : "Identificador longo demais para virar endereço. Use um mais curto." };
+  }
+  const domainError = storeDomainError(domain);
+  if (domainError) return { error: rawDomain ? domainError : `${domainError} O identificador vira o endereço da loja.` };
 
   const { data: store, error } = await db
     .from("stores")
@@ -79,10 +85,8 @@ export async function createStore(_prev: AdminState, form: FormData): Promise<Ad
       logoUrl = await uploadStoreLogo(db, store.id, logo);
       await db.from("stores").update({ logo_url: logoUrl }).eq("id", store.id);
     }
-    if (domain) {
-      const { error: dErr } = await db.from("store_domains").insert({ domain, store_id: store.id, is_primary: true });
-      if (dErr) throw new Error(dErr.code === "23505" ? "Esse domínio já pertence a outra loja." : "Não foi possível vincular o domínio.");
-    }
+    const { error: dErr } = await db.from("store_domains").insert({ domain, store_id: store.id, is_primary: true });
+    if (dErr) throw new Error(dErr.code === "23505" ? `O domínio ${domain} já pertence a outra loja.` : "Não foi possível vincular o domínio.");
     const { userId, password } = await findOrCreateUser(db, ownerEmail);
     const { error: mErr } = await db.from("store_members").insert({ store_id: store.id, user_id: userId, role: "owner" });
     if (mErr) throw new Error("Não foi possível vincular o dono.");
@@ -117,12 +121,18 @@ export async function addDomain(_prev: AdminState, form: FormData): Promise<Admi
   const domain = normalizeDomain(String(form.get("domain") ?? ""));
   if (!isUuid(storeId)) return { error: "Loja inválida." };
   if (!domain) return { error: "Domínio inválido (ex.: www.minhaloja.com.br)." };
+  const domainError = storeDomainError(domain);
+  if (domainError) return { error: domainError };
 
   const { count } = await db.from("store_domains").select("domain", { count: "exact", head: true }).eq("store_id", storeId);
   const { error } = await db.from("store_domains").insert({ domain, store_id: storeId, is_primary: (count ?? 0) === 0 });
   if (error) return { error: error.code === "23505" ? "Esse domínio já está vinculado a uma loja." : "Não foi possível vincular." };
   refresh(storeId);
-  return { ok: `Domínio ${domain} vinculado. Adicione-o também no projeto da Vercel.` };
+  return {
+    ok: isStoreSubdomain(domain)
+      ? `Domínio ${domain} vinculado e já no ar.`
+      : `Domínio ${domain} vinculado. Adicione-o também no projeto da Vercel.`,
+  };
 }
 
 export async function removeDomain(form: FormData) {

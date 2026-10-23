@@ -5,6 +5,7 @@ import { submitKeepingValues } from "@/lib/form-submit";
 import { addDomain, addMember, createStore, saveBilling, saveSecrets, updateBranding, type AdminState } from "./actions";
 import { BILLING } from "@/lib/billing";
 import { centsToInput, parseBRL } from "@/lib/money";
+import { STORE_BASE_DOMAIN } from "@/lib/store-domains";
 
 const input = "w-full rounded-lg border px-3 py-2 text-sm";
 const primaryButton =
@@ -54,8 +55,11 @@ export function CreateStoreForm({ defaults }: { defaults?: { name?: string; emai
         <input name="ownerEmail" type="email" required defaultValue={defaults?.email} className={input} />
       </label>
       <label className="block space-y-1 text-sm">
-        <span className="font-medium text-neutral-700">Domínio (opcional)</span>
+        <span className="font-medium text-neutral-700">Domínio próprio (opcional)</span>
         <input name="domain" placeholder="www.minhaloja.com.br" className={input} />
+        <span className="block text-xs text-neutral-500">
+          Vazio: a loja fica em <code>identificador.{STORE_BASE_DOMAIN}</code>, já no ar.
+        </span>
       </label>
       <ColorField defaultValue="#1f2937" />
       <LogoField />
