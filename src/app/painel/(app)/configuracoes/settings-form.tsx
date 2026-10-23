@@ -39,6 +39,7 @@ export function SettingsForm({
   marketing,
   legal,
   policyBase,
+  about,
   storeUrl,
   googleVerification,
 }: {
@@ -48,6 +49,7 @@ export function SettingsForm({
   promos: PromoSettings;
   marketing: MarketingSettings;
   legal: LegalSettings | null;
+  about: string | null | undefined;
   policyBase: PolicyBase;
   googleVerification: string | null | undefined; // undefined = coluna ainda não existe
   storeUrl: string | null;
@@ -316,7 +318,7 @@ export function SettingsForm({
         </label>
       </section>
 
-      {legal && <LegalSection legal={legal} policyBase={policyBase} storeUrl={storeUrl} />}
+      {legal && <LegalSection legal={legal} about={about} policyBase={policyBase} storeUrl={storeUrl} />}
 
       {state?.error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{state.error}</p>}
       {state?.ok && <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-800">{state.ok}</p>}

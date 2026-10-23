@@ -7,9 +7,10 @@ export type StoreLegal = {
   address: string | null;
   privacyPolicy: string | null; // texto próprio; nulo = modelo padrão
   returnsPolicy: string | null;
+  about: string | null; // "Quem somos" (vazio = só o nome da loja)
 };
 
-const NONE: StoreLegal = { legalName: null, document: null, address: null, privacyPolicy: null, returnsPolicy: null };
+const NONE: StoreLegal = { legalName: null, document: null, address: null, privacyPolicy: null, returnsPolicy: null, about: null };
 
 // Dados legais da loja. Consulta separada de getStoreByDomain: sem as colunas
 // (SQL 20261023100000 não rodado), a vitrine segue sem eles em vez de quebrar.
@@ -20,7 +21,10 @@ export const getStoreLegal = cache(async (storeId: string): Promise<StoreLegal> 
     .eq("id", storeId)
     .maybeSingle();
   if (error || !data) return NONE;
+  // "Quem somos": coluna mais nova (SQL 20261031000000), lida à parte.
+  const { data: extra } = await createPublicClient().from("stores").select("about").eq("id", storeId).maybeSingle();
   return {
+    about: (extra as { about: string | null } | null)?.about ?? null,
     legalName: data.legal_name,
     document: data.document,
     address: data.address,

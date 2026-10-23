@@ -15,14 +15,25 @@ export type PolicyStore = {
   legalName: string | null;
   document: string | null;
   address: string | null;
+  about: string | null; // "Quem somos" escrito pelo lojista (vazio = só o nome da loja)
   hasAnalytics: boolean; // Pixel da Meta ou Google Analytics configurado
 };
 
-function identity(s: PolicyStore) {
-  const who = s.legalName ?? s.name;
-  const doc = s.document ? `, ${s.document.length === 14 ? "CNPJ" : "CPF"} ${formatDocument(s.document)}` : "";
-  const addr = s.address ? `, com endereço em ${s.address}` : "";
-  return `${who}${doc}${addr}`;
+// Quem responde pela loja, sem repetir o nome dela: razão social (quando diferente do nome), documento e endereço.
+function legalParts(s: PolicyStore) {
+  return {
+    maintainer: s.legalName && s.legalName.trim().toLowerCase() !== s.name.trim().toLowerCase() ? s.legalName : null,
+    details: [
+      s.document && `${s.document.length === 14 ? "CNPJ" : "CPF"} ${formatDocument(s.document)}`,
+      s.address && `endereço: ${s.address}`,
+    ].filter(Boolean) as string[],
+  };
+}
+
+// ", mantida por Razão Ltda (CNPJ …, endereço: …)": só o que estiver preenchido.
+function maintainedBy(s: PolicyStore) {
+  const { maintainer, details } = legalParts(s);
+  return `${maintainer ? `, mantida por ${maintainer}` : ""}${details.length ? ` (${details.join(", ")})` : ""}`;
 }
 
 function contact(s: PolicyStore) {
@@ -38,7 +49,7 @@ export function privacyPolicyTemplate(s: PolicyStore): PolicySection[] {
     {
       title: "Quem somos",
       paragraphs: [
-        `Esta é a loja virtual ${s.name}, mantida por ${identity(s)}. Somos os responsáveis (controladores) pelos dados pessoais que você informa aqui, nos termos da Lei Geral de Proteção de Dados (Lei 13.709/2018).`,
+        `Esta é a loja virtual ${s.name}${maintainedBy(s)}. Somos os responsáveis (controladores) pelos dados pessoais que você informa aqui, nos termos da Lei Geral de Proteção de Dados (Lei 13.709/2018).`,
       ],
     },
     {
@@ -133,9 +144,20 @@ export function returnsPolicyTemplate(s: PolicyStore): PolicySection[] {
     },
     {
       title: "Quem somos",
-      paragraphs: [`${s.name} · ${identity(s)}.`],
+      paragraphs: aboutParagraphs(s),
     },
   ];
+}
+
+// "Quem somos": o texto do lojista (ou só o nome da loja) e, se houver, a identificação legal.
+function aboutParagraphs(s: PolicyStore) {
+  const about = s.about?.replace(/\r\n/g, "\n").split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean) ?? [];
+  const { maintainer, details } = legalParts(s);
+  const legal = [maintainer, ...details].filter(Boolean).join(" · ");
+  // Sem texto próprio: uma frase só, com o nome e (se houver) a identificação. Termina em ponto para não virar título ao editar.
+  if (!about.length) return [`${[s.name, legal].filter(Boolean).join(" · ")}.`];
+  const sentence = (p: string) => (/[.!?…]$/.test(p) ? p : `${p}.`);
+  return [...about.map(sentence), ...(legal ? [`${legal}.`] : [])];
 }
 
 // Texto próprio do lojista: parágrafos separados por linha em branco; linhas que terminam sem ponto

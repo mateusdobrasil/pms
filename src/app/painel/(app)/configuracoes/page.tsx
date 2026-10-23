@@ -36,6 +36,8 @@ export default async function SettingsPage() {
     .select("legal_name, document, address, privacy_policy, returns_policy")
     .eq("id", store.id)
     .single();
+  // "Quem somos": também à parte (SQL 20261031000000).
+  const { data: aboutRow, error: aboutError } = await supabase.from("stores").select("about").eq("id", store.id).single();
   const { data: domains } = await supabase.from("store_domains").select("domain, is_primary").eq("store_id", store.id);
   const domain = (domains ?? []).find((d) => d.is_primary)?.domain ?? domains?.[0]?.domain;
   // Base do modelo das políticas; nome, CNPJ e endereço vêm dos campos na hora de "Partir do modelo".
@@ -51,6 +53,7 @@ export default async function SettingsPage() {
       <h1 className="text-2xl font-semibold tracking-tight">Configurações da loja</h1>
       <SettingsForm storeId={store.id} settings={data!} banner={bannerError ? null : banner} promos={promosError ? null : promos} marketing={marketingError ? null : marketing}
         legal={legalError ? null : legal}
+        about={aboutError ? undefined : (aboutRow?.about ?? null)}
         policyBase={policyBase}
         storeUrl={domain ? storeBaseUrl(domain) : null}
         googleVerification={gsvError ? undefined : (gsv?.google_site_verification ?? null)}

@@ -5,7 +5,7 @@ import { formatDocument } from "@/lib/format";
 import { onlyDigits } from "@/lib/validation";
 import { policyToText, privacyPolicyTemplate, returnsPolicyTemplate, type PolicyStore } from "@/lib/policies";
 
-export type PolicyBase = Omit<PolicyStore, "legalName" | "document" | "address">;
+export type PolicyBase = Omit<PolicyStore, "legalName" | "document" | "address" | "about">;
 
 // Modelo montado com o que está digitado agora em Dados da empresa (mesmo que ainda não salvo).
 function buildTemplate(kind: "privacy" | "returns", base: PolicyBase, form: HTMLFormElement | null) {
@@ -16,6 +16,7 @@ function buildTemplate(kind: "privacy" | "returns", base: PolicyBase, form: HTML
     legalName: field("legal_name"),
     document: doc.length === 11 || doc.length === 14 ? doc : null,
     address: field("address"),
+    about: field("about"),
   };
   return policyToText(kind === "privacy" ? privacyPolicyTemplate(store) : returnsPolicyTemplate(store));
 }
@@ -33,10 +34,12 @@ const input = "w-full rounded-lg border px-3 py-2 text-sm";
 // Dados da empresa (rodapé da loja) e políticas. Fica dentro do formulário de Configurações.
 export function LegalSection({
   legal,
+  about,
   policyBase,
   storeUrl,
 }: {
   legal: LegalSettings;
+  about: string | null | undefined; // undefined = coluna ainda não existe (SQL 20261031000000)
   policyBase: PolicyBase;
   storeUrl: string | null;
 }) {
@@ -76,6 +79,23 @@ export function LegalSection({
           />
           <span className="text-xs text-neutral-500">O endereço da empresa (o mesmo do CNPJ), não precisa ser onde os pedidos saem.</span>
         </label>
+        {about !== undefined && (
+          <label className="block space-y-1 text-sm">
+            <input type="hidden" name="about_enabled" value="1" />
+            <span className="font-medium text-neutral-700">Quem somos (opcional)</span>
+            <textarea
+              name="about"
+              rows={4}
+              maxLength={1000}
+              defaultValue={about ?? ""}
+              placeholder="Ex.: Somos uma loja de família, há 10 anos em São Paulo, especializada em cabelos naturais."
+              className={input}
+            />
+            <span className="text-xs text-neutral-500">
+              Aparece na seção &quot;Quem somos&quot; da página de Trocas e devoluções. Em branco, a seção mostra só o nome da loja.
+            </span>
+          </label>
+        )}
       </section>
 
       <section className="space-y-5 rounded-xl border bg-white p-5 shadow-sm">

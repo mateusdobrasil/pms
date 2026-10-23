@@ -85,6 +85,9 @@ export async function saveSettings(_prev: SettingsState, form: FormData): Promis
   const policy = (key: string) => String(form.get(key) ?? "").replace(/\r\n/g, "\n").trim();
   const privacyPolicy = policy("privacy_policy");
   const returnsPolicy = policy("returns_policy");
+  const hasAbout = form.get("about_enabled") === "1";
+  const about = String(form.get("about") ?? "").replace(/\r\n/g, "\n").trim();
+  if (hasAbout && about.length > 1000) return { error: "Quem somos muito longo (até 1.000 caracteres)." };
   if (hasLegal) {
     if (legalName && legalName.length < 2) return { error: "Nome empresarial muito curto." };
     if (documentText && !isValidDocument(documentText)) return { error: "CNPJ ou CPF inválido. Confira os números." };
@@ -112,6 +115,7 @@ export async function saveSettings(_prev: SettingsState, form: FormData): Promis
             returns_policy: returnsPolicy || null,
           }
         : {}),
+      ...(hasAbout ? { about: about || null } : {}),
       ...(hasMarketing ? { instagram, meta_pixel_id: metaPixelId || null, ga_measurement_id: gaId || null } : {}),
       ...(hasPromos ? { pix_discount_percent: pixPercent, free_shipping_min_cents: freeShippingMin } : {}),
     })

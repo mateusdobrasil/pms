@@ -32,6 +32,7 @@ export async function PolicyPage({ domain, kind }: { domain: string; kind: Polic
     legalName: legal.legalName,
     document: legal.document,
     address: legal.address,
+    about: legal.about,
     hasAnalytics: !!(marketing.metaPixelId || marketing.gaMeasurementId),
   };
   const sections: PolicySection[] = custom
