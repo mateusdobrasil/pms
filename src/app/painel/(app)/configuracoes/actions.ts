@@ -6,7 +6,7 @@ import { isEmail, isValidDocument, onlyDigits } from "@/lib/validation";
 import { isValidBannerLink } from "@/lib/banner";
 import { parseBRL } from "@/lib/money";
 import { parseGoogleVerification, parseInstagramHandle } from "@/lib/store-marketing";
-import { parseShippingMode } from "@/lib/shipping-mode";
+import { parseCarriers, parseLocalAreas } from "@/lib/shipping-settings";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export type SettingsState = { error?: string; ok?: string } | null;
@@ -100,22 +100,32 @@ export async function saveSettings(_prev: SettingsState, form: FormData): Promis
     booking_max_days: pick("booking_max_days", [7, 14, 30, 60, 90], 30),
     booking_cancel_hours: pick("booking_cancel_hours", [0, 2, 12, 24, 48], 24),
   };
-  // Forma de entrega: só vem no formulário quando a coluna existe (SQL 20261102000000).
+  // Formas de entrega: só vêm no formulário quando as colunas existem (SQL 20261103000000).
   const hasShipping = form.get("shipping_enabled") === "1";
-  const shippingMode = parseShippingMode(form.get("shipping_mode"));
+  const shipping = {
+    shipping_pickup: form.get("shipping_pickup") === "on",
+    shipping_carriers: parseCarriers(form.get("shipping_carriers")),
+    local_delivery_enabled: form.get("local_delivery_enabled") === "on",
+  };
+  const { areas, error: areasError } = parseLocalAreas(String(form.get("local_areas") ?? "[]"));
   if (hasShipping) {
-    if (!shippingMode) return { error: "Escolha uma forma de entrega." };
-    // "Somente Melhor Envio" sem Melhor Envio funcionando deixaria a loja sem nenhuma forma de entrega.
-    if (shippingMode === "me") {
+    if (!shipping.shipping_carriers) return { error: "Escolha uma opção em Correios e transportadoras." };
+    if (areasError) return { error: areasError };
+    if (shipping.local_delivery_enabled && areas.length === 0) {
+      return { error: "Entrega própria: adicione pelo menos uma cidade, ou desmarque a opção." };
+    }
+    // Sem retirada e sem entrega própria, a loja depende do Melhor Envio: ele precisa estar funcionando.
+    if (!shipping.shipping_pickup && !shipping.local_delivery_enabled) {
+      if (shipping.shipping_carriers === "none") return { error: "Escolha pelo menos uma forma de entrega." };
       const { data: secret } = await createAdminClient()
         .from("store_secrets")
         .select("melhor_envio_token")
         .eq("store_id", store.id)
         .maybeSingle();
       if (!secret?.melhor_envio_token) {
-        return { error: "Para usar \"Somente Melhor Envio\", o Melhor Envio precisa estar ligado na loja. Fale com o suporte." };
+        return { error: "Sem retirada nem entrega própria, a loja depende do Melhor Envio, que ainda não está ligado. Fale com o suporte." };
       }
-      if (originZip.length !== 8) return { error: "Para usar \"Somente Melhor Envio\", preencha o CEP de origem." };
+      if (originZip.length !== 8) return { error: "Sem retirada nem entrega própria, preencha o CEP de origem para calcular o frete." };
     }
   }
   const hasAbout = form.get("about_enabled") === "1";
@@ -150,13 +160,33 @@ export async function saveSettings(_prev: SettingsState, form: FormData): Promis
         : {}),
       ...(hasAbout ? { about: about || null } : {}),
       ...(hasBooking ? booking : {}),
-      ...(hasShipping && shippingMode ? { shipping_mode: shippingMode } : {}),
+      ...(hasShipping ? shipping : {}),
       ...(hasMarketing ? { instagram, meta_pixel_id: metaPixelId || null, ga_measurement_id: gaId || null } : {}),
       ...(hasPromos ? { pix_discount_percent: pixPercent, free_shipping_min_cents: freeShippingMin } : {}),
     })
     .eq("id", store.id)
     .select("id");
   if (error || !data?.length) return { error: "Não foi possível salvar." };
+
+  // Cidades da entrega própria: substitui a lista inteira (ficam guardadas mesmo com a opção desmarcada).
+  if (hasShipping) {
+    const { error: delError } = await supabase.from("local_delivery_areas").delete().eq("store_id", store.id);
+    const { error: insError } = delError
+      ? { error: delError }
+      : areas.length
+        ? await supabase.from("local_delivery_areas").insert(
+            areas.map((a, i) => ({
+              store_id: store.id,
+              city: a.city,
+              state: a.state,
+              price_cents: a.priceCents,
+              delivery_days: a.deliveryDays,
+              position: i,
+            })),
+          )
+        : { error: null };
+    if (insError) return { error: "Configurações salvas, mas não foi possível salvar as cidades da entrega própria. Tente de novo." };
+  }
 
   revalidatePath("/painel", "layout");
   return { ok: "Configurações salvas. A loja atualiza em até 1 minuto." };

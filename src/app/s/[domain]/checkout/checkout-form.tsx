@@ -20,7 +20,7 @@ type Quote = {
   subtotalCents: number;
   shippingOptions: Option[];
   shippingError: string | null;
-  shippingMode?: string; // lib/shipping-mode: "pickup" = loja só com retirada (sem CEP)
+  shippingNeedsZip?: boolean; // false = loja só com retirada: o checkout nem pede o CEP
   problems: string[];
   pixDiscountPercent?: number;
   freeShippingMinCents?: number | null;
@@ -151,7 +151,7 @@ export function CheckoutForm() {
   const blocked = quote.problems.length > 0;
   // Mesmas contas do servidor (lib/promotions): só exibição; o pedido é recalculado lá.
   const pixDiscount = quote.pixDiscountPercent ? Math.floor((quote.subtotalCents * quote.pixDiscountPercent) / 100) : 0;
-  const pickupOnly = quote.shippingMode === "pickup";
+  const pickupOnly = quote.shippingNeedsZip === false;
   const missingForFreeShipping =
     quote.freeShippingMinCents && !pickupOnly ? Math.max(0, quote.freeShippingMinCents - quote.subtotalCents) : 0;
   const zipReady = digits(cep).length === 8;
@@ -240,7 +240,9 @@ export function CheckoutForm() {
                   <span className="font-medium">{o.name}</span>
                   {o.deliveryDays != null && (
                     <span className="block text-neutral-500">
-                      até {o.deliveryDays} {o.deliveryDays === 1 ? "dia útil" : "dias úteis"}
+                      {o.deliveryDays === 0
+                        ? "no mesmo dia"
+                        : `até ${o.deliveryDays} ${o.deliveryDays === 1 ? "dia útil" : "dias úteis"}`}
                     </span>
                   )}
                 </span>

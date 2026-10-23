@@ -200,14 +200,13 @@ footer { color: var(--muted); font-size: 14px; border-top: 1px solid var(--line)
       </li>
       <li><strong>E-mail da loja</strong>: recebe o aviso de <strong>cada venda</strong> e as respostas dos clientes aos e-mails do pedido.</li>
       <li><strong>CEP de origem</strong>: de onde os pedidos saem. <strong>Sem ele não há cálculo de frete</strong>, e a loja oferece só retirada.</li>
-      <li><strong>Entrega</strong>: escolha o que o cliente vê no checkout.
+      <li><strong>Entrega</strong>: marque como o cliente pode receber o pedido. As formas se combinam (por exemplo, retirada + entrega própria, ou só entrega própria).
         <ul>
-          <li><strong>Somente retirada na loja</strong>: o cliente não informa CEP nem paga frete.</li>
-          <li><strong>Retirada na loja ou Correios</strong>: retirada, PAC e SEDEX.</li>
-          <li><strong>Retirada na loja ou Melhor Envio</strong>: retirada e todas as transportadoras do Melhor Envio (Correios, Jadlog, Loggi e outras). É o padrão.</li>
-          <li><strong>Somente Melhor Envio</strong>: todas as transportadoras, sem retirada. Só pode ser escolhida com o Melhor Envio ligado e o CEP de origem preenchido, para a loja não ficar sem nenhuma forma de entrega.</li>
+          <li><strong>Retirada na loja</strong>: o cliente busca o pedido, sem frete.</li>
+          <li><strong>Correios e transportadoras</strong>: <em>Nenhuma</em>, <em>Só Correios</em> (PAC e SEDEX) ou <em>Todas do Melhor Envio</em> (Correios, Jadlog, Loggi e outras). Os Correios são cotados pelo Melhor Envio, com o desconto dele, e a etiqueta também é gerada lá. Precisa do Melhor Envio ligado na loja (o suporte do PMS app faz isso); a tela avisa se faltar.</li>
+          <li><strong>Entrega própria</strong>: você (ou alguém da loja) leva o pedido até o cliente. Cadastre as <strong>cidades</strong> atendidas, cada uma com o seu <strong>preço</strong> (vazio ou 0 = grátis) e, se quiser, o <strong>prazo</strong> em dias (0 = no mesmo dia). O sistema confere a cidade pelo CEP do cliente: fora das cidades cadastradas, a opção não aparece, e o cliente vê em quais cidades você entrega.</li>
         </ul>
-        Os Correios são cotados pelo Melhor Envio, com o desconto dele: a etiqueta também é gerada lá. As opções com frete precisam do Melhor Envio ligado na loja (o suporte do PMS app faz isso); a tela avisa se faltar.
+        Se o cliente só puder retirar, o checkout nem pede o CEP. A loja precisa de pelo menos uma forma de entrega funcionando para salvar.
       </li>
     </ul>
     <p>As mudanças aparecem na vitrine em até 1 minuto.</p>
@@ -353,13 +352,14 @@ footer { color: var(--muted); font-size: 14px; border-top: 1px solid var(--line)
 
   <section id="entrega">
     <h2>Entrega e frete</h2>
-    <p>O frete é cobrado do cliente automaticamente, pelas transportadoras do <strong>Melhor Envio</strong> (Correios, Jadlog e outras). Quais opções aparecem depende da <strong>Entrega</strong> escolhida em Configurações (só retirada, retirada ou Correios, retirada ou Melhor Envio, ou só Melhor Envio). Quando chega um pedido pago com entrega:</p>
+    <p>O frete é cobrado do cliente automaticamente, pelas transportadoras do <strong>Melhor Envio</strong> (Correios, Jadlog e outras). Quais opções aparecem depende do que está marcado em Configurações → <strong>Entrega</strong> (retirada, transportadoras e entrega própria). Quando chega um pedido pago com entrega:</p>
     <ol class="steps">
       <li><div>No <strong>site do Melhor Envio</strong>, gere a etiqueta do serviço que o cliente escolheu (está no pedido, por exemplo "Correios SEDEX") com o endereço do pedido.</div></li>
       <li><div>Embale, cole a etiqueta e poste, ou agende a coleta.</div></li>
       <li><div>No painel, abra o pedido, cole o <strong>código de rastreio</strong> e clique em <strong>Salvar</strong>. O pedido passa a "Enviado", e o cliente recebe um e-mail com o rastreio.</div></li>
     </ol>
     <p><strong>Retirada na loja</strong>: quando o pedido estiver separado, clique em "Marcar como pronto para retirada". O cliente recebe um e-mail avisando.</p>
+    <p><strong>Entrega própria</strong> (o pedido aparece como "Entrega da loja"): não tem etiqueta nem rastreio. Quando sair para entregar, clique em "Marcar como saiu para entrega": o cliente recebe um e-mail avisando. Depois de entregar, marque "Entregue". O endereço está no pedido.</p>
   </section>
 
   <section id="assinatura">
@@ -386,8 +386,9 @@ footer { color: var(--muted); font-size: 14px; border-top: 1px solid var(--line)
     <details><summary>O cliente diz que pagou, mas o pedido continua "Aguardando pagamento".</summary><p>Pix leva alguns segundos e, raramente, alguns minutos. Peça para ele manter a página do pedido aberta: ela atualiza sozinha. Se passar de 30 minutos, confira o pagamento no seu Mercado Pago e fale com o suporte.</p></details>
     <details><summary>Vendi pela loja física. Como ajusto o estoque?</summary><p>Painel → Produtos → abra o produto → Variações e estoque → altere o número → Salvar alterações (no rodapé). Se aparecer o aviso de que o estoque mudou enquanto você editava, é porque saiu uma venda online nesse meio-tempo. O valor atual já aparece na tela: ajuste e salve de novo.</p></details>
     <details><summary>Posso mudar o preço de um produto que já tem pedidos?</summary><p>Pode. Pedidos já feitos mantêm o preço da época da compra.</p></details>
-    <details><summary>O frete não aparece no checkout, só a retirada.</summary><p>Em Configurações, confira se a Entrega não está em "Somente retirada na loja" e se o CEP de origem está preenchido. Se estiver tudo certo, fale com o suporte: pode faltar ligar o Melhor Envio na sua loja.</p></details>
-    <details><summary>Quero oferecer só os Correios.</summary><p>Painel → Configurações → Entrega → "Retirada na loja ou Correios" → Salvar configurações. O checkout passa a mostrar só PAC e SEDEX, além da retirada.</p></details>
+    <details><summary>O frete não aparece no checkout, só a retirada.</summary><p>Em Configurações → Entrega, confira se "Correios e transportadoras" não está em "Nenhuma" e se o CEP de origem está preenchido. Se estiver tudo certo, fale com o suporte: pode faltar ligar o Melhor Envio na sua loja.</p></details>
+    <details><summary>Quero oferecer só os Correios.</summary><p>Painel → Configurações → Entrega → em "Correios e transportadoras", escolha "Só Correios" → Salvar configurações. O checkout passa a mostrar só PAC e SEDEX (além da retirada e da entrega própria, se estiverem marcadas).</p></details>
+    <details><summary>Eu mesmo entrego na minha cidade. Como configuro?</summary><p>Painel → Configurações → Entrega → marque "Entrega própria", adicione as cidades com o preço de cada uma e salve. Para fazer só entrega própria, desmarque a retirada e escolha "Nenhuma" em transportadoras.</p></details>
     <details><summary>O cliente não recebeu o e-mail do pedido.</summary><p>Se o e-mail voltou (endereço digitado errado ou caixa cheia), o painel avisa: aparece uma faixa amarela no Resumo com o número do pedido e um aviso dentro do pedido. Nesse caso, fale com o cliente pelo WhatsApp e confirme o endereço. Se não houver aviso, o e-mail foi entregue: Peça para ele olhar a caixa de spam. O link de acompanhamento também aparece na tela logo depois da compra, e ele pode encontrar o pedido a qualquer momento em "Meus pedidos", no topo da loja, com o CPF (ou o número do pedido) e o e-mail usado na compra. Você vê os dados de contato dele no pedido.</p></details>
     <details><summary>Minha loja mostra "Loja em preparação". O que é?</summary><p>A loja ainda está em <strong>modo de teste</strong>: os pagamentos são simulados, então ninguém consegue fazer pedido de verdade. Para testar uma compra, use o link "abra a loja por este link" que aparece no topo do painel: naquele navegador a faixa muda para "Modo de teste" e as compras com cartões de teste funcionam. Quando a PMS app liberar os pagamentos de verdade, o aviso some sozinho.</p></details>
     <details><summary>Como tiro um produto da loja sem apagar?</summary><p>Abra o produto e desmarque "Visível na loja". Para voltar, marque de novo.</p></details>

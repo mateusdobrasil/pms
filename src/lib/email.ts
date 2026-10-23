@@ -5,6 +5,7 @@ import { formatPhone } from "@/lib/format";
 import { platformUrl, storeBaseUrl } from "@/lib/urls";
 import { type InvoiceKind, formatDay, invoiceTitle, lastPayDay } from "@/lib/billing";
 import { googleCalendarUrl } from "@/lib/booking";
+import { isLocalDelivery } from "@/lib/shipping-settings";
 
 // E-mails transacionais via API do Resend. Sem RESEND_API_KEY, só registra no log (dev).
 // EMAIL_FROM: endereço de um domínio verificado no Resend, ex.: pedidos@pmsapp.dev
@@ -145,7 +146,7 @@ export async function notifyOrderPaid(orderId: string) {
       html: layout(o.stores, `
         <h1 style="margin:0 0 8px;font-size:22px">Pagamento confirmado!</h1>
         <p style="margin:0 0 20px;color:#525252">Olá, ${esc(firstName(o.customer_name))}. Recebemos o pagamento do pedido <strong>${o.code}</strong>.
-        ${o.shipping_method === "pickup" ? "Avisaremos quando estiver pronto para retirada." : "Avisaremos quando for enviado, com o código de rastreio."}</p>
+        ${o.shipping_method === "pickup" ? "Avisaremos quando estiver pronto para retirada." : isLocalDelivery(o.shipping_method) ? "Avisaremos quando sair para entrega." : "Avisaremos quando for enviado, com o código de rastreio."}</p>
         ${itemsTable(o)}
         ${o.shipping_address ? addressBlock(o.shipping_address) : ""}
         ${url ? button(url, "Acompanhar pedido", o.stores.primary_color) : ""}`),
@@ -183,6 +184,7 @@ export async function notifyOrderShipped(orderId: string) {
     if (!o) return;
     const url = orderUrl(o);
     const pickup = o.shipping_method === "pickup";
+    const local = isLocalDelivery(o.shipping_method);
 
     const ok = await sendEmail({
       to: o.customer_email,
@@ -190,10 +192,14 @@ export async function notifyOrderShipped(orderId: string) {
       replyTo: o.stores.email,
       idempotencyKey: `shipped-${o.id}`,
       track: { kind: "order", refId: o.id, storeId: o.store_id },
-      subject: pickup ? `Pedido ${o.code} pronto para retirada` : `Pedido ${o.code} enviado`,
+      subject: pickup ? `Pedido ${o.code} pronto para retirada` : local ? `Pedido ${o.code} saiu para entrega` : `Pedido ${o.code} enviado`,
       html: layout(o.stores, (pickup
         ? `<h1 style="margin:0 0 8px;font-size:22px">Pronto para retirada!</h1>
            <p style="margin:0 0 20px;color:#525252">Olá, ${esc(firstName(o.customer_name))}. Seu pedido <strong>${o.code}</strong> já pode ser retirado na loja.
+           ${o.stores.whatsapp ? `Dúvidas? Fale com a gente pelo <a href="https://wa.me/${o.stores.whatsapp}">WhatsApp</a>.` : ""}</p>`
+        : local
+        ? `<h1 style="margin:0 0 8px;font-size:22px">Seu pedido saiu para entrega!</h1>
+           <p style="margin:0 0 20px;color:#525252">Olá, ${esc(firstName(o.customer_name))}. A loja está levando o pedido <strong>${o.code}</strong> até você.
            ${o.stores.whatsapp ? `Dúvidas? Fale com a gente pelo <a href="https://wa.me/${o.stores.whatsapp}">WhatsApp</a>.` : ""}</p>`
         : `<h1 style="margin:0 0 8px;font-size:22px">Seu pedido foi enviado!</h1>
            <p style="margin:0 0 20px;color:#525252">Olá, ${esc(firstName(o.customer_name))}. O pedido <strong>${o.code}</strong> saiu para entrega por ${esc(o.shipping_method)}.</p>

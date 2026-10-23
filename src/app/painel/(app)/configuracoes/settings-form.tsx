@@ -8,9 +8,7 @@ import { MAX_ORIGINAL_BYTES, compressImage } from "@/lib/compress-image";
 import { saveSettings, type SettingsState } from "./actions";
 import { LegalSection, type LegalSettings, type PolicyBase } from "./legal-section";
 import { BookingSection, type BookingSettings } from "./booking-section";
-import { SHIPPING_MODES, shippingModeUsesMelhorEnvio, type ShippingMode } from "@/lib/shipping-mode";
-
-type ShippingSettings = { mode: ShippingMode; melhorEnvioReady: boolean } | null;
+import { ShippingSection, type ShippingFormSettings } from "./shipping-section";
 
 type Settings = {
   name: string;
@@ -57,7 +55,7 @@ export function SettingsForm({
   legal: LegalSettings | null;
   about: string | null | undefined;
   booking: BookingSettings | null; // null = SQL dos agendamentos ainda não rodado
-  shipping: ShippingSettings; // null = SQL da forma de entrega ainda não rodado
+  shipping: ShippingFormSettings | null; // null = SQL das formas de entrega ainda não rodado
   policyBase: PolicyBase;
   googleVerification: string | null | undefined; // undefined = coluna ainda não existe
   storeUrl: string | null;
@@ -69,9 +67,7 @@ export function SettingsForm({
   const [logoError, setLogoError] = useState<string | null>(null);
   const [bannerUrl, setBannerUrl] = useState(banner?.banner_image_url ?? "");
   const [bannerError, setBannerError] = useState<string | null>(null);
-  const [shippingMode, setShippingMode] = useState<ShippingMode | null>(shipping?.mode ?? null);
   const [originZip, setOriginZip] = useState(settings.origin_zip ?? "");
-  const needsMelhorEnvio = !!shippingMode && shippingModeUsesMelhorEnvio(shippingMode);
 
   // Envia a imagem para o Storage da loja e devolve a mensagem de erro, se houver.
   // A URL nova só vale depois de "Salvar".
@@ -329,51 +325,7 @@ export function SettingsForm({
         </label>
       </section>
 
-      {shipping && shippingMode && (
-        <section className="space-y-4 rounded-xl border bg-white p-5 shadow-sm">
-          <div>
-            <h2 className="font-semibold">Entrega</h2>
-            <p className="text-xs text-neutral-500">Quais formas de entrega o cliente vê no checkout.</p>
-          </div>
-          <input type="hidden" name="shipping_enabled" value="1" />
-          <div className="space-y-2">
-            {SHIPPING_MODES.map((m) => (
-              <label
-                key={m.value}
-                className={`flex cursor-pointer gap-3 rounded-lg border px-4 py-3 text-sm transition ${
-                  shippingMode === m.value ? "border-primary-500 bg-primary-50" : "hover:border-neutral-400"
-                }`}
-              >
-                <input
-                  type="radio"
-                  name="shipping_mode"
-                  value={m.value}
-                  checked={shippingMode === m.value}
-                  onChange={() => setShippingMode(m.value)}
-                  className="mt-0.5"
-                />
-                <span>
-                  <span className="block font-medium">{m.label}</span>
-                  <span className="block text-xs text-neutral-500">{m.description}</span>
-                </span>
-              </label>
-            ))}
-          </div>
-          {needsMelhorEnvio && !shipping.melhorEnvioReady && (
-            <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">
-              O Melhor Envio ainda não está ligado na sua loja. Fale com o suporte do PMS app para ativar.
-              {shippingMode === "me"
-                ? " Sem ele, esta opção não pode ser salva: a loja ficaria sem nenhuma forma de entrega."
-                : " Até lá, o checkout mostra só a retirada."}
-            </p>
-          )}
-          {needsMelhorEnvio && shipping.melhorEnvioReady && originZip.replace(/\D/g, "").length !== 8 && (
-            <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">
-              Preencha o CEP de origem (em Contato e envio) para o frete ser calculado.
-            </p>
-          )}
-        </section>
-      )}
+      {shipping && <ShippingSection shipping={shipping} originZip={originZip} />}
 
       {legal && <LegalSection legal={legal} about={about} policyBase={policyBase} storeUrl={storeUrl} />}
 

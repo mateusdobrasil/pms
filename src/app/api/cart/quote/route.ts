@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getStoreFromRequest } from "@/lib/request-store";
 import { parseCartItems, priceCart } from "@/lib/orders";
-import { getShippingMode, getShippingOptions } from "@/lib/shipping";
+import { getShippingOptions, getShippingSettings } from "@/lib/shipping";
+import { shippingNeedsZip } from "@/lib/shipping-settings";
 import { getPromotions } from "@/lib/promotions";
 
 // Recalcula o carrinho (preços atuais, estoque) e, com CEP, cota o frete.
@@ -19,7 +20,7 @@ export async function POST(req: Request) {
   const [shipping, promotions] = await Promise.all([
     lines.length
       ? getShippingOptions(store, lines, zip)
-      : getShippingMode(store.id).then((mode) => ({ options: [], error: null, mode })),
+      : getShippingSettings(store.id).then((s) => ({ options: [], error: null, needsZip: shippingNeedsZip(s) })),
     getPromotions(store.id),
   ]);
 
@@ -28,7 +29,7 @@ export async function POST(req: Request) {
     subtotalCents,
     shippingOptions: shipping.options,
     shippingError: shipping.error,
-    shippingMode: shipping.mode,
+    shippingNeedsZip: shipping.needsZip,
     problems,
     pixDiscountPercent: promotions.pixDiscountPercent,
     freeShippingMinCents: promotions.freeShippingMinCents,

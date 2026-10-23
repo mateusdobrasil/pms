@@ -2,6 +2,7 @@
 
 import { useActionState, useState } from "react";
 import { statusLabel, type OrderStatus } from "@/lib/order-status";
+import { isLocalDelivery } from "@/lib/shipping-settings";
 import { changeStatus, refundOrder, saveTracking, type OrderActionState } from "./actions";
 import { submitKeepingValues } from "@/lib/form-submit";
 
@@ -23,9 +24,10 @@ export function OrderActions({
   const [statusState, statusAction, statusPending] = useActionState<OrderActionState, FormData>(changeStatus, null);
   const [trackState, trackAction, trackPending] = useActionState<OrderActionState, FormData>(saveTracking, null);
 
-  const isPickup = shippingMethod === "pickup";
-  const canTrack = !isPickup && ["paid", "preparing", "shipped", "delivered"].includes(status);
-  const nextSteps = transitions.filter((s) => s !== "canceled" && !(s === "shipped" && !isPickup));
+  // Retirada e entrega própria não têm rastreio: "enviado" vira um botão (pronto para retirada / saiu para entrega).
+  const noTracking = shippingMethod === "pickup" || isLocalDelivery(shippingMethod);
+  const canTrack = !noTracking && ["paid", "preparing", "shipped", "delivered"].includes(status);
+  const nextSteps = transitions.filter((s) => s !== "canceled" && !(s === "shipped" && !noTracking));
   const canCancel = transitions.includes("canceled") && !refundable;
 
   return (

@@ -2,7 +2,7 @@ import { requireStore } from "@/lib/panel";
 import { SettingsForm } from "./settings-form";
 import { storeBaseUrl } from "@/lib/urls";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { DEFAULT_SHIPPING_MODE, parseShippingMode } from "@/lib/shipping-mode";
+import { parseCarriers } from "@/lib/shipping-settings";
 
 export default async function SettingsPage() {
   const { supabase, store } = await requireStore();
@@ -44,8 +44,17 @@ export default async function SettingsPage() {
     .select("booking_enabled, booking_slot_minutes, booking_min_notice_minutes, booking_max_days, booking_cancel_hours")
     .eq("id", store.id)
     .single();
-  // Forma de entrega: também à parte (SQL 20261102000000).
-  const { data: shippingRow, error: shippingError } = await supabase.from("stores").select("shipping_mode").eq("id", store.id).single();
+  // Formas de entrega e cidades da entrega própria: também à parte (SQL 20261103000000).
+  const { data: shippingRow, error: shippingError } = await supabase
+    .from("stores")
+    .select("shipping_pickup, shipping_carriers, local_delivery_enabled")
+    .eq("id", store.id)
+    .single();
+  const { data: areaRows } = await supabase
+    .from("local_delivery_areas")
+    .select("city, state, price_cents, delivery_days")
+    .eq("store_id", store.id)
+    .order("position");
   // O token do Melhor Envio fica em store_secrets (só service role): aqui só se ele existe, para avisar o lojista.
   const { data: secret } = await createAdminClient()
     .from("store_secrets")
@@ -74,7 +83,13 @@ export default async function SettingsPage() {
         shipping={
           shippingError
             ? null
-            : { mode: parseShippingMode(shippingRow?.shipping_mode) ?? DEFAULT_SHIPPING_MODE, melhorEnvioReady: !!secret?.melhor_envio_token }
+            : {
+                pickup: shippingRow.shipping_pickup,
+                carriers: parseCarriers(shippingRow.shipping_carriers) ?? "all",
+                localDelivery: shippingRow.local_delivery_enabled,
+                areas: (areaRows ?? []).map((a) => ({ city: a.city, state: a.state, priceCents: a.price_cents, deliveryDays: a.delivery_days })),
+                melhorEnvioReady: !!secret?.melhor_envio_token,
+              }
         }
         policyBase={policyBase}
         storeUrl={domain ? storeBaseUrl(domain) : null}

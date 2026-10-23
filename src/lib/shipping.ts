@@ -1,20 +1,22 @@
 import "server-only";
+import { cache } from "react";
 import type { Store } from "@/lib/store";
 import type { PricedLine } from "@/lib/orders";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { onlyDigits } from "@/lib/validation";
 import { getPromotions } from "@/lib/promotions";
-import { cache } from "react";
-import { createPublicClient } from "@/lib/supabase/public";
 import {
-  DEFAULT_SHIPPING_MODE,
-  parseShippingMode,
-  shippingModeAllowsPickup,
-  type ShippingMode,
-} from "@/lib/shipping-mode";
+  DEFAULT_SHIPPING,
+  LOCAL_DELIVERY_NAME,
+  findLocalArea,
+  parseCarriers,
+  shippingNeedsZip,
+  type Carriers,
+  type ShippingSettings,
+} from "@/lib/shipping-settings";
 
 export type ShippingOption = {
-  id: string; // 'pickup' ou 'me:<id do serviço no Melhor Envio>'
+  id: string; // 'pickup', 'local' (entrega própria) ou 'me:<id do serviço no Melhor Envio>'
   name: string;
   priceCents: number;
   deliveryDays: number | null;
@@ -22,7 +24,8 @@ export type ShippingOption = {
   originalPriceCents?: number; // preço antes do frete grátis (só para mostrar riscado)
 };
 
-export type ShippingQuote = { options: ShippingOption[]; error: string | null; mode: ShippingMode };
+// needsZip = false: a loja só tem retirada, e o checkout nem pede o CEP.
+export type ShippingQuote = { options: ShippingOption[]; error: string | null; needsZip: boolean };
 
 const PICKUP: ShippingOption = {
   id: "pickup",
@@ -62,13 +65,15 @@ export type MeQuote = {
 
 // No Melhor Envio, a empresa de id 1 é os Correios (PAC, SEDEX, Mini Envios).
 const isCorreios = (q: MeQuote) => q.company?.id === 1 || /correios/i.test(q.company?.name ?? "");
+const byPrice = (a: ShippingOption, b: ShippingOption) => a.priceCents - b.priceCents;
 
 // Cotações do Melhor Envio → opções de entrega, da mais barata à mais cara. Descarta as que vieram
-// com erro (serviço não atende o CEP) e, em "Retirada ou Correios", as de outras transportadoras.
-export function deliveryOptions(quotes: MeQuote[], mode: ShippingMode): ShippingOption[] {
+// com erro (serviço não atende o CEP) e, em "Só Correios", as de outras transportadoras.
+export function deliveryOptions(quotes: MeQuote[], carriers: Carriers): ShippingOption[] {
+  if (carriers === "none") return [];
   return quotes
     .filter((q) => !q.error && (q.custom_price ?? q.price))
-    .filter((q) => mode !== "pickup_correios" || isCorreios(q))
+    .filter((q) => carriers !== "correios" || isCorreios(q))
     .map((q) => ({
       id: `me:${q.id}`,
       name: q.company?.name && !q.name.includes(q.company.name) ? `${q.company.name} ${q.name}` : q.name,
@@ -77,42 +82,145 @@ export function deliveryOptions(quotes: MeQuote[], mode: ShippingMode): Shipping
       requiresAddress: true,
     }))
     .filter((o) => Number.isFinite(o.priceCents) && o.priceCents >= 0)
-    .sort((a, b) => a.priceCents - b.priceCents);
+    .sort(byPrice);
 }
 
-// Forma de entrega escolhida pelo lojista. Consulta à parte (como getPromotions): sem o SQL
-// 20261102000000 rodado, a loja segue com retirada + Melhor Envio, como antes.
-export const getShippingMode = cache(async (storeId: string): Promise<ShippingMode> => {
-  const { data, error } = await createPublicClient().from("stores").select("shipping_mode").eq("id", storeId).maybeSingle();
-  if (error || !data) return DEFAULT_SHIPPING_MODE;
-  return parseShippingMode(data.shipping_mode) ?? DEFAULT_SHIPPING_MODE;
+// Formas de entrega da loja. Consultas à parte (como getPromotions): sem o SQL 20261103000000 rodado,
+// a loja segue com retirada + todas as transportadoras, como antes.
+export const getShippingSettings = cache(async (storeId: string): Promise<ShippingSettings> => {
+  const db = createAdminClient();
+  const { data, error } = await db
+    .from("stores")
+    .select("shipping_pickup, shipping_carriers, local_delivery_enabled")
+    .eq("id", storeId)
+    .maybeSingle();
+  if (error || !data) return DEFAULT_SHIPPING;
+
+  let areas: ShippingSettings["areas"] = [];
+  if (data.local_delivery_enabled) {
+    const { data: rows } = await db
+      .from("local_delivery_areas")
+      .select("city, state, price_cents, delivery_days")
+      .eq("store_id", storeId)
+      .order("position");
+    areas = (rows ?? []).map((r) => ({ city: r.city, state: r.state, priceCents: r.price_cents, deliveryDays: r.delivery_days }));
+  }
+  return {
+    pickup: data.shipping_pickup,
+    carriers: parseCarriers(data.shipping_carriers) ?? "all",
+    localDelivery: data.local_delivery_enabled && areas.length > 0,
+    areas,
+  };
 });
+
+// Cidade e UF do CEP, pelo ViaCEP, no servidor: o preço da entrega própria não depende do que o navegador manda.
+async function cityFromZip(zip: string): Promise<{ city: string; state: string } | null> {
+  try {
+    const res = await fetch(`https://viacep.com.br/ws/${zip}/json/`, {
+      next: { revalidate: 86400 },
+      signal: AbortSignal.timeout(5000),
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (data?.erro || !data?.localidade || !data?.uf) return null;
+    return { city: data.localidade, state: data.uf };
+  } catch {
+    return null;
+  }
+}
+
+// Resultado de cada forma de entrega para um CEP; combineShipping junta tudo e escolhe a mensagem.
+export type CarrierResult =
+  | { status: "off" } // loja sem transportadoras
+  | { status: "unavailable" } // sem token do Melhor Envio ou sem CEP de origem
+  | { status: "failed" }
+  | { status: "ok"; options: ShippingOption[] };
+export type LocalResult =
+  | { status: "off" }
+  | { status: "failed" } // não deu para descobrir a cidade do CEP
+  | { status: "outside"; cities: string[] }
+  | { status: "ok"; option: ShippingOption };
+
+export function combineShipping(
+  settings: Pick<ShippingSettings, "pickup" | "carriers">,
+  carrier: CarrierResult,
+  local: LocalResult,
+  subtotalCents: number,
+  freeShippingMinCents: number | null,
+): ShippingQuote {
+  const pickup = settings.pickup ? [PICKUP] : [];
+  const result = (options: ShippingOption[], error: string | null = null) => ({ options, error, needsZip: true });
+
+  const delivery = [...(carrier.status === "ok" ? carrier.options : []), ...(local.status === "ok" ? [local.option] : [])].sort(byPrice);
+  if (delivery.length) {
+    const error = carrier.status === "failed" ? "Não foi possível consultar as transportadoras agora. Tente de novo para ver mais opções." : null;
+    return result([...applyFreeShipping(delivery, subtotalCents, freeShippingMinCents), ...pickup], error);
+  }
+
+  // Nenhuma entrega para este CEP.
+  if (carrier.status === "failed" || local.status === "failed") {
+    return result(pickup, `Não foi possível calcular a entrega agora. Tente de novo${pickup.length ? " ou escolha a retirada" : " em alguns minutos"}.`);
+  }
+  const carriersAnswered = carrier.status === "ok";
+  const localAnswered = local.status === "outside";
+  if (!carriersAnswered && !localAnswered) {
+    // Loja ainda sem frete configurado: só a retirada (se ela for permitida).
+    return pickup.length ? result(pickup) : result([], "A entrega ainda não está disponível nesta loja. Fale com a loja pelo WhatsApp.");
+  }
+  const orPickup = pickup.length ? " ou escolha a retirada" : "";
+  if (localAnswered && !carriersAnswered) {
+    const { cities } = local;
+    const where = cities.length <= 5 ? ` A loja entrega em ${cities.join(", ")}.` : "";
+    return result(pickup, `A loja não entrega neste CEP.${where} Confira o CEP${orPickup}.`);
+  }
+  const who = localAnswered
+    ? "Não há entrega"
+    : settings.carriers === "correios"
+      ? "Os Correios não entregam"
+      : "Nenhuma transportadora entrega";
+  return result(pickup, `${who} neste CEP. Confira o CEP${orPickup}.`);
+}
 
 // Opções de entrega sempre calculadas no servidor. O pedido só aceita uma opção desta lista,
 // então o preço do frete nunca vem do navegador.
 export async function getShippingOptions(store: Store, lines: PricedLine[], zip?: string | null): Promise<ShippingQuote> {
-  const mode = await getShippingMode(store.id);
-  const pickup = shippingModeAllowsPickup(mode) ? [PICKUP] : [];
-  const result = (options: ShippingOption[], error: string | null = null): ShippingQuote => ({ options, error, mode });
-  // Falhou a cotação: oferece a retirada quando a loja permite.
-  const failed = (reason: string) =>
-    result(pickup, pickup.length ? `${reason} Tente de novo ou escolha a retirada.` : `${reason} Tente de novo em alguns minutos.`);
-
-  if (mode === "pickup") return result([PICKUP]);
+  const settings = await getShippingSettings(store.id);
+  const pickup = settings.pickup ? [PICKUP] : [];
+  if (!shippingNeedsZip(settings)) return { options: pickup, error: null, needsZip: false };
 
   const to = onlyDigits(zip ?? "");
-  if (to.length !== 8) return result(pickup);
+  if (to.length !== 8) return { options: pickup, error: null, needsZip: true };
 
+  const [carrier, local, { freeShippingMinCents }] = await Promise.all([
+    quoteCarriers(store, settings.carriers, lines, to),
+    quoteLocal(settings, to),
+    getPromotions(store.id),
+  ]);
+  const subtotalCents = lines.reduce((sum, l) => sum + l.totalCents, 0);
+  return combineShipping(settings, carrier, local, subtotalCents, freeShippingMinCents);
+}
+
+async function quoteLocal(settings: ShippingSettings, zip: string): Promise<LocalResult> {
+  if (!settings.localDelivery) return { status: "off" };
+  const place = await cityFromZip(zip);
+  if (!place) return { status: "failed" };
+  const area = findLocalArea(settings.areas, place.city, place.state);
+  if (!area) return { status: "outside", cities: settings.areas.map((a) => `${a.city}/${a.state}`) };
+  return {
+    status: "ok",
+    option: { id: "local", name: LOCAL_DELIVERY_NAME, priceCents: area.priceCents, deliveryDays: area.deliveryDays, requiresAddress: true },
+  };
+}
+
+async function quoteCarriers(store: Store, carriers: Carriers, lines: PricedLine[], to: string): Promise<CarrierResult> {
+  if (carriers === "none") return { status: "off" };
   const from = onlyDigits(store.origin_zip ?? "");
   const { data: secret } = await createAdminClient()
     .from("store_secrets")
     .select("*") // "*" para funcionar antes e depois da migration melhor_envio_sandbox
     .eq("store_id", store.id)
     .maybeSingle();
-  if (from.length !== 8 || !secret?.melhor_envio_token) {
-    // Loja ainda sem frete configurado: só a retirada (se ela for permitida).
-    return pickup.length ? result(pickup) : result([], "A entrega ainda não está disponível nesta loja. Fale com a loja pelo WhatsApp.");
-  }
+  if (from.length !== 8 || !secret?.melhor_envio_token) return { status: "unavailable" };
 
   try {
     const res = await fetch(`${meBaseUrl(secret.melhor_envio_sandbox)}/api/v2/me/shipment/calculate`, {
@@ -142,21 +250,11 @@ export async function getShippingOptions(store: Store, lines: PricedLine[], zip?
     });
     if (!res.ok) {
       console.error("Melhor Envio respondeu", res.status, await res.text().catch(() => ""));
-      return failed("Não foi possível calcular o frete agora.");
+      return { status: "failed" };
     }
-
-    const delivery = deliveryOptions((await res.json()) as MeQuote[], mode);
-
-    if (delivery.length === 0) {
-      const who = mode === "pickup_correios" ? "Os Correios não entregam" : "Nenhuma transportadora entrega";
-      return result(pickup, `${who} neste CEP. Confira o CEP${pickup.length ? " ou escolha a retirada" : ""}.`);
-    }
-
-    const { freeShippingMinCents } = await getPromotions(store.id);
-    const subtotalCents = lines.reduce((sum, l) => sum + l.totalCents, 0);
-    return result([...applyFreeShipping(delivery, subtotalCents, freeShippingMinCents), ...pickup]);
+    return { status: "ok", options: deliveryOptions((await res.json()) as MeQuote[], carriers) };
   } catch (err) {
     console.error("Erro ao cotar frete no Melhor Envio", err);
-    return failed("Não foi possível calcular o frete agora.");
+    return { status: "failed" };
   }
 }

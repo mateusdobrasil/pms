@@ -195,7 +195,7 @@ export async function createOrder(db: SupabaseClient, store: Store, body: unknow
       customer_phone: customer.phone,
       shipping_address: shipping.requiresAddress ? address : null,
       shipping_method: shipping.id === "pickup" ? "pickup" : shipping.name,
-      shipping_service_id: shipping.id === "pickup" ? null : shipping.id.replace(/^me:/, ""),
+      shipping_service_id: shipping.id.startsWith("me:") ? shipping.id.slice(3) : null, // retirada e entrega própria: sem serviço
       subtotal_cents: subtotalCents,
       shipping_cents: shipping.priceCents,
       total_cents: subtotalCents + shipping.priceCents,

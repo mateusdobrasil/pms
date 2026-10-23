@@ -1,3 +1,5 @@
+import { isLocalDelivery } from "@/lib/shipping-settings";
+
 export type OrderStatus =
   | "pending_payment"
   | "paid"
@@ -17,12 +19,13 @@ const LABELS: Record<OrderStatus, string> = {
   expired: "Expirado",
 };
 
-// Na retirada, "enviado/entregue" vira "pronto para retirada/retirado".
+// Na retirada, "enviado/entregue" vira "pronto para retirada/retirado"; na entrega própria, "saiu para entrega".
 export function statusLabel(status: OrderStatus, shippingMethod?: string | null) {
   if (shippingMethod === "pickup") {
     if (status === "shipped") return "Pronto para retirada";
     if (status === "delivered") return "Retirado";
   }
+  if (isLocalDelivery(shippingMethod) && status === "shipped") return "Saiu para entrega";
   return LABELS[status] ?? status;
 }
 
