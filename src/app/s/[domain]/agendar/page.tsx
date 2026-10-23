@@ -11,9 +11,9 @@ import { BookingWizard } from "./booking-wizard";
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Agendar horário" };
 
-export default async function BookPage({ params, searchParams }: { params: Promise<{ domain: string }>; searchParams: Promise<{ remarcar?: string }> }) {
+export default async function BookPage({ params, searchParams }: { params: Promise<{ domain: string }>; searchParams: Promise<{ remarcar?: string; servico?: string }> }) {
   const { domain } = await params;
-  const remarcar = (await searchParams).remarcar;
+  const { remarcar, servico } = await searchParams;
   const store = await getStoreByDomain(domain);
   if (!store) notFound();
   const db = createAdminClient();
@@ -43,6 +43,7 @@ export default async function BookPage({ params, searchParams }: { params: Promi
       ) : (
         <BookingWizard
           reschedule={reschedule}
+          initialServiceId={servico && shown.some((s) => s.id === servico) ? servico : null}
           services={shown.map((s) => ({ ...s, online_cents: onlineCents(s.price_cents, s.payment_mode, s.deposit_percent) }))}
           professionals={professionals.map((p) => ({ id: p.id, name: p.name, serviceIds: p.serviceIds, weekdays: p.weekdays }))}
           days={bookingDays(todayBR(), settings.maxDays)}

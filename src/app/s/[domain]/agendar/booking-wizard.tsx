@@ -51,15 +51,17 @@ export function BookingWizard({
   days,
   whatsapp,
   reschedule = null,
+  initialServiceId = null,
 }: {
   services: Service[];
   professionals: Professional[];
   days: string[];
   whatsapp: string | null;
   reschedule?: { token: string; serviceId: string; professionalId: string | null } | null; // remarcar um agendamento existente
+  initialServiceId?: string | null; // vindo de um cartão de serviço da home (?servico=)
 }) {
   const router = useRouter();
-  const [serviceId, setServiceId] = useState<string | null>(reschedule?.serviceId ?? (services.length === 1 ? services[0].id : null));
+  const [serviceId, setServiceId] = useState<string | null>(reschedule?.serviceId ?? initialServiceId ?? (services.length === 1 ? services[0].id : null));
   // Remarcação: começa com o mesmo profissional, se ele ainda faz o serviço. "" = qualquer um.
   const [proId, setProId] = useState<string>(
     reschedule?.professionalId && professionals.some((p) => p.id === reschedule.professionalId && p.serviceIds.includes(reschedule.serviceId)) ? reschedule.professionalId : "",
