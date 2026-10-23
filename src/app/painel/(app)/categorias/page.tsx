@@ -1,6 +1,6 @@
 import { requireStore } from "@/lib/panel";
-import { deleteCategory, moveCategory } from "./actions";
-import { CreateCategoryForm, RenameCategoryForm } from "./category-forms";
+import { moveCategory } from "./actions";
+import { CreateCategoryForm, DeleteCategoryButton, RenameCategoryForm } from "./category-forms";
 
 type Category = { id: string; name: string; slug: string; products: { count: number }[] };
 
@@ -32,15 +32,18 @@ export default async function CategoriesPage() {
               </form>
               <RenameCategoryForm id={c.id} name={c.name} />
               <span className="text-neutral-500">{c.products[0]?.count ?? 0} produto(s)</span>
-              <form action={deleteCategory}>
-                <input type="hidden" name="id" value={c.id} />
-                <button type="submit" className="text-red-700 underline">Excluir</button>
-              </form>
+              {(c.products[0]?.count ?? 0) > 0 ? (
+                <span className="text-xs text-neutral-400" title="Mude a categoria dos produtos antes de excluir">não dá para excluir</span>
+              ) : (
+                <DeleteCategoryButton id={c.id} name={c.name} />
+              )}
             </li>
           ))}
         </ul>
       )}
-      <p className="text-xs text-neutral-500">Ao excluir uma categoria, os produtos dela continuam na loja, só ficam sem categoria.</p>
+      <p className="text-xs text-neutral-500">
+        Só dá para excluir uma categoria vazia. Se ela tem produtos (visíveis ou ocultos), mude a categoria deles em Produtos antes.
+      </p>
     </div>
   );
 }

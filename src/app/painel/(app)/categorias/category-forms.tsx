@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useRef } from "react";
-import { createCategory, renameCategory, type CategoryState } from "./actions";
+import { createCategory, deleteCategory, renameCategory, type CategoryState } from "./actions";
 import { submitKeepingValues } from "@/lib/form-submit";
 
 export function CreateCategoryForm() {
@@ -21,6 +21,18 @@ export function CreateCategoryForm() {
         </button>
       </div>
       {state?.error && <p className="text-sm text-red-700">{state.error}</p>}
+    </form>
+  );
+}
+
+// Excluir: só aparece em categoria vazia; o servidor confere de novo.
+export function DeleteCategoryButton({ id, name }: { id: string; name: string }) {
+  const [state, action, pending] = useActionState<CategoryState, FormData>(deleteCategory, null);
+  return (
+    <form action={action} onSubmit={(e) => !confirm(`Excluir a categoria "${name}"?`) && e.preventDefault()} className="contents">
+      <input type="hidden" name="id" value={id} />
+      <button type="submit" disabled={pending} className="text-red-700 underline disabled:opacity-50">Excluir</button>
+      {state?.error && <span className="w-full text-red-700">{state.error}</span>}
     </form>
   );
 }

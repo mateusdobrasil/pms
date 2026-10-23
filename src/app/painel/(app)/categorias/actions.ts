@@ -56,14 +56,20 @@ export async function renameCategory(_prev: CategoryState, form: FormData): Prom
   return done("Categoria salva.");
 }
 
-export async function deleteCategory(form: FormData) {
+// Só exclui categoria vazia: com produtos (visíveis ou ocultos), recusa e explica (o banco também recusa).
+export async function deleteCategory(_prev: CategoryState, form: FormData): Promise<CategoryState> {
   const { supabase, store } = await requireStore();
   const id = String(form.get("id") ?? "");
-  if (!isUuid(id)) return;
-  // Produtos da categoria ficam "sem categoria" (on delete set null).
-  await supabase.from("categories").delete().eq("id", id).eq("store_id", store.id);
-  done("Categoria excluída.");
+  if (!isUuid(id)) return { error: "Categoria não encontrada." };
+  const { count } = await supabase.from("products").select("id", { count: "exact", head: true }).eq("store_id", store.id).eq("category_id", id);
+  if (count) return { error: inUseMessage(count) };
+  const { error } = await supabase.from("categories").delete().eq("id", id).eq("store_id", store.id);
+  if (error) return { error: error.code === "23503" ? inUseMessage(1) : "Não foi possível excluir." };
+  return done("Categoria excluída.");
 }
+
+const inUseMessage = (n: number) =>
+  `Esta categoria tem ${n === 1 ? "1 produto" : `${n} produtos`}. Mude a categoria ${n === 1 ? "dele" : "deles"} (em Produtos) antes de excluir.`;
 
 export async function moveCategory(form: FormData) {
   const { supabase, store } = await requireStore();
