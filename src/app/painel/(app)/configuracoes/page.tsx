@@ -36,6 +36,12 @@ export default async function SettingsPage() {
     .select("legal_name, document, address, privacy_policy, returns_policy")
     .eq("id", store.id)
     .single();
+  // Agendamentos: também à parte (SQL 20261101000000).
+  const { data: booking, error: bookingError } = await supabase
+    .from("stores")
+    .select("booking_enabled, booking_slot_minutes, booking_min_notice_minutes, booking_max_days, booking_cancel_hours")
+    .eq("id", store.id)
+    .single();
   // "Quem somos": também à parte (SQL 20261031000000).
   const { data: aboutRow, error: aboutError } = await supabase.from("stores").select("about").eq("id", store.id).single();
   const { data: domains } = await supabase.from("store_domains").select("domain, is_primary").eq("store_id", store.id);
@@ -54,6 +60,7 @@ export default async function SettingsPage() {
       <SettingsForm storeId={store.id} settings={data!} banner={bannerError ? null : banner} promos={promosError ? null : promos} marketing={marketingError ? null : marketing}
         legal={legalError ? null : legal}
         about={aboutError ? undefined : (aboutRow?.about ?? null)}
+        booking={bookingError ? null : booking}
         policyBase={policyBase}
         storeUrl={domain ? storeBaseUrl(domain) : null}
         googleVerification={gsvError ? undefined : (gsv?.google_site_verification ?? null)}

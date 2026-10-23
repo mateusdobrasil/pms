@@ -1,0 +1,55 @@
+// Agendamentos: regras comuns (pagamento por serviço, durações, horários). Funções puras, testadas em tests/booking.test.ts.
+
+export type PaymentMode = "full" | "deposit" | "onsite";
+
+export const PAYMENT_MODES: { value: PaymentMode; label: string; hint: string }[] = [
+  { value: "onsite", label: "Paga no salão", hint: "O agendamento só reserva o horário." },
+  { value: "deposit", label: "Sinal online", hint: "O cliente paga uma parte ao agendar (Pix ou cartão) e o resto no salão." },
+  { value: "full", label: "Tudo online", hint: "O cliente paga o valor inteiro ao agendar (Pix ou cartão)." },
+];
+
+export const WEEKDAYS = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
+
+// Quanto o cliente paga online ao agendar (centavos).
+export function onlineCents(priceCents: number, mode: PaymentMode, depositPercent: number | null) {
+  if (mode === "full") return priceCents;
+  if (mode === "deposit") return Math.round((priceCents * (depositPercent ?? 0)) / 100);
+  return 0;
+}
+
+// "45 min", "1h", "1h30"
+export function formatDuration(minutes: number) {
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  if (!h) return `${m} min`;
+  return m ? `${h}h${String(m).padStart(2, "0")}` : `${h}h`;
+}
+
+// "09:00" → 540 (minutos desde a meia-noite); inválido → null.
+export function parseTime(value: string) {
+  const m = /^([01]\d|2[0-3]):([0-5]\d)$/.exec(value.trim());
+  return m ? Number(m[1]) * 60 + Number(m[2]) : null;
+}
+
+export const formatTime = (minutes: number) => `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
+
+// Faixas do dia ("09:00-12:00, 13:00-18:00") → [[540, 720], [780, 1080]]; sobreposição ou formato errado → erro.
+export function parseRanges(text: string): { ranges: [number, number][] } | { error: string } {
+  const parts = text.split(/[,;]/).map((p) => p.trim()).filter(Boolean);
+  const ranges: [number, number][] = [];
+  for (const part of parts) {
+    const [a, b] = part.split(/\s*(?:-|–|às|a)\s*/);
+    const start = parseTime(a ?? "");
+    const end = parseTime(b ?? "");
+    if (start === null || end === null) return { error: `"${part}" não é um horário válido (use 09:00-18:00).` };
+    if (start >= end) return { error: `"${part}": o fim precisa ser depois do início.` };
+    ranges.push([start, end]);
+  }
+  ranges.sort((x, y) => x[0] - y[0]);
+  for (let i = 1; i < ranges.length; i++) {
+    if (ranges[i][0] < ranges[i - 1][1]) return { error: "As faixas de horário do mesmo dia não podem se sobrepor." };
+  }
+  return { ranges };
+}
+
+export const formatRanges = (ranges: [number, number][]) => ranges.map(([a, b]) => `${formatTime(a)}-${formatTime(b)}`).join(", ");

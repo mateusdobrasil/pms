@@ -21,6 +21,13 @@ export default async function PanelLayout({ children }: { children: ReactNode })
     .limit(1);
   const oldestDue = overdue?.[0]?.due_date as string | undefined;
 
+  // Menu "Agenda": agendamentos ligados ou já com serviço cadastrado (sem o SQL, fica escondido).
+  const [{ data: bookingRow }, { count: serviceCount }] = await Promise.all([
+    supabase.from("stores").select("booking_enabled").eq("id", store.id).maybeSingle(),
+    supabase.from("services").select("id", { count: "exact", head: true }).eq("store_id", store.id),
+  ]);
+  const agenda = !!(bookingRow as { booking_enabled?: boolean } | null)?.booking_enabled || (serviceCount ?? 0) > 0;
+
   // Modo de teste (Mercado Pago TEST-): link que libera as compras de teste no domínio da loja.
   const testMode = await storeTestMode(store.id);
   const { data: domains } = testMode
@@ -57,7 +64,7 @@ export default async function PanelLayout({ children }: { children: ReactNode })
             <button type="submit" className="rounded-md px-2 py-1 hover:bg-white/10 hover:text-white">Sair</button>
           </form>
           <div className="w-full sm:w-auto sm:flex-1">
-            <PanelNav />
+            <PanelNav agenda={agenda} />
           </div>
         </div>
       </header>

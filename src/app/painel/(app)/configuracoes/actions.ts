@@ -85,6 +85,19 @@ export async function saveSettings(_prev: SettingsState, form: FormData): Promis
   const policy = (key: string) => String(form.get(key) ?? "").replace(/\r\n/g, "\n").trim();
   const privacyPolicy = policy("privacy_policy");
   const returnsPolicy = policy("returns_policy");
+  // Agendamentos: só vêm no formulário quando as colunas existem (SQL 20261101000000).
+  const hasBooking = form.get("booking_settings") === "1";
+  const pick = (name: string, allowed: number[], fallback: number) => {
+    const v = Number(form.get(name));
+    return allowed.includes(v) ? v : fallback;
+  };
+  const booking = {
+    booking_enabled: form.get("booking_enabled") === "on",
+    booking_slot_minutes: pick("booking_slot_minutes", [10, 15, 20, 30, 60], 30),
+    booking_min_notice_minutes: pick("booking_min_notice_minutes", [0, 30, 60, 120, 240, 720, 1440, 2880], 120),
+    booking_max_days: pick("booking_max_days", [7, 14, 30, 60, 90], 30),
+    booking_cancel_hours: pick("booking_cancel_hours", [0, 2, 12, 24, 48], 24),
+  };
   const hasAbout = form.get("about_enabled") === "1";
   const about = String(form.get("about") ?? "").replace(/\r\n/g, "\n").trim();
   if (hasAbout && about.length > 1000) return { error: "Quem somos muito longo (até 1.000 caracteres)." };
@@ -116,6 +129,7 @@ export async function saveSettings(_prev: SettingsState, form: FormData): Promis
           }
         : {}),
       ...(hasAbout ? { about: about || null } : {}),
+      ...(hasBooking ? booking : {}),
       ...(hasMarketing ? { instagram, meta_pixel_id: metaPixelId || null, ga_measurement_id: gaId || null } : {}),
       ...(hasPromos ? { pix_discount_percent: pixPercent, free_shipping_min_cents: freeShippingMin } : {}),
     })

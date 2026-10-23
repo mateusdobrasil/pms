@@ -7,6 +7,7 @@ import { productImageUrl } from "@/lib/images";
 import { MAX_ORIGINAL_BYTES, compressImage } from "@/lib/compress-image";
 import { saveSettings, type SettingsState } from "./actions";
 import { LegalSection, type LegalSettings, type PolicyBase } from "./legal-section";
+import { BookingSection, type BookingSettings } from "./booking-section";
 
 type Settings = {
   name: string;
@@ -40,6 +41,7 @@ export function SettingsForm({
   legal,
   policyBase,
   about,
+  booking,
   storeUrl,
   googleVerification,
 }: {
@@ -50,6 +52,7 @@ export function SettingsForm({
   marketing: MarketingSettings;
   legal: LegalSettings | null;
   about: string | null | undefined;
+  booking: BookingSettings | null; // null = SQL dos agendamentos ainda não rodado
   policyBase: PolicyBase;
   googleVerification: string | null | undefined; // undefined = coluna ainda não existe
   storeUrl: string | null;
@@ -319,6 +322,8 @@ export function SettingsForm({
       </section>
 
       {legal && <LegalSection legal={legal} about={about} policyBase={policyBase} storeUrl={storeUrl} />}
+
+      {booking && <BookingSection booking={booking} />}
 
       {state?.error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{state.error}</p>}
       {state?.ok && <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-800">{state.ok}</p>}
