@@ -11,6 +11,7 @@ import { Tracking } from "./tracking";
 import { formatBRL } from "@/lib/money";
 import { platformUrl, storeBaseUrl } from "@/lib/urls";
 import { CartLink } from "./cart-link";
+import { createPublicClient } from "@/lib/supabase/public";
 import { StoreWhatsappButton } from "./store-whatsapp";
 import { TestModeBanner } from "./test-mode-banner";
 import { storeTestMode } from "@/lib/test-mode";
@@ -45,15 +46,18 @@ export default async function StoreLayout({
   const { domain } = await params;
   const store = await getStoreByDomain(domain);
   if (!store) notFound();
-  const [categories, promotions, marketing, legal, testMode, booking] = await Promise.all([
+  const [categories, promotions, marketing, legal, testMode, booking, { count: productCount }] = await Promise.all([
     getCategories(store.id),
     getPromotions(store.id),
     getStoreMarketing(store.id),
     getStoreLegal(store.id),
     storeTestMode(store.id),
     getBookingSettings(createAdminClient(), store.id),
+    createPublicClient().from("products").select("id", { count: "exact", head: true }).eq("store_id", store.id),
   ]);
   const bookingOn = !!booking?.enabled;
+  // Loja só de serviços (agenda ligada, nenhum produto à venda): sem busca, carrinho, pedidos e categorias.
+  const servicesOnly = bookingOn && productCount === 0;
   // Identificação exigida no comércio eletrônico (Decreto 7.962/2013): nome empresarial, CPF/CNPJ e endereço.
   const identification = [
     legal.legalName,
@@ -100,15 +104,17 @@ export default async function StoreLayout({
             )}
             <span className="text-xl font-bold tracking-tight">{store.name}</span>
           </Link>
-          <form action="/busca" className="order-last w-full sm:order-none sm:w-auto sm:flex-1 sm:max-w-md">
-            <input
-              name="q"
-              type="search"
-              placeholder="Buscar produtos"
-              aria-label="Buscar produtos"
-              className="w-full rounded-full border bg-neutral-50 px-4 py-2.5 text-sm"
-            />
-          </form>
+          {!servicesOnly && (
+            <form action="/busca" className="order-last w-full sm:order-none sm:w-auto sm:flex-1 sm:max-w-md">
+              <input
+                name="q"
+                type="search"
+                placeholder="Buscar produtos"
+                aria-label="Buscar produtos"
+                className="w-full rounded-full border bg-neutral-50 px-4 py-2.5 text-sm"
+              />
+            </form>
+          )}
           <div className="flex items-center gap-2">
             {bookingOn && (
               <Link
@@ -119,18 +125,20 @@ export default async function StoreLayout({
                 Agendar
               </Link>
             )}
-            <Link
-              href="/meus-pedidos"
-              aria-label="Meus pedidos"
-              className="flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium transition hover:border-neutral-400"
-            >
-              <svg viewBox="0 0 24 24" aria-hidden="true" className="h-5 w-5 fill-none stroke-current" strokeWidth={1.8}>
-                <path d="M21 8 12 3 3 8v8l9 5 9-5V8Z" strokeLinejoin="round" />
-                <path d="m3 8 9 5 9-5M12 13v8" strokeLinejoin="round" />
-              </svg>
-              <span className="sm:hidden">Pedidos</span>
-              <span className="hidden sm:inline">Meus pedidos</span>
-            </Link>
+            {!servicesOnly && (
+              <Link
+                href="/meus-pedidos"
+                aria-label="Meus pedidos"
+                className="flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium transition hover:border-neutral-400"
+              >
+                <svg viewBox="0 0 24 24" aria-hidden="true" className="h-5 w-5 fill-none stroke-current" strokeWidth={1.8}>
+                  <path d="M21 8 12 3 3 8v8l9 5 9-5V8Z" strokeLinejoin="round" />
+                  <path d="m3 8 9 5 9-5M12 13v8" strokeLinejoin="round" />
+                </svg>
+                <span className="sm:hidden">Pedidos</span>
+                <span className="hidden sm:inline">Meus pedidos</span>
+              </Link>
+            )}
             {instagramUrl && (
               <a
                 href={instagramUrl}
@@ -142,10 +150,10 @@ export default async function StoreLayout({
                 <InstagramIcon />
               </a>
             )}
-            <CartLink />
+            {!servicesOnly && <CartLink />}
           </div>
         </div>
-        {categories.length > 0 && (
+        {categories.length > 0 && !servicesOnly && (
           <nav className="mx-auto flex max-w-6xl gap-2 overflow-x-auto px-4 pb-3 text-sm">
             {categories.map((c) => (
               <Link
@@ -166,7 +174,7 @@ export default async function StoreLayout({
         <div className="mx-auto grid max-w-6xl gap-6 px-4 py-10 text-sm sm:grid-cols-3">
           <div>
             <p className="text-base font-semibold text-white">{store.name}</p>
-            <p className="mt-2 text-neutral-400">Compra segura com Pix ou cartão.</p>
+            <p className="mt-2 text-neutral-400">{servicesOnly ? "Agende seu horário online, com confirmação na hora." : "Compra segura com Pix ou cartão."}</p>
           </div>
           <div className="space-y-1">
             <p className="font-semibold text-white">Atendimento</p>
@@ -188,8 +196,12 @@ export default async function StoreLayout({
             <p className="font-semibold text-white">Navegue</p>
             <Link href="/" className="block py-1.5 hover:text-white">Início</Link>
             {bookingOn && <Link href="/agendar" className="block py-1.5 hover:text-white">Agendar horário</Link>}
-            <Link href="/carrinho" className="block py-1.5 hover:text-white">Carrinho</Link>
-            <Link href="/meus-pedidos" className="block py-1.5 hover:text-white">Meus pedidos</Link>
+            {!servicesOnly && (
+              <>
+                <Link href="/carrinho" className="block py-1.5 hover:text-white">Carrinho</Link>
+                <Link href="/meus-pedidos" className="block py-1.5 hover:text-white">Meus pedidos</Link>
+              </>
+            )}
             <Link href="/trocas-e-devolucoes" className="block py-1.5 hover:text-white">Trocas e devoluções</Link>
             <Link href="/politica-de-privacidade" className="block py-1.5 hover:text-white">Política de privacidade</Link>
           </div>

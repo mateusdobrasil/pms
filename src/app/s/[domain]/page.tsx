@@ -18,8 +18,8 @@ export default async function StoreHome({ params }: { params: Promise<{ domain: 
   const db = createAdminClient();
   const [products, banner, booking] = await Promise.all([fetchProducts(store.id, { limit: 24 }), getBanner(store.id), getBookingSettings(db, store.id)]);
   // Loja só de serviços (agenda ligada e nenhum produto): a home mostra os serviços para agendar.
-  const services = booking?.enabled && products.length === 0 ? (await loadCatalog(db, store.id)).services : [];
-  const servicesOnly = services.length > 0;
+  const servicesOnly = !!booking?.enabled && products.length === 0;
+  const services = servicesOnly ? (await loadCatalog(db, store.id)).services : [];
 
   return (
     <div className="space-y-10">
@@ -58,6 +58,7 @@ function ServicesSection({ services }: { services: BookableService[] }) {
           Agendar horário
         </Link>
       </div>
+      {services.length === 0 && <p className="text-neutral-600">Nenhum serviço disponível para agendar no momento.</p>}
       <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {services.map((s) => (
           <li key={s.id}>
