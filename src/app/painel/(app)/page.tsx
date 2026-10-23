@@ -7,6 +7,7 @@ import { LOW_STOCK } from "@/lib/stock";
 import { todayBR } from "@/lib/billing";
 import { dailySales, topProducts, windowStart } from "@/lib/sales";
 import { SalesChart, TopProducts } from "./sales-chart";
+import { FEE_FIELDS, paymentFees } from "@/lib/payments/fees";
 
 const CHART_DAYS = 30;
 
@@ -18,7 +19,7 @@ export default async function PanelHome() {
   const today = todayBR();
   const chartFrom = new Date(`${windowStart(today, CHART_DAYS)}T00:00:00-03:00`).toISOString();
 
-  const [{ data: sold }, { count: toShip }, { count: stockIssues }, { data: lowData, count: lowCount }, { data: recent }, { data: recentItems }] = await Promise.all([
+  const [{ data: sold }, { count: toShip }, { count: stockIssues }, { data: lowData, count: lowCount }, { data: recent }, { data: recentItems }, { data: monthPayments }] = await Promise.all([
     supabase
       .from("orders")
       .select("total_cents, paid_at")
@@ -59,7 +60,27 @@ export default async function PanelHome() {
       .eq("store_id", store.id)
       .in("orders.status", SOLD_STATUSES)
       .gte("orders.paid_at", chartFrom),
+    // Pagamentos aprovados das vendas do mês: taxa do Mercado Pago e valor líquido.
+    supabase
+      .from("payments")
+      .select(`order_id, amount_cents, ${FEE_FIELDS}, orders!inner(status, paid_at)`)
+      .eq("store_id", store.id)
+      .eq("status", "approved")
+      .in("orders.status", SOLD_STATUSES)
+      .gte("orders.paid_at", startOfMonth.toISOString()),
   ]);
+
+  // Você recebe = pago menos a taxa do Mercado Pago (um pagamento por pedido).
+  let monthNet = 0;
+  let monthFees = 0;
+  const counted = new Set<string>();
+  for (const p of (monthPayments ?? []) as { order_id: string; amount_cents: number; fee: unknown; net: unknown }[]) {
+    const f = counted.has(p.order_id) ? null : paymentFees(p.amount_cents, p.fee, p.net);
+    if (!f) continue;
+    counted.add(p.order_id);
+    monthNet += f.netCents;
+    monthFees += f.feeCents;
+  }
   const days = dailySales((recent ?? []) as { total_cents: number; paid_at: string }[], today, CHART_DAYS);
   const best = topProducts((recentItems ?? []) as { product_name: string; unit_price_cents: number; quantity: number }[]);
   const periodCents = days.reduce((s, d) => s + d.cents, 0);
@@ -68,11 +89,19 @@ export default async function PanelHome() {
 
   const month = (sold ?? []) as { total_cents: number; paid_at: string }[];
   const todays = month.filter((o) => new Date(o.paid_at) >= startOfDay);
+  // Vendas do mês sem a taxa informada pelo Mercado Pago ficam fora do "Você recebe" (e o cartão avisa quantas).
+  const unknownFees = Math.max(0, month.length - counted.size);
   const sum = (rows: { total_cents: number }[]) => rows.reduce((s, o) => s + o.total_cents, 0);
 
   const cards = [
     { label: "Vendas hoje", value: formatBRL(sum(todays)), detail: `${todays.length} pedido(s)`, accent: "border-t-primary-500" },
-    { label: "Vendas no mês", value: formatBRL(sum(month)), detail: `${month.length} pedido(s)`, accent: "border-t-emerald-500" },
+    { label: "Vendas no mês", value: formatBRL(sum(month)), detail: `${month.length} pedido(s)`, accent: "border-t-sky-500" },
+    {
+      label: "Você recebe no mês",
+      value: formatBRL(monthNet),
+      detail: `${formatBRL(monthFees)} de taxas do Mercado Pago${unknownFees ? ` · ${unknownFees} pedido(s) sem taxa informada` : ""}`,
+      accent: "border-t-emerald-500",
+    },
     { label: "Para enviar", value: String(toShip ?? 0), detail: "pagos ou em preparação", href: "/painel/pedidos?status=paid", accent: "border-t-amber-500" },
   ];
 
@@ -86,7 +115,7 @@ export default async function PanelHome() {
         </p>
       )}
 
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {cards.map((c) => {
           const body = (
             <>

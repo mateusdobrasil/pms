@@ -6,6 +6,7 @@ import { formatCPF, formatDateTime, formatPhone } from "@/lib/format";
 import { isUuid } from "@/lib/validation";
 import { MEMBER_TRANSITIONS, SOLD_STATUSES, statusLabel, statusTone, type OrderStatus } from "@/lib/order-status";
 import { OrderActions, RefundSection } from "./order-actions";
+import { FEE_FIELDS, feePercent, paymentFees } from "@/lib/payments/fees";
 
 type Order = {
   id: string;
@@ -26,7 +27,7 @@ type Order = {
   paid_at: string | null;
   created_at: string;
   order_items: { id: string; product_name: string; variant_name: string; unit_price_cents: number; quantity: number }[];
-  payments: { id: string; method: "pix" | "card"; status: string; amount_cents: number; created_at: string }[];
+  payments: { id: string; method: "pix" | "card"; status: string; amount_cents: number; created_at: string; fee: unknown; net: unknown }[];
 };
 
 const PAYMENT_STATUS: Record<string, string> = {
@@ -45,7 +46,7 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
   const { data } = await supabase
     .from("orders")
     .select(
-      "id, code, status, customer_name, customer_email, customer_cpf, customer_phone, shipping_address, shipping_method, subtotal_cents, shipping_cents, total_cents, discount_cents, tracking_code, stock_issue, paid_at, created_at, order_items(id, product_name, variant_name, unit_price_cents, quantity), payments(id, method, status, amount_cents, created_at)",
+      `id, code, status, customer_name, customer_email, customer_cpf, customer_phone, shipping_address, shipping_method, subtotal_cents, shipping_cents, total_cents, discount_cents, tracking_code, stock_issue, paid_at, created_at, order_items(id, product_name, variant_name, unit_price_cents, quantity), payments(id, method, status, amount_cents, created_at, ${FEE_FIELDS})`,
     )
     .eq("id", id)
     .eq("store_id", store.id)
@@ -60,6 +61,8 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
   const { data: refund } = await supabase.from("orders").select("refunded_at").eq("id", order.id).maybeSingle();
   const refundedAt = (refund as { refunded_at: string | null } | null)?.refunded_at ?? null;
   const refundable = SOLD_STATUSES.includes(order.status) && !!approved;
+  // O que o lojista de fato recebe: pago menos a taxa do Mercado Pago (pedido cancelado/estornado não conta).
+  const fees = refundable && approved ? paymentFees(approved.amount_cents, approved.fee, approved.net) : null;
 
   return (
     <div className="space-y-6">
@@ -124,6 +127,18 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
               )}
               <p className="flex justify-between font-semibold"><span>Total</span><span>{formatBRL(order.total_cents)}</span></p>
             </div>
+            {fees && (
+              <div className="space-y-1 border-t bg-neutral-50 px-4 py-3 text-sm">
+                <p className="flex justify-between text-neutral-600">
+                  <span>Taxa do Mercado Pago ({feePercent(fees)})</span>
+                  <span>−{formatBRL(fees.feeCents)}</span>
+                </p>
+                <p className="flex justify-between font-semibold text-emerald-700">
+                  <span>Você recebe</span>
+                  <span>{formatBRL(fees.netCents)}</span>
+                </p>
+              </div>
+            )}
           </section>
 
           <section className="rounded-xl border bg-white shadow-sm">

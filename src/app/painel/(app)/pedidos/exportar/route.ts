@@ -1,6 +1,7 @@
 import { requireStore } from "@/lib/panel";
 import { formatCPF, formatPhone } from "@/lib/format";
-import { ORDER_STATUSES, statusLabel, type OrderStatus } from "@/lib/order-status";
+import { ORDER_STATUSES, SOLD_STATUSES, statusLabel, type OrderStatus } from "@/lib/order-status";
+import { FEE_FIELDS, paymentFees } from "@/lib/payments/fees";
 
 const BATCH = 1000; // máximo por consulta no Supabase
 const MAX_ROWS = 20000;
@@ -22,6 +23,7 @@ type Row = {
   total_cents: number;
   tracking_code: string | null;
   order_items: { product_name: string; variant_name: string; quantity: number }[];
+  payments: { status: string; amount_cents: number; fee: unknown; net: unknown }[];
 };
 
 // Planilha para o Excel em português: separador ";", vírgula decimal e BOM para os acentos.
@@ -45,7 +47,7 @@ export async function GET(req: Request) {
     let query = supabase
       .from("orders")
       .select(
-        "code, status, created_at, paid_at, customer_name, customer_email, customer_cpf, customer_phone, shipping_method, shipping_address, subtotal_cents, shipping_cents, discount_cents, total_cents, tracking_code, order_items(product_name, variant_name, quantity)",
+        `code, status, created_at, paid_at, customer_name, customer_email, customer_cpf, customer_phone, shipping_method, shipping_address, subtotal_cents, shipping_cents, discount_cents, total_cents, tracking_code, order_items(product_name, variant_name, quantity), payments(status, amount_cents, ${FEE_FIELDS})`,
       )
       .eq("store_id", store.id)
       .order("created_at", { ascending: false })
@@ -60,10 +62,13 @@ export async function GET(req: Request) {
 
   const header = [
     "Pedido", "Data", "Status", "Pago em", "Cliente", "E-mail", "CPF", "Telefone", "Itens",
-    "Entrega", "Endereço", "Bairro", "Cidade", "UF", "CEP", "Subtotal", "Frete", "Desconto", "Total", "Rastreio",
+    "Entrega", "Endereço", "Bairro", "Cidade", "UF", "CEP", "Subtotal", "Frete", "Desconto", "Total", "Taxa Mercado Pago", "Valor líquido", "Rastreio",
   ];
   const lines = rows.map((o) => {
     const a = o.shipping_address;
+    // Só vendas (pedido cancelado/estornado não tem valor a receber).
+    const approved = SOLD_STATUSES.includes(o.status) ? o.payments.find((p) => p.status === "approved") : undefined;
+    const fees = approved ? paymentFees(approved.amount_cents, approved.fee, approved.net) : null;
     const items = o.order_items
       .map((i) => `${i.quantity}x ${i.product_name}${i.variant_name !== "Único" ? ` (${i.variant_name})` : ""}`)
       .join("; ");
@@ -87,6 +92,8 @@ export async function GET(req: Request) {
       money(o.shipping_cents),
       money(o.discount_cents),
       money(o.total_cents),
+      fees ? money(fees.feeCents) : "",
+      fees ? money(fees.netCents) : "",
       o.tracking_code,
     ].map(cell).join(";");
   });
