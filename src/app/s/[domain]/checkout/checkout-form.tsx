@@ -20,6 +20,7 @@ type Quote = {
   subtotalCents: number;
   shippingOptions: Option[];
   shippingError: string | null;
+  shippingMode?: string; // lib/shipping-mode: "pickup" = loja só com retirada (sem CEP)
   problems: string[];
   pixDiscountPercent?: number;
   freeShippingMinCents?: number | null;
@@ -150,7 +151,9 @@ export function CheckoutForm() {
   const blocked = quote.problems.length > 0;
   // Mesmas contas do servidor (lib/promotions): só exibição; o pedido é recalculado lá.
   const pixDiscount = quote.pixDiscountPercent ? Math.floor((quote.subtotalCents * quote.pixDiscountPercent) / 100) : 0;
-  const missingForFreeShipping = quote.freeShippingMinCents ? Math.max(0, quote.freeShippingMinCents - quote.subtotalCents) : 0;
+  const pickupOnly = quote.shippingMode === "pickup";
+  const missingForFreeShipping =
+    quote.freeShippingMinCents && !pickupOnly ? Math.max(0, quote.freeShippingMinCents - quote.subtotalCents) : 0;
   const zipReady = digits(cep).length === 8;
   const setField = (field: keyof Address) => (e: { target: { value: string } }) =>
     setAddress((a) => ({ ...a, [field]: e.target.value }));
@@ -194,7 +197,8 @@ export function CheckoutForm() {
 
       <section className="space-y-3">
         <h2 className="font-semibold">Entrega</h2>
-        <div className="flex flex-wrap items-center gap-3">
+        {/* Loja só com retirada: sem CEP, só a opção de retirada abaixo. */}
+        <div className={`flex-wrap items-center gap-3 ${pickupOnly ? "hidden" : "flex"}`}>
           <input
             value={cep}
             onChange={(e) => onCepChange(e.target.value)}

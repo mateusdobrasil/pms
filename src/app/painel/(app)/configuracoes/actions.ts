@@ -6,6 +6,8 @@ import { isEmail, isValidDocument, onlyDigits } from "@/lib/validation";
 import { isValidBannerLink } from "@/lib/banner";
 import { parseBRL } from "@/lib/money";
 import { parseGoogleVerification, parseInstagramHandle } from "@/lib/store-marketing";
+import { parseShippingMode } from "@/lib/shipping-mode";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export type SettingsState = { error?: string; ok?: string } | null;
 
@@ -98,6 +100,24 @@ export async function saveSettings(_prev: SettingsState, form: FormData): Promis
     booking_max_days: pick("booking_max_days", [7, 14, 30, 60, 90], 30),
     booking_cancel_hours: pick("booking_cancel_hours", [0, 2, 12, 24, 48], 24),
   };
+  // Forma de entrega: só vem no formulário quando a coluna existe (SQL 20261102000000).
+  const hasShipping = form.get("shipping_enabled") === "1";
+  const shippingMode = parseShippingMode(form.get("shipping_mode"));
+  if (hasShipping) {
+    if (!shippingMode) return { error: "Escolha uma forma de entrega." };
+    // "Somente Melhor Envio" sem Melhor Envio funcionando deixaria a loja sem nenhuma forma de entrega.
+    if (shippingMode === "me") {
+      const { data: secret } = await createAdminClient()
+        .from("store_secrets")
+        .select("melhor_envio_token")
+        .eq("store_id", store.id)
+        .maybeSingle();
+      if (!secret?.melhor_envio_token) {
+        return { error: "Para usar \"Somente Melhor Envio\", o Melhor Envio precisa estar ligado na loja. Fale com o suporte." };
+      }
+      if (originZip.length !== 8) return { error: "Para usar \"Somente Melhor Envio\", preencha o CEP de origem." };
+    }
+  }
   const hasAbout = form.get("about_enabled") === "1";
   const about = String(form.get("about") ?? "").replace(/\r\n/g, "\n").trim();
   if (hasAbout && about.length > 1000) return { error: "Quem somos muito longo (até 1.000 caracteres)." };
@@ -130,6 +150,7 @@ export async function saveSettings(_prev: SettingsState, form: FormData): Promis
         : {}),
       ...(hasAbout ? { about: about || null } : {}),
       ...(hasBooking ? booking : {}),
+      ...(hasShipping && shippingMode ? { shipping_mode: shippingMode } : {}),
       ...(hasMarketing ? { instagram, meta_pixel_id: metaPixelId || null, ga_measurement_id: gaId || null } : {}),
       ...(hasPromos ? { pix_discount_percent: pixPercent, free_shipping_min_cents: freeShippingMin } : {}),
     })

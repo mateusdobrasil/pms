@@ -1,6 +1,8 @@
 import { requireStore } from "@/lib/panel";
 import { SettingsForm } from "./settings-form";
 import { storeBaseUrl } from "@/lib/urls";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { DEFAULT_SHIPPING_MODE, parseShippingMode } from "@/lib/shipping-mode";
 
 export default async function SettingsPage() {
   const { supabase, store } = await requireStore();
@@ -42,6 +44,14 @@ export default async function SettingsPage() {
     .select("booking_enabled, booking_slot_minutes, booking_min_notice_minutes, booking_max_days, booking_cancel_hours")
     .eq("id", store.id)
     .single();
+  // Forma de entrega: também à parte (SQL 20261102000000).
+  const { data: shippingRow, error: shippingError } = await supabase.from("stores").select("shipping_mode").eq("id", store.id).single();
+  // O token do Melhor Envio fica em store_secrets (só service role): aqui só se ele existe, para avisar o lojista.
+  const { data: secret } = await createAdminClient()
+    .from("store_secrets")
+    .select("melhor_envio_token")
+    .eq("store_id", store.id)
+    .maybeSingle();
   // "Quem somos": também à parte (SQL 20261031000000).
   const { data: aboutRow, error: aboutError } = await supabase.from("stores").select("about").eq("id", store.id).single();
   const { data: domains } = await supabase.from("store_domains").select("domain, is_primary").eq("store_id", store.id);
@@ -61,6 +71,11 @@ export default async function SettingsPage() {
         legal={legalError ? null : legal}
         about={aboutError ? undefined : (aboutRow?.about ?? null)}
         booking={bookingError ? null : booking}
+        shipping={
+          shippingError
+            ? null
+            : { mode: parseShippingMode(shippingRow?.shipping_mode) ?? DEFAULT_SHIPPING_MODE, melhorEnvioReady: !!secret?.melhor_envio_token }
+        }
         policyBase={policyBase}
         storeUrl={domain ? storeBaseUrl(domain) : null}
         googleVerification={gsvError ? undefined : (gsv?.google_site_verification ?? null)}
