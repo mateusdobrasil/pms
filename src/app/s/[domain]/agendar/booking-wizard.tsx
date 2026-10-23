@@ -45,10 +45,25 @@ const chip = (selected: boolean) =>
   `rounded-lg border-2 px-3 py-2 text-sm font-medium transition ${selected ? "" : "border-neutral-200 hover:border-neutral-400"}`;
 const chipStyle = (selected: boolean) => (selected ? { borderColor: "var(--brand)", color: "var(--brand)" } : undefined);
 
-export function BookingWizard({ services, professionals, days, whatsapp }: { services: Service[]; professionals: Professional[]; days: string[]; whatsapp: string | null }) {
+export function BookingWizard({
+  services,
+  professionals,
+  days,
+  whatsapp,
+  reschedule = null,
+}: {
+  services: Service[];
+  professionals: Professional[];
+  days: string[];
+  whatsapp: string | null;
+  reschedule?: { token: string; serviceId: string; professionalId: string | null } | null; // remarcar um agendamento existente
+}) {
   const router = useRouter();
-  const [serviceId, setServiceId] = useState<string | null>(services.length === 1 ? services[0].id : null);
-  const [proId, setProId] = useState<string>(""); // "" = qualquer um
+  const [serviceId, setServiceId] = useState<string | null>(reschedule?.serviceId ?? (services.length === 1 ? services[0].id : null));
+  // Remarcação: começa com o mesmo profissional, se ele ainda faz o serviço. "" = qualquer um.
+  const [proId, setProId] = useState<string>(
+    reschedule?.professionalId && professionals.some((p) => p.id === reschedule.professionalId && p.serviceIds.includes(reschedule.serviceId)) ? reschedule.professionalId : "",
+  );
   const [date, setDate] = useState<string | null>(null);
   const [slots, setSlots] = useState<Slot[] | null>(null);
   const [time, setTime] = useState<number | null>(null);
@@ -91,6 +106,25 @@ export function BookingWizard({ services, professionals, days, whatsapp }: { ser
     setDate(d);
     setSlots(null);
     setTime(null);
+  }
+
+  // Remarcar: só manda o novo dia/horário (os dados do cliente e o pagamento continuam os mesmos).
+  async function confirmReschedule() {
+    if (!reschedule || !date || time === null) return;
+    setSending(true);
+    setError(null);
+    const res = await fetch(`/api/bookings/${reschedule.token}/manage`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "reschedule", date, time, professionalId: proId || null }),
+    }).catch(() => null);
+    const data = (await res?.json().catch(() => null)) as { error?: string } | null;
+    if (res?.ok) {
+      router.push(`/agendamento/${reschedule.token}?remarcado=1`);
+      return;
+    }
+    setSending(false);
+    setError(data?.error ?? "Não foi possível remarcar agora. Tente de novo.");
   }
 
   async function submit(e: React.FormEvent<HTMLFormElement>) {
@@ -207,7 +241,22 @@ export function BookingWizard({ services, professionals, days, whatsapp }: { ser
         </Step>
       )}
 
-      {service && date && time !== null && (
+      {reschedule && service && date && time !== null && (
+        <section className="space-y-3">
+          {error && <p className="text-sm text-red-700">{error}</p>}
+          <button
+            type="button"
+            onClick={confirmReschedule}
+            disabled={sending}
+            className="w-full rounded-lg px-4 py-3 font-semibold text-white shadow-sm transition hover:brightness-110 disabled:opacity-50"
+            style={{ background: "var(--brand)" }}
+          >
+            {sending ? "Remarcando…" : `Confirmar novo horário: ${slots?.find((s) => s.time === time)?.label}`}
+          </button>
+        </section>
+      )}
+
+      {!reschedule && service && date && time !== null && (
         <Step n={pros.length > 1 ? 4 : 3} title="Seus dados">
           <form onSubmit={submit} className="space-y-3">
             <div className="grid gap-3 sm:grid-cols-2">

@@ -1,11 +1,11 @@
 import "server-only";
 import { after } from "next/server";
 import type { createAdminClient } from "@/lib/supabase/admin";
-import { notifyPlatformError } from "@/lib/email";
-import { PROVIDER, type GatewayPayment } from "@/lib/payments/mercadopago";
-import { onlineCents, parseTime, type PaymentMode } from "@/lib/booking";
+import { notifyBooking, notifyPlatformError } from "@/lib/email";
+import { PROVIDER, type GatewayPayment, getPayment, refundPayment } from "@/lib/payments/mercadopago";
+import { canSelfManage, onlineCents, parseTime, type PaymentMode } from "@/lib/booking";
 import { type Interval, bookingDays, dayStartMs, daySlots, instantOf, mergeSlots, weekdayOf } from "@/lib/booking-slots";
-import { todayBR } from "@/lib/billing";
+import { addDays, todayBR } from "@/lib/billing";
 import { isEmail, isValidCPF, onlyDigits } from "@/lib/validation";
 
 // Agendamentos na loja: catálogo, horários livres, criação da reserva e pagamento.
@@ -92,6 +92,7 @@ export async function availability(
   serviceId: string,
   date: string,
   professionalId: string | null,
+  ignoreBookingId?: string, // remarcação: o próprio agendamento não ocupa o horário
 ) {
   if (!bookingDays(todayBR(), settings.maxDays).includes(date)) return { service: null, slots: [] };
   const { services, professionals } = await loadCatalog(db, storeId);
@@ -107,7 +108,7 @@ export async function availability(
   const [{ data: bookings }, { data: blocks }] = await Promise.all([
     db
       .from("bookings")
-      .select("professional_id, starts_at, ends_at, status, expires_at")
+      .select("id, professional_id, starts_at, ends_at, status, expires_at")
       .eq("store_id", storeId)
       .in("professional_id", ids)
       .in("status", ACTIVE_STATUSES)
@@ -121,7 +122,9 @@ export async function availability(
       .gt("ends_at", from),
   ]);
   // Reserva aguardando pagamento que já passou do prazo não segura mais o horário.
-  const live = (bookings ?? []).filter((b) => b.status !== "pending_payment" || !b.expires_at || Date.parse(b.expires_at) > now);
+  const live = (bookings ?? []).filter(
+    (b) => b.id !== ignoreBookingId && (b.status !== "pending_payment" || !b.expires_at || Date.parse(b.expires_at) > now),
+  );
   const weekday = weekdayOf(date);
 
   const byPro = pros.map((p) => {
@@ -211,13 +214,20 @@ export async function createBooking(db: Db, storeId: string, input: BookingInput
       payment_mode: service.payment_mode,
       online_cents: online,
     })
-    .select("public_token")
+    .select("id, public_token, status")
     .single();
   // 23P01: o banco recusou por sobreposição (outro cliente pegou o horário no mesmo instante).
   if (error?.code === "23P01") return { error: "Esse horário acabou de ser reservado por outra pessoa. Escolha outro." };
   if (error || !data) {
     console.error("Agendamento não criado", { storeId, error });
     return { error: "Não foi possível agendar agora. Tente de novo." };
+  }
+  // Sem pagamento online já está confirmado: avisa o cliente e o salão.
+  if (data.status === "confirmed") {
+    after(async () => {
+      await notifyBooking(data.id, "confirmed");
+      await notifyBooking(data.id, "store");
+    });
   }
   return { token: data.public_token };
 }
@@ -256,11 +266,18 @@ export async function recordBookingPayment(db: Db, booking: BookingRef, payment:
   if (error) throw error;
 
   if (payment.status === "approved") {
-    const { error: upErr } = await db
+    const { data: confirmed, error: upErr } = await db
       .from("bookings")
       .update({ status: "confirmed", paid_cents: payment.amountCents, expires_at: null })
       .eq("id", booking.id)
-      .in("status", ["pending_payment", "expired"]);
+      .in("status", ["pending_payment", "expired"])
+      .select("id");
+    if (confirmed?.length) {
+      after(async () => {
+        await notifyBooking(booking.id, "confirmed");
+        await notifyBooking(booking.id, "store");
+      });
+    }
     // Pagou depois de o horário expirar e alguém já pegou: o dinheiro entrou sem horário. Avisa para devolver.
     if (upErr?.code === "23P01") {
       after(() =>
@@ -273,4 +290,115 @@ export async function recordBookingPayment(db: Db, booking: BookingRef, payment:
     } else if (upErr) throw upErr;
   }
   return true;
+}
+
+// ---------------------------------------------------------------- autoatendimento (link do cliente) e lembretes
+
+type ManagedBooking = { id: string; status: string; service_id: string | null; professional_id: string | null; starts_at: string; paid_cents: number };
+
+async function loadManaged(db: Db, storeId: string, token: string) {
+  const { data } = await db
+    .from("bookings")
+    .select("id, status, service_id, professional_id, starts_at, paid_cents")
+    .eq("store_id", storeId)
+    .eq("public_token", token)
+    .maybeSingle();
+  return data as ManagedBooking | null;
+}
+
+// Cancela o agendamento. Pelo cliente (link), só até o prazo da loja. Se houve pagamento online, estorna antes.
+export async function cancelBooking(db: Db, storeId: string, token: string, by: "customer" | "store"): Promise<{ ok: true } | { error: string }> {
+  const b = await loadManaged(db, storeId, token);
+  if (!b || !["confirmed", "pending_payment"].includes(b.status)) return { error: "Este agendamento não pode mais ser cancelado." };
+  if (by === "customer") {
+    const settings = await getBookingSettings(db, storeId);
+    if (!settings || !canSelfManage(b.starts_at, settings.cancelHours)) {
+      return { error: "O prazo para cancelar pelo link já passou. Fale com o salão pelo WhatsApp." };
+    }
+  }
+
+  let refunded = false;
+  if (b.paid_cents > 0) {
+    const [{ data: paid }, { data: secret }] = await Promise.all([
+      db.from("booking_payments").select("provider_payment_id").eq("booking_id", b.id).in("status", ["approved", "refunded"]).limit(1).maybeSingle(),
+      db.from("store_secrets").select("gateway_access_token").eq("store_id", storeId).maybeSingle(),
+    ]);
+    if (!paid || !secret?.gateway_access_token) return { error: "Não foi possível devolver o pagamento agora. Fale com o salão." };
+    try {
+      const current = await getPayment(paid.provider_payment_id, secret.gateway_access_token);
+      if (current.status !== "refunded") await refundPayment(paid.provider_payment_id, secret.gateway_access_token);
+      refunded = true;
+      await db.from("booking_payments").update({ status: "refunded" }).eq("booking_id", b.id).eq("provider_payment_id", paid.provider_payment_id);
+    } catch (err) {
+      console.error("Estorno do agendamento recusado", { bookingId: b.id, err });
+      after(() => notifyPlatformError(`agendamento:estorno:${b.id}`, "Estorno de agendamento recusado pelo Mercado Pago", { agendamento: b.id, erro: String(err) }));
+      return { error: "Não foi possível devolver o pagamento agora. Fale com o salão pelo WhatsApp." };
+    }
+  }
+
+  const now = new Date().toISOString();
+  const { data } = await db
+    .from("bookings")
+    .update({ status: "canceled", canceled_at: now, ...(refunded ? { refunded_at: now } : {}) })
+    .eq("id", b.id)
+    .in("status", ["confirmed", "pending_payment"])
+    .select("id");
+  if (!data?.length) return { error: "Este agendamento não pode mais ser cancelado." };
+  if (b.status === "confirmed") after(() => notifyBooking(b.id, "canceled"));
+  return { ok: true };
+}
+
+// Remarca para outro horário livre (mesmo serviço; o que foi pago continua valendo).
+export async function rescheduleBooking(
+  db: Db,
+  storeId: string,
+  token: string,
+  target: { date: string; time: number; professionalId: string | null },
+): Promise<{ ok: true } | { error: string }> {
+  const b = await loadManaged(db, storeId, token);
+  if (!b || b.status !== "confirmed" || !b.service_id) return { error: "Este agendamento não pode ser remarcado." };
+  const settings = await getBookingSettings(db, storeId);
+  if (!settings || !canSelfManage(b.starts_at, settings.cancelHours)) {
+    return { error: "O prazo para remarcar pelo link já passou. Fale com o salão pelo WhatsApp." };
+  }
+  const { service, slots, professionals } = await availability(db, storeId, settings, b.service_id, target.date, target.professionalId, b.id);
+  const slot = slots.find((s) => s.time === target.time);
+  if (!service || !slot) return { error: "Esse horário não está livre. Escolha outro." };
+  // Mantém o mesmo profissional quando ele está livre; senão, o primeiro disponível.
+  const proId = target.professionalId ?? (b.professional_id && slot.professionals.includes(b.professional_id) ? b.professional_id : slot.professionals[0]);
+  const pro = professionals?.find((p) => p.id === proId);
+  if (!pro) return { error: "Esse horário não está livre. Escolha outro." };
+
+  const startsAt = instantOf(target.date, target.time);
+  const { data, error } = await db
+    .from("bookings")
+    .update({
+      starts_at: new Date(startsAt).toISOString(),
+      ends_at: new Date(startsAt + service.duration_minutes * 60_000).toISOString(),
+      professional_id: pro.id,
+      professional_name: pro.name,
+      notified_reminder_at: null, // o lembrete vale para a nova data
+    })
+    .eq("id", b.id)
+    .eq("status", "confirmed")
+    .select("id");
+  if (error?.code === "23P01") return { error: "Esse horário acabou de ser reservado por outra pessoa. Escolha outro." };
+  if (error || !data?.length) return { error: "Não foi possível remarcar agora. Tente de novo." };
+  after(() => notifyBooking(b.id, "rescheduled"));
+  return { ok: true };
+}
+
+// Lembrete da véspera: agendamentos confirmados de amanhã (Brasília) que ainda não receberam. Rotina diária.
+export async function sendBookingReminders(db: Db, today = todayBR()) {
+  const tomorrow = addDays(today, 1);
+  const { data, error } = await db
+    .from("bookings")
+    .select("id")
+    .eq("status", "confirmed")
+    .is("notified_reminder_at", null)
+    .gte("starts_at", new Date(dayStartMs(tomorrow)).toISOString())
+    .lt("starts_at", new Date(dayStartMs(addDays(tomorrow, 1))).toISOString());
+  if (error) return { reminders: 0, error: error.message }; // sem o SQL da agenda
+  for (const b of data ?? []) await notifyBooking(b.id, "reminder");
+  return { reminders: data?.length ?? 0 };
 }

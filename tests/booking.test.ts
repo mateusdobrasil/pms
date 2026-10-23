@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatDuration, formatRanges, onlineCents, parseRanges, parseTime } from "@/lib/booking";
+import { canSelfManage, formatDuration, formatRanges, googleCalendarUrl, onlineCents, parseRanges, parseTime } from "@/lib/booking";
 
 describe("pagamento do agendamento", () => {
   it("tudo online, sinal ou no salão", () => {
@@ -32,5 +32,21 @@ describe("durações e horários", () => {
     expect("error" in parseRanges("18:00-09:00")).toBe(true);
     expect("error" in parseRanges("manhã")).toBe(true);
     expect(formatRanges([[540, 720], [780, 1080]])).toBe("09:00-12:00, 13:00-18:00");
+  });
+});
+
+describe("agenda do cliente", () => {
+  it("link do Google Agenda em UTC", () => {
+    const url = new URL(googleCalendarUrl({ title: "Corte", startsAt: "2026-11-10T14:30:00-03:00", endsAt: "2026-11-10T15:30:00-03:00", location: "Rua A" }));
+    expect(url.searchParams.get("dates")).toBe("20261110T173000Z/20261110T183000Z");
+    expect(url.searchParams.get("text")).toBe("Corte");
+    expect(url.searchParams.get("location")).toBe("Rua A");
+  });
+
+  it("cancelar/remarcar só até o prazo", () => {
+    const now = Date.parse("2026-11-09T14:00:00-03:00");
+    expect(canSelfManage("2026-11-10T15:00:00-03:00", 24, now)).toBe(true);
+    expect(canSelfManage("2026-11-10T13:00:00-03:00", 24, now)).toBe(false);
+    expect(canSelfManage("2026-11-09T15:00:00-03:00", 0, now)).toBe(true);
   });
 });

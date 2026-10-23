@@ -53,3 +53,15 @@ export function parseRanges(text: string): { ranges: [number, number][] } | { er
 }
 
 export const formatRanges = (ranges: [number, number][]) => ranges.map(([a, b]) => `${formatTime(a)}-${formatTime(b)}`).join(", ");
+
+// Link "Adicionar ao Google Agenda" (datas em UTC no formato AAAAMMDDTHHMMSSZ).
+export function googleCalendarUrl(e: { title: string; startsAt: string; endsAt: string; details?: string; location?: string }) {
+  const fmt = (iso: string) => new Date(iso).toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
+  const params = new URLSearchParams({ action: "TEMPLATE", text: e.title, dates: `${fmt(e.startsAt)}/${fmt(e.endsAt)}` });
+  if (e.details) params.set("details", e.details);
+  if (e.location) params.set("location", e.location);
+  return `https://calendar.google.com/calendar/render?${params}`;
+}
+
+// Até quando o cliente pode cancelar ou remarcar pelo link.
+export const canSelfManage = (startsAt: string, cancelHours: number, now = Date.now()) => Date.parse(startsAt) - cancelHours * 3_600_000 > now;

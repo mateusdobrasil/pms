@@ -5,6 +5,9 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { formatBRL } from "@/lib/money";
 import { isUuid } from "@/lib/validation";
 import { PaymentPanel } from "../../payment-panel";
+import { ManageBooking } from "./manage-booking";
+import { getBookingSettings } from "@/lib/booking-server";
+import { canSelfManage, googleCalendarUrl } from "@/lib/booking";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Seu agendamento", robots: { index: false } };
@@ -27,8 +30,15 @@ function longWhen(iso: string) {
 }
 
 // Página do agendamento (link com public_token, sem login): pagamento, confirmação e resumo.
-export default async function BookingPage({ params }: { params: Promise<{ domain: string; token: string }> }) {
+export default async function BookingPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ domain: string; token: string }>;
+  searchParams: Promise<{ remarcado?: string }>;
+}) {
   const { domain, token } = await params;
+  const rescheduled = !!(await searchParams).remarcado;
   if (!isUuid(token)) notFound();
   const store = await getStoreByDomain(domain);
   if (!store) notFound();
@@ -51,13 +61,27 @@ export default async function BookingPage({ params }: { params: Promise<{ domain
     publicKey = secret?.gateway_public_key ?? null;
   }
   const remaining = b.price_cents - b.paid_cents;
+  const settings = await getBookingSettings(db, store.id);
+  const manageable = b.status === "confirmed" && !!settings && canSelfManage(b.starts_at, settings.cancelHours);
+  const deadline = settings
+    ? new Date(Date.parse(b.starts_at) - settings.cancelHours * 3_600_000)
+        .toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" })
+        .replace(",", "")
+    : "";
+  const calendar = googleCalendarUrl({ title: `${b.service_name} · ${store.name}`, startsAt: b.starts_at, endsAt: b.ends_at });
 
   return (
     <div className="mx-auto max-w-2xl space-y-8">
       <header>
         <p className="text-sm text-neutral-500">Agendamento {b.code}</p>
         <h1 className="text-2xl font-bold tracking-tight">{TITLES[status] ?? status}</h1>
-        {status === "confirmed" && <p className="mt-2 text-neutral-600">Tudo certo! Enviamos a confirmação para {b.customer_email}. Guarde este link.</p>}
+        {status === "confirmed" && (
+          <p className="mt-2 text-neutral-600">
+            {rescheduled ? "Novo horário confirmado! " : "Tudo certo! "}Enviamos a confirmação para {b.customer_email}. Guarde este link.{" "}
+            <a href={calendar} target="_blank" rel="noopener noreferrer" className="font-medium underline">Adicionar ao Google Agenda</a>
+          </p>
+        )}
+        {status === "canceled" && <p className="mt-2 text-neutral-600">O horário foi liberado. <Link href="/agendar" className="font-medium underline">Agendar outro horário</Link>.</p>}
         {awaiting && (
           <p className="mt-2 text-neutral-600">
             Seu horário está reservado por alguns minutos. Pague {b.payment_mode === "deposit" ? "o sinal" : "o valor"} para confirmar.
@@ -104,6 +128,8 @@ export default async function BookingPage({ params }: { params: Promise<{ domain
           />
         </section>
       )}
+
+      {manageable && <ManageBooking token={token} paidLabel={b.paid_cents ? formatBRL(b.paid_cents) : null} deadline={deadline} />}
 
       {store.whatsapp && (
         <p className="text-sm text-neutral-600">

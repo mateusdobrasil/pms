@@ -4,6 +4,7 @@ import { formatBRL } from "@/lib/money";
 import { formatPhone } from "@/lib/format";
 import { platformUrl, storeBaseUrl } from "@/lib/urls";
 import { type InvoiceKind, formatDay, invoiceTitle, lastPayDay } from "@/lib/billing";
+import { googleCalendarUrl } from "@/lib/booking";
 
 // E-mails transacionais via API do Resend. Sem RESEND_API_KEY, só registra no log (dev).
 // EMAIL_FROM: endereço de um domínio verificado no Resend, ex.: pedidos@pmsapp.dev
@@ -232,6 +233,140 @@ export async function notifyOrderRefunded(orderId: string, method: "pix" | "card
     if (!ok) await release(orderId, "notified_refunded_at");
   } catch (err) {
     console.error("Falha ao notificar estorno", { orderId, err });
+  }
+}
+
+// ---------------------------------------------------------------- agendamentos
+
+type BookingForEmail = {
+  id: string;
+  code: string;
+  public_token: string;
+  status: string;
+  service_name: string;
+  professional_name: string;
+  starts_at: string;
+  ends_at: string;
+  customer_name: string;
+  customer_email: string | null;
+  customer_phone: string | null;
+  notes: string | null;
+  price_cents: number;
+  online_cents: number;
+  paid_cents: number;
+  stores: { name: string; email: string | null; whatsapp: string | null; primary_color: string; address: string | null; store_domains: { domain: string; is_primary: boolean }[] };
+};
+
+export type BookingNotice = "confirmed" | "reminder" | "canceled" | "store";
+const BOOKING_COLUMN: Record<BookingNotice, string> = {
+  confirmed: "notified_confirmed_at",
+  reminder: "notified_reminder_at",
+  canceled: "notified_canceled_at",
+  store: "notified_store_at",
+};
+
+const bookingWhen = (iso: string) => {
+  const d = new Date(iso);
+  const day = d.toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo", weekday: "long", day: "numeric", month: "long" });
+  const time = d.toLocaleTimeString("pt-BR", { timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit" });
+  return `${day}, às ${time}`;
+};
+
+function bookingSummary(b: BookingForEmail) {
+  const remaining = b.price_cents - b.paid_cents;
+  return `<p style="margin:0 0 4px;padding:14px;border-radius:8px;background:#f5f5f5;font-size:15px">
+    <strong>${esc(b.service_name)}</strong><br>${esc(bookingWhen(b.starts_at))}<br>com ${esc(b.professional_name)}
+    ${b.stores.address ? `<br><span style="color:#525252">${esc(b.stores.address)}</span>` : ""}
+    <br><span style="color:#525252">${b.paid_cents ? `Pago online: ${formatBRL(b.paid_cents)} · ` : ""}${remaining > 0 ? `a pagar no salão: ${formatBRL(remaining)}` : "tudo pago"}</span></p>`;
+}
+
+// E-mails do agendamento, cada um uma vez (colunas notified_*). "store" vai para o lojista.
+// rescheduled: aviso de remarcação (sem trava: cada nova data gera um e-mail próprio).
+export async function notifyBooking(bookingId: string, notice: BookingNotice | "rescheduled") {
+  const db = createAdminClient();
+  try {
+    const column = notice === "rescheduled" ? null : BOOKING_COLUMN[notice];
+    if (column) {
+      const { data: claimed } = await db.from("bookings").update({ [column]: new Date().toISOString() }).eq("id", bookingId).is(column, null).select("id");
+      if (!claimed?.length) return;
+    }
+    // Endereço da loja (coluna de Dados da empresa) lido à parte: sem ela, o e-mail sai sem endereço.
+    const { data } = await db
+      .from("bookings")
+      .select("id, code, public_token, status, service_name, professional_name, starts_at, ends_at, customer_name, customer_email, customer_phone, notes, price_cents, online_cents, paid_cents, store_id, stores(name, email, whatsapp, primary_color, store_domains(domain, is_primary))")
+      .eq("id", bookingId)
+      .single();
+    if (!data) return;
+    const { data: legal } = await db.from("stores").select("address").eq("id", data.store_id).maybeSingle();
+    const b = { ...data, stores: { ...(data.stores as unknown as BookingForEmail["stores"]), address: (legal as { address: string | null } | null)?.address ?? null } } as unknown as BookingForEmail;
+    const domain = (b.stores.store_domains.find((d) => d.is_primary) ?? b.stores.store_domains[0])?.domain;
+    const link = domain ? `${storeBaseUrl(domain)}/agendamento/${b.public_token}` : null;
+    const calendar = googleCalendarUrl({ title: `${b.service_name} · ${b.stores.name}`, startsAt: b.starts_at, endsAt: b.ends_at, location: b.stores.address ?? undefined, details: link ?? undefined });
+    const manage = link ? button(link, "Ver, remarcar ou cancelar", b.stores.primary_color) : "";
+    const cal = `<p style="margin:12px 0 0;font-size:13px"><a href="${esc(calendar)}" style="color:#525252">Adicionar ao Google Agenda</a></p>`;
+    const whats = b.stores.whatsapp ? `<p style="margin:16px 0 0;color:#525252;font-size:13px">Dúvidas? <a href="https://wa.me/${b.stores.whatsapp}">Fale com a gente pelo WhatsApp</a>.</p>` : "";
+    const hi = `Olá, ${esc(firstName(b.customer_name))}.`;
+
+    if (notice === "store") {
+      if (!b.stores.email) return;
+      await sendEmail({
+        to: b.stores.email,
+        fromName: "PMS app",
+        idempotencyKey: `booking-store-${b.id}`,
+        subject: `Novo agendamento: ${b.service_name} · ${bookingWhen(b.starts_at)}`,
+        html: layout(b.stores, `
+          <h1 style="margin:0 0 8px;font-size:22px">Novo agendamento 📅</h1>
+          <p style="margin:0 0 16px;color:#525252">${esc(b.customer_name)}${b.customer_phone ? ` · ${esc(formatPhone(b.customer_phone))}` : ""}${b.customer_email ? ` · ${esc(b.customer_email)}` : ""}</p>
+          ${bookingSummary(b)}
+          ${b.notes ? `<p style="margin:12px 0 0;color:#525252">Observação: ${esc(b.notes)}</p>` : ""}
+          ${b.customer_phone ? button(`https://wa.me/55${b.customer_phone}`, "Falar com o cliente no WhatsApp", "#16a34a") : ""}
+          <p style="margin:20px 0 0;color:#525252">Veja a agenda no painel da loja.</p>`),
+      });
+      return;
+    }
+    if (!b.customer_email) return;
+
+    const content = {
+      confirmed: { subject: `Agendamento confirmado: ${b.service_name}`, body: `<h1 style="margin:0 0 8px;font-size:22px">Agendamento confirmado ✅</h1><p style="margin:0 0 16px;color:#525252">${hi} Seu horário está garantido.</p>${bookingSummary(b)}${manage}${cal}${whats}` },
+      rescheduled: { subject: `Agendamento remarcado: ${b.service_name}`, body: `<h1 style="margin:0 0 8px;font-size:22px">Agendamento remarcado</h1><p style="margin:0 0 16px;color:#525252">${hi} Seu novo horário:</p>${bookingSummary(b)}${manage}${cal}${whats}` },
+      reminder: { subject: `Lembrete: ${b.service_name} amanhã`, body: `<h1 style="margin:0 0 8px;font-size:22px">Até amanhã! ⏰</h1><p style="margin:0 0 16px;color:#525252">${hi} Lembrando do seu horário:</p>${bookingSummary(b)}${manage}${whats}` },
+      canceled: {
+        subject: `Agendamento cancelado: ${b.service_name}`,
+        body: `<h1 style="margin:0 0 8px;font-size:22px">Agendamento cancelado</h1><p style="margin:0 0 16px;color:#525252">${hi} O agendamento abaixo foi cancelado.${b.paid_cents ? ` Devolvemos ${formatBRL(b.paid_cents)} pelo Mercado Pago (Pix: na hora; cartão: na fatura).` : ""}</p>${bookingSummary(b)}${domain ? button(`${storeBaseUrl(domain)}/agendar`, "Agendar outro horário", b.stores.primary_color) : ""}${whats}`,
+      },
+    }[notice];
+
+    const ok = await sendEmail({
+      to: b.customer_email,
+      fromName: b.stores.name,
+      replyTo: b.stores.email,
+      idempotencyKey: `booking-${notice}-${b.id}-${notice === "rescheduled" ? b.starts_at : ""}`,
+      subject: content.subject,
+      html: layout(b.stores, content.body),
+    });
+    if (!ok && column) await db.from("bookings").update({ [column]: null }).eq("id", bookingId);
+    // Remarcação: o lojista também fica sabendo.
+    if (notice === "rescheduled" && b.stores.email) {
+      await sendEmail({
+        to: b.stores.email,
+        fromName: "PMS app",
+        idempotencyKey: `booking-rescheduled-store-${b.id}-${b.starts_at}`,
+        subject: `Agendamento remarcado: ${b.customer_name} · ${bookingWhen(b.starts_at)}`,
+        html: layout(b.stores, `<h1 style="margin:0 0 8px;font-size:22px">Agendamento remarcado</h1><p style="margin:0 0 16px;color:#525252">${esc(b.customer_name)} remarcou para:</p>${bookingSummary(b)}`),
+      });
+    }
+    // Cancelamento: o lojista também fica sabendo (libera o horário na agenda dele).
+    if (notice === "canceled" && b.stores.email) {
+      await sendEmail({
+        to: b.stores.email,
+        fromName: "PMS app",
+        idempotencyKey: `booking-canceled-store-${b.id}`,
+        subject: `Agendamento cancelado: ${b.customer_name} · ${bookingWhen(b.starts_at)}`,
+        html: layout(b.stores, `<h1 style="margin:0 0 8px;font-size:22px">Agendamento cancelado</h1><p style="margin:0 0 16px;color:#525252">O agendamento de ${esc(b.customer_name)} foi cancelado e o horário voltou a ficar livre.${b.paid_cents ? ` Estornamos ${formatBRL(b.paid_cents)} pelo Mercado Pago.` : ""}</p>${bookingSummary(b)}`),
+      });
+    }
+  } catch (err) {
+    console.error("Falha ao avisar agendamento", { bookingId, notice, err });
   }
 }
 
