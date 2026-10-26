@@ -7,6 +7,7 @@ const LINKS = [
   { href: "/painel", label: "Resumo" },
   { href: "/painel/pedidos", label: "Pedidos" },
   { href: "/painel/links", label: "Links de pagamento" },
+  { href: "/painel/clientes", label: "Clientes" },
   { href: "/painel/produtos", label: "Produtos" },
   { href: "/painel/categorias", label: "Categorias" },
   { href: "/painel/configuracoes", label: "Configurações" },
