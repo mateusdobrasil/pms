@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { formatPhone } from "@/lib/format";
 import { requireStore } from "@/lib/panel";
 import { formatBRL } from "@/lib/money";
 import { addDays, todayBR } from "@/lib/billing";
@@ -61,6 +62,16 @@ function BookingCard({ b, now }: { b: Booking; now: number }) {
   );
 }
 
+type Waiting = {
+  id: string;
+  customer_name: string;
+  customer_phone: string;
+  customer_email: string;
+  notify_count: number;
+  services: { name: string } | null;
+  professionals: { name: string } | null;
+};
+
 export default async function AgendaPage({ searchParams }: { searchParams: Promise<{ dia?: string; visao?: string }> }) {
   const { supabase, store } = await requireStore();
   const sp = await searchParams;
@@ -88,6 +99,17 @@ export default async function AgendaPage({ searchParams }: { searchParams: Promi
     supabase.from("stores").select("booking_enabled").eq("id", store.id).single(),
   ]);
   const bookings = (rows ?? []) as Booking[];
+  // Lista de espera do dia (visão do dia). Sem o SQL da lista, a consulta falha e a seção não aparece.
+  const { data: waitRows } = week
+    ? { data: null }
+    : await supabase
+        .from("booking_waitlist")
+        .select("id, customer_name, customer_phone, customer_email, notify_count, services(name), professionals(name)")
+        .eq("store_id", store.id)
+        .eq("date", date)
+        .eq("status", "waiting")
+        .order("created_at");
+  const waiting = (waitRows ?? []) as unknown as Waiting[];
   const professionals = (pros ?? []) as { id: string; name: string; active: boolean; working_hours: { id: string }[]; professional_services: { service_id: string }[] }[];
   const active = professionals.filter((p) => p.active);
   const now = new Date().getTime();
@@ -198,6 +220,32 @@ export default async function AgendaPage({ searchParams }: { searchParams: Promi
             );
           })}
         </div>
+      )}
+
+      {waiting.length > 0 && (
+        <section className="rounded-xl border bg-white shadow-sm">
+          <h2 className="border-b px-4 py-3 font-medium">Lista de espera deste dia ({waiting.length})</h2>
+          <p className="px-4 pt-3 text-xs text-neutral-500">
+            Se alguém cancelar ou remarcar, quem está aqui recebe um e-mail na hora. Você também pode chamar pelo WhatsApp para encaixar.
+          </p>
+          <ul className="divide-y text-sm">
+            {waiting.map((w) => (
+              <li key={w.id} className="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
+                <span>
+                  <span className="font-medium">{w.customer_name}</span>
+                  <span className="text-neutral-500">
+                    {" "}· {w.services?.name ?? "serviço removido"}
+                    {w.professionals ? ` com ${w.professionals.name}` : ""}
+                    {w.notify_count > 0 ? ` · avisado ${w.notify_count === 1 ? "1 vez" : `${w.notify_count} vezes`}` : ""}
+                  </span>
+                </span>
+                <a href={`https://wa.me/55${w.customer_phone}`} target="_blank" rel="noopener noreferrer" className="font-medium text-emerald-700 hover:underline">
+                  {formatPhone(w.customer_phone)} · WhatsApp
+                </a>
+              </li>
+            ))}
+          </ul>
+        </section>
       )}
     </div>
   );

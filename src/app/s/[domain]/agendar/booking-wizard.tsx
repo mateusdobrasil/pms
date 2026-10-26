@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { formatBRL } from "@/lib/money";
 import { formatDuration, type PaymentMode } from "@/lib/booking";
@@ -52,6 +52,7 @@ export function BookingWizard({
   whatsapp,
   reschedule = null,
   initialServiceId = null,
+  initialDate = null,
 }: {
   services: Service[];
   professionals: Professional[];
@@ -59,6 +60,7 @@ export function BookingWizard({
   whatsapp: string | null;
   reschedule?: { token: string; serviceId: string; professionalId: string | null } | null; // remarcar um agendamento existente
   initialServiceId?: string | null; // vindo de um cartão de serviço da home (?servico=)
+  initialDate?: string | null; // vindo do e-mail da lista de espera (?data=)
 }) {
   const router = useRouter();
   const [serviceId, setServiceId] = useState<string | null>(reschedule?.serviceId ?? initialServiceId ?? (services.length === 1 ? services[0].id : null));
@@ -66,8 +68,11 @@ export function BookingWizard({
   const [proId, setProId] = useState<string>(
     reschedule?.professionalId && professionals.some((p) => p.id === reschedule.professionalId && p.serviceIds.includes(reschedule.serviceId)) ? reschedule.professionalId : "",
   );
-  const [date, setDate] = useState<string | null>(null);
+  // Só aceita o dia do link se ele está na agenda (o serviço também precisa ter vindo no link).
+  const [date, setDate] = useState<string | null>(initialServiceId && initialDate && days.includes(initialDate) ? initialDate : null);
   const [slots, setSlots] = useState<Slot[] | null>(null);
+  const dayStep = useRef<HTMLDivElement>(null);
+  const cameWithDate = useRef(date !== null);
   const [time, setTime] = useState<number | null>(null);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -90,6 +95,14 @@ export function BookingWizard({
       alive = false;
     };
   }, [serviceId, proId, date]);
+
+  // Veio do e-mail da lista de espera (dia já escolhido): leva direto aos horários.
+  useEffect(() => {
+    if (cameWithDate.current && slots !== null) {
+      cameWithDate.current = false;
+      dayStep.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, [slots]);
 
   function pickService(id: string) {
     setServiceId(id);
@@ -205,6 +218,7 @@ export function BookingWizard({
       )}
 
       {service && (
+        <div ref={dayStep} className="scroll-mt-40">
         <Step n={pros.length > 1 ? 3 : 2} title="Dia e horário">
           {openDays.length === 0 ? (
             <p className="text-sm text-neutral-600">Sem dias com atendimento nas próximas semanas.</p>
@@ -229,7 +243,10 @@ export function BookingWizard({
           )}
           {date && slots === null && <p className="text-sm text-neutral-500">Buscando horários…</p>}
           {date && slots?.length === 0 && (
-            <p className="text-sm text-neutral-600">Nenhum horário livre neste dia. Escolha outro dia{pros.length > 1 && proId ? " ou outro profissional" : ""}.</p>
+            <>
+              <p className="text-sm text-neutral-600">Nenhum horário livre neste dia. Escolha outro dia{pros.length > 1 && proId ? " ou outro profissional" : ""}.</p>
+              {!reschedule && service && <WaitlistBox key={`${service.id}:${proId}:${date}`} serviceId={service.id} professionalId={proId || null} date={date} />}
+            </>
           )}
           {slots && slots.length > 0 && (
             <div className="grid grid-cols-4 gap-2 sm:grid-cols-6">
@@ -241,6 +258,7 @@ export function BookingWizard({
             </div>
           )}
         </Step>
+        </div>
       )}
 
       {reschedule && service && date && time !== null && (
@@ -299,6 +317,66 @@ export function BookingWizard({
             )}
           </form>
         </Step>
+      )}
+    </div>
+  );
+}
+
+// Dia lotado: entra na lista de espera; se abrir horário neste dia, o aviso chega por e-mail.
+function WaitlistBox({ serviceId, professionalId, date }: { serviceId: string; professionalId: string | null; date: string }) {
+  const [open, setOpen] = useState(false);
+  const [done, setDone] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function submit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const f = new FormData(e.currentTarget);
+    setSending(true);
+    setError(null);
+    const res = await fetch("/api/bookings/waitlist", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ serviceId, professionalId, date, name: f.get("name"), email: f.get("email"), phone: f.get("phone") }),
+    }).catch(() => null);
+    const data = (await res?.json().catch(() => null)) as { error?: string } | null;
+    setSending(false);
+    if (res?.ok) setDone(true);
+    else setError(data?.error ?? "Não foi possível entrar na lista agora. Tente de novo.");
+  }
+
+  if (done) {
+    return (
+      <p className="rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+        Pronto! Você está na lista de espera. Se abrir um horário neste dia, avisamos por e-mail na hora.
+      </p>
+    );
+  }
+  return (
+    <div className="rounded-xl border bg-neutral-50 p-4 text-sm">
+      <p className="font-medium">Queria muito este dia?</p>
+      <p className="text-neutral-600">Entre na lista de espera: se alguém desmarcar, você recebe um e-mail na hora para agendar.</p>
+      {!open ? (
+        <button type="button" onClick={() => setOpen(true)} className="mt-3 rounded-lg border bg-white px-4 py-2 font-medium transition hover:border-neutral-400">
+          Entrar na lista de espera
+        </button>
+      ) : (
+        <form onSubmit={submit} className="mt-3 space-y-3">
+          <div className="grid gap-3 sm:grid-cols-3">
+            <input name="name" required autoComplete="name" placeholder="Nome e sobrenome" className={input} />
+            <input name="phone" required type="tel" autoComplete="tel" inputMode="tel" placeholder="Celular com DDD" className={input} />
+            <input name="email" required type="email" autoComplete="email" placeholder="E-mail (recebe o aviso)" className={input} />
+          </div>
+          {error && <p className="text-red-700">{error}</p>}
+          <button
+            type="submit"
+            disabled={sending}
+            className="rounded-lg px-4 py-2 font-semibold text-white shadow-sm transition hover:brightness-110 disabled:opacity-50"
+            style={{ background: "var(--brand)" }}
+          >
+            {sending ? "Entrando…" : "Me avise se abrir horário"}
+          </button>
+        </form>
       )}
     </div>
   );

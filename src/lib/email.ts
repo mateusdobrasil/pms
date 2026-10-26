@@ -443,6 +443,50 @@ export async function notifyBooking(bookingId: string, notice: BookingNotice | "
   }
 }
 
+// Lista de espera: abriu horário no dia que a pessoa queria. A trava é o notified_at (marcado por notifyWaitlist).
+export async function notifyWaitlistOpening(entryId: string, freeTimes: string[]) {
+  try {
+    const { data } = await createAdminClient()
+      .from("booking_waitlist")
+      .select("id, store_id, service_id, professional_id, date, customer_name, customer_email, services(name), professionals(name), stores(name, email, whatsapp, primary_color, store_domains(domain, is_primary))")
+      .eq("id", entryId)
+      .single();
+    if (!data) return false;
+    const e = data as unknown as {
+      id: string;
+      service_id: string;
+      date: string;
+      customer_name: string;
+      customer_email: string;
+      services: { name: string } | null;
+      professionals: { name: string } | null;
+      stores: { name: string; email: string | null; whatsapp: string | null; primary_color: string; store_domains: { domain: string; is_primary: boolean }[] };
+    };
+    const domain = (e.stores.store_domains.find((d) => d.is_primary) ?? e.stores.store_domains[0])?.domain;
+    if (!domain) return false;
+    const day = new Date(`${e.date}T12:00:00Z`).toLocaleDateString("pt-BR", { timeZone: "UTC", weekday: "long", day: "numeric", month: "long" });
+    const service = e.services?.name ?? "o serviço";
+    const times = freeTimes.slice(0, 8).join(", ") + (freeTimes.length > 8 ? " e outros" : "");
+    return await sendEmail({
+      to: e.customer_email,
+      fromName: e.stores.name,
+      replyTo: e.stores.email,
+      idempotencyKey: `waitlist-${e.id}-${Date.now()}`,
+      subject: `Abriu horário: ${service} em ${day}`,
+      html: layout(e.stores, `
+        <h1 style="margin:0 0 8px;font-size:22px">Abriu um horário! ⏰</h1>
+        <p style="margin:0 0 16px;color:#525252">Olá, ${esc(firstName(e.customer_name))}. Você está na lista de espera da ${esc(e.stores.name)} para
+        <strong>${esc(service)}</strong>${e.professionals ? ` com ${esc(e.professionals.name)}` : ""} em <strong>${esc(day)}</strong>, e acabou de abrir horário.</p>
+        <p style="margin:0 0 4px;padding:14px;border-radius:8px;background:#f5f5f5;font-size:15px">Horários livres agora: <strong>${esc(times)}</strong></p>
+        ${button(`${storeBaseUrl(domain)}/agendar?servico=${e.service_id}&data=${e.date}`, "Agendar agora", e.stores.primary_color)}
+        <p style="margin:24px 0 0;font-size:12px;color:#a3a3a3">Quem agendar primeiro leva o horário. Se não der desta vez, você continua na lista e avisamos de novo se abrir outro.</p>`),
+    });
+  } catch (err) {
+    console.error("Falha ao avisar a lista de espera", { entryId, err });
+    return false;
+  }
+}
+
 // ---------------------------------------------------------------- avise-me quando chegar
 
 type PendingAlert = {

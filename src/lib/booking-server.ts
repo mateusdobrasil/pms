@@ -1,9 +1,10 @@
 import "server-only";
 import { after } from "next/server";
 import type { createAdminClient } from "@/lib/supabase/admin";
-import { notifyBooking, notifyPlatformError } from "@/lib/email";
+import { notifyBooking, notifyPlatformError, notifyWaitlistOpening } from "@/lib/email";
+import { pushToStore } from "@/lib/push";
 import { PROVIDER, type GatewayPayment, getPayment, refundPayment } from "@/lib/payments/mercadopago";
-import { canSelfManage, onlineCents, parseTime, type PaymentMode } from "@/lib/booking";
+import { canSelfManage, formatTime, onlineCents, parseTime, type PaymentMode } from "@/lib/booking";
 import { type Interval, bookingDays, dayStartMs, daySlots, instantOf, mergeSlots, weekdayOf } from "@/lib/booking-slots";
 import { addDays, todayBR } from "@/lib/billing";
 import { isEmail, isValidCPF, onlyDigits } from "@/lib/validation";
@@ -222,6 +223,10 @@ export async function createBooking(db: Db, storeId: string, input: BookingInput
     console.error("Agendamento não criado", { storeId, error });
     return { error: "Não foi possível agendar agora. Tente de novo." };
   }
+  // Quem estava na lista de espera desse dia e conseguiu agendar sai da lista.
+  after(async () => {
+    await db.from("booking_waitlist").update({ status: "booked" }).eq("store_id", storeId).eq("date", input.date).eq("customer_email", email).eq("status", "waiting");
+  });
   // Sem pagamento online já está confirmado: avisa o cliente e o salão.
   if (data.status === "confirmed") {
     after(async () => {
@@ -345,6 +350,7 @@ export async function cancelBooking(db: Db, storeId: string, token: string, by: 
     .select("id");
   if (!data?.length) return { error: "Este agendamento não pode mais ser cancelado." };
   if (b.status === "confirmed") after(() => notifyBooking(b.id, "canceled", by));
+  after(() => notifyWaitlist(db, storeId, dateOf(b.starts_at))); // horário liberado: avisa a lista de espera
   return { ok: true };
 }
 
@@ -385,6 +391,7 @@ export async function rescheduleBooking(
   if (error?.code === "23P01") return { error: "Esse horário acabou de ser reservado por outra pessoa. Escolha outro." };
   if (error || !data?.length) return { error: "Não foi possível remarcar agora. Tente de novo." };
   after(() => notifyBooking(b.id, "rescheduled"));
+  after(() => notifyWaitlist(db, storeId, dateOf(b.starts_at))); // o horário antigo ficou livre
   return { ok: true };
 }
 
@@ -401,4 +408,106 @@ export async function sendBookingReminders(db: Db, today = todayBR()) {
   if (error) return { reminders: 0, error: error.message }; // sem o SQL da agenda
   for (const b of data ?? []) await notifyBooking(b.id, "reminder");
   return { reminders: data?.length ?? 0 };
+}
+
+// ---------------------------------------------------------------- lista de espera
+
+const dateOf = (iso: string) => new Date(iso).toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" }); // AAAA-MM-DD em Brasília
+export const WAITLIST_RENOTIFY_MINUTES = 60; // a mesma pessoa não recebe dois avisos em menos de 1 h
+const WAITLIST_MAX_PER_DAY = 100;
+
+export type WaitlistInput = { serviceId: string; professionalId: string | null; date: string; name: string; email: string; phone: string };
+
+// Dia lotado: o cliente entra na lista de espera do serviço (e do profissional, se escolheu um).
+export async function joinWaitlist(db: Db, storeId: string, input: WaitlistInput): Promise<{ ok: true } | { error: string }> {
+  const settings = await getBookingSettings(db, storeId);
+  if (!settings?.enabled) return { error: "Esta loja não está aceitando agendamentos no momento." };
+  const name = input.name.trim().replace(/\s+/g, " ");
+  const email = input.email.trim().toLowerCase();
+  const phone = onlyDigits(input.phone).replace(/^55(?=\d{10,11}$)/, "");
+  if (name.length < 3 || !name.includes(" ")) return { error: "Informe o nome e o sobrenome." };
+  if (!isEmail(email)) return { error: "Informe um e-mail válido: o aviso chega por ele." };
+  if (!/^\d{10,11}$/.test(phone)) return { error: "Informe o celular com DDD." };
+  if (!bookingDays(todayBR(), settings.maxDays).includes(input.date)) return { error: "Escolha um dia da agenda." };
+
+  const { services, professionals } = await loadCatalog(db, storeId);
+  if (!services.some((s) => s.id === input.serviceId)) return { error: "Serviço indisponível." };
+  if (input.professionalId && !professionals.some((p) => p.id === input.professionalId && p.serviceIds.includes(input.serviceId))) {
+    return { error: "Profissional indisponível para este serviço." };
+  }
+  const { count } = await db.from("booking_waitlist").select("id", { count: "exact", head: true }).eq("store_id", storeId).eq("date", input.date).eq("status", "waiting");
+  if ((count ?? 0) >= WAITLIST_MAX_PER_DAY) return { error: "A lista de espera deste dia está cheia. Escolha outro dia." };
+
+  const { error } = await db.from("booking_waitlist").insert({
+    store_id: storeId,
+    service_id: input.serviceId,
+    professional_id: input.professionalId,
+    date: input.date,
+    customer_name: name,
+    customer_email: email,
+    customer_phone: phone,
+  });
+  // 23505: já está na lista deste serviço e dia (tudo certo, continua na lista).
+  if (error && error.code !== "23505") {
+    console.error("Lista de espera não gravada", { storeId, error });
+    return { error: "Não foi possível entrar na lista agora. Tente de novo." };
+  }
+  return { ok: true };
+}
+
+// Abriu horário no dia (cancelamento ou remarcação): avisa por e-mail quem está na lista e ainda tem horário livre
+// para o seu serviço/profissional. Quem agendar primeiro leva; quem não conseguir continua na lista. Nunca lança erro.
+export async function notifyWaitlist(db: Db, storeId: string, date: string) {
+  try {
+    const settings = await getBookingSettings(db, storeId);
+    if (!settings?.enabled) return 0;
+    const cutoff = new Date(Date.now() - WAITLIST_RENOTIFY_MINUTES * 60_000).toISOString();
+    const { data: entries, error } = await db
+      .from("booking_waitlist")
+      .select("id, service_id, professional_id, notify_count, notified_at")
+      .eq("store_id", storeId)
+      .eq("date", date)
+      .eq("status", "waiting")
+      .or(`notified_at.is.null,notified_at.lt.${cutoff}`)
+      .order("created_at");
+    if (error || !entries?.length) return 0;
+
+    // Disponibilidade calculada uma vez por serviço/profissional.
+    const free = new Map<string, string[]>();
+    let sent = 0;
+    for (const e of entries) {
+      const key = `${e.service_id}:${e.professional_id ?? ""}`;
+      if (!free.has(key)) {
+        const { slots } = await availability(db, storeId, settings, e.service_id, date, e.professional_id);
+        free.set(key, slots.map((s) => formatTime(s.time)));
+      }
+      const labels = free.get(key)!;
+      if (!labels.length) continue;
+      // Trava: só quem marcar notified_at agora envia (duas liberações ao mesmo tempo não duplicam o e-mail).
+      const { data: claimed } = await db
+        .from("booking_waitlist")
+        .update({ notified_at: new Date().toISOString(), notify_count: e.notify_count + 1 })
+        .eq("id", e.id)
+        .eq("status", "waiting")
+        .or(`notified_at.is.null,notified_at.lt.${cutoff}`)
+        .select("id");
+      if (!claimed?.length) continue;
+      if (await notifyWaitlistOpening(e.id, labels)) sent++;
+      // E-mail não saiu: desfaz a marcação, para o próximo horário liberado tentar de novo.
+      else await db.from("booking_waitlist").update({ notified_at: e.notified_at, notify_count: e.notify_count }).eq("id", e.id);
+    }
+    if (sent) {
+      const [, m, d] = date.split("-");
+      await pushToStore(storeId, {
+        title: "Horário liberado na agenda",
+        body: `Avisamos ${sent} ${sent === 1 ? "pessoa" : "pessoas"} da lista de espera de ${d}/${m}.`,
+        url: `/painel/agenda?dia=${date}`,
+        tag: `waitlist-${date}`,
+      });
+    }
+    return sent;
+  } catch (err) {
+    console.error("Falha ao avisar a lista de espera", { storeId, date, err });
+    return 0;
+  }
 }
