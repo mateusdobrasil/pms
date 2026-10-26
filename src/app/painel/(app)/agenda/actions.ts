@@ -10,6 +10,7 @@ import { instantOf } from "@/lib/booking-slots";
 import { cancelBooking } from "@/lib/booking-server";
 import { notifyBooking } from "@/lib/email";
 import { effectivePercent } from "@/lib/commission";
+import { checkLoyaltyForBooking } from "@/lib/loyalty-server";
 
 export type AgendaState = { error?: string; ok?: string } | null;
 
@@ -39,6 +40,7 @@ export async function setBookingStatus(_prev: AgendaState, form: FormData): Prom
     .eq("status", "confirmed")
     .select("id");
   if (!data?.length) return { error: "Este agendamento não está mais confirmado." };
+  if (status === "completed") after(() => checkLoyaltyForBooking(own.booking.id)); // carimbo do cartão fidelidade
   refresh();
   return { ok: status === "completed" ? "Marcado como atendido." : "Marcado como falta." };
 }

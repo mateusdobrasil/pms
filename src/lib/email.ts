@@ -9,6 +9,8 @@ import { isLocalDelivery } from "@/lib/shipping-settings";
 import { pushToStore } from "@/lib/push";
 import { isPaymentLink } from "@/lib/payment-links";
 import type { Report } from "@/lib/monthly-report";
+import { progressText } from "@/lib/loyalty";
+import { customerStamps, getLoyaltyConfig } from "@/lib/loyalty-data";
 
 // E-mails transacionais via API do Resend. Sem RESEND_API_KEY, só registra no log (dev).
 // EMAIL_FROM: endereço de um domínio verificado no Resend, ex.: pedidos@pmsapp.dev
@@ -137,6 +139,45 @@ async function release(orderId: string, column: OrderNotice) {
   await createAdminClient().from("orders").update({ [column]: null }).eq("id", orderId);
 }
 
+// Cartão fidelidade: linha com o progresso do cliente nos e-mails de confirmação (vazia sem o programa).
+async function loyaltyLine(storeId: string, email: string | null, phone: string | null) {
+  try {
+    const db = createAdminClient();
+    const cfg = await getLoyaltyConfig(db, storeId);
+    if (!cfg?.enabled) return "";
+    const stamps = await customerStamps(db, storeId, cfg, { email, phone });
+    return `<p style="margin:20px 0 0;padding:12px 14px;border-radius:8px;background:#f0fdf4;color:#166534">🎟️ ${esc(progressText(cfg, stamps))}</p>`;
+  } catch {
+    return "";
+  }
+}
+
+// Completou o cartão fidelidade: e-mail para o cliente e aviso no celular da loja (a trava é a linha do prêmio).
+export async function notifyLoyaltyReward(storeId: string, who: { name: string; email: string | null }, reward: string) {
+  const { data: store } = await createAdminClient().from("stores").select("name, email, primary_color").eq("id", storeId).single();
+  if (!store) return;
+  if (who.email) {
+    await sendEmail({
+      to: who.email,
+      fromName: store.name,
+      replyTo: store.email,
+      idempotencyKey: `loyalty-${storeId}-${who.email}-${Date.now()}`,
+      subject: `🎁 Você ganhou: ${reward}`,
+      html: layout(store, `
+        <h1 style="margin:0 0 8px;font-size:22px">Você completou o cartão fidelidade! 🎁</h1>
+        <p style="margin:0 0 16px;color:#525252">Olá, ${esc(firstName(who.name))}. Obrigado pela preferência! Você ganhou:</p>
+        <p style="margin:0;padding:16px;border-radius:10px;background:#f0fdf4;color:#166534;font-size:20px;font-weight:bold;text-align:center">${esc(reward)}</p>
+        <p style="margin:16px 0 0;color:#525252">Mostre este e-mail na próxima visita ou compra para usar o seu prêmio.</p>`),
+    });
+  }
+  await pushToStore(storeId, {
+    title: "Cartão fidelidade completo 🎁",
+    body: `${who.name} ganhou ${reward}. Entregue na próxima visita (Painel → Clientes).`,
+    url: "/painel/clientes?dias=fidelidade",
+    tag: `loyalty-${who.email ?? who.name}`,
+  });
+}
+
 // ---------------------------------------------------------------- notificações
 
 export async function notifyOrderPaid(orderId: string) {
@@ -145,6 +186,7 @@ export async function notifyOrderPaid(orderId: string) {
     const o = await loadOrder(orderId);
     if (!o) return;
     const url = orderUrl(o);
+    const loyalty = await loyaltyLine(o.store_id, o.customer_email, o.customer_phone);
 
     const customerOk = await sendEmail({
       to: o.customer_email,
@@ -158,6 +200,7 @@ export async function notifyOrderPaid(orderId: string) {
         <p style="margin:0 0 20px;color:#525252">Olá, ${esc(firstName(o.customer_name))}. Recebemos o pagamento do pedido <strong>${o.code}</strong>.
         ${isPaymentLink(o.shipping_method) ? `A ${esc(o.stores.name)} já foi avisada. Guarde este e-mail como comprovante.` : o.shipping_method === "pickup" ? "Avisaremos quando estiver pronto para retirada." : isLocalDelivery(o.shipping_method) ? "Avisaremos quando sair para entrega." : "Avisaremos quando for enviado, com o código de rastreio."}</p>
         ${itemsTable(o)}
+        ${loyalty}
         ${o.shipping_address ? addressBlock(o.shipping_address) : ""}
         ${url ? button(url, "Acompanhar pedido", o.stores.primary_color) : ""}`),
     });
@@ -426,7 +469,8 @@ export async function notifyBooking(bookingId: string, notice: BookingNotice | "
       replyTo: b.stores.email,
       idempotencyKey: `booking-${notice}-${b.id}-${notice === "rescheduled" ? b.starts_at : ""}`,
       subject: content.subject,
-      html: layout(b.stores, content.body),
+      // Confirmação: mostra o cartão fidelidade do cliente (o atendimento carimba quando é marcado "atendido").
+      html: layout(b.stores, notice === "confirmed" ? content.body + (await loyaltyLine(b.store_id, b.customer_email, b.customer_phone)) : content.body),
     });
     if (!ok && column) await db.from("bookings").update({ [column]: null }).eq("id", bookingId);
     // Remarcação: o lojista também fica sabendo.

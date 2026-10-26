@@ -2,6 +2,7 @@ import "server-only";
 import { after } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { notifyOrderPaid, notifyPlatformError } from "@/lib/email";
+import { checkLoyaltyForOrder } from "@/lib/loyalty-server";
 import { PROVIDER, type GatewayPayment } from "@/lib/payments/mercadopago";
 
 // Campos do pedido que toda chamada precisa selecionar.
@@ -77,7 +78,11 @@ export async function recordPayment(db: SupabaseClient, order: OrderRef, payment
       if (discErr) throw discErr;
     }
     // E-mails depois da resposta (não atrasam o webhook). A trava em notified_paid_at evita duplicados.
-    after(() => notifyOrderPaid(order.id));
+    // O cartão fidelidade vem antes, para o e-mail do pedido já mostrar o carimbo desta compra.
+    after(async () => {
+      await checkLoyaltyForOrder(order.id);
+      await notifyOrderPaid(order.id);
+    });
   }
   return true;
 }

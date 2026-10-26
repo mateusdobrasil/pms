@@ -8,6 +8,7 @@ export type Activity = {
   email: string | null;
   at: string; // pagamento do pedido ou horário do agendamento
   cents: number;
+  stamp?: boolean; // conta no cartão fidelidade
 };
 
 export type Customer = {
@@ -20,6 +21,7 @@ export type Customer = {
   totalCents: number;
   lastAt: string;
   firstAt: string; // primeira compra ou visita (cliente novo no mês)
+  stamps: number; // carimbos do cartão fidelidade
   nextBookingAt: string | null; // já tem horário marcado: não sumiu
 };
 
@@ -64,7 +66,7 @@ export function groupCustomers(activities: Activity[], upcoming: { phone: string
     const root = find(keys[0]);
     let c = byRoot.get(root);
     if (!c) {
-      c = { key: "", name: a.name, phone: null, email: null, orders: 0, bookings: 0, totalCents: 0, lastAt: a.at, firstAt: a.at, nextBookingAt: null };
+      c = { key: "", name: a.name, phone: null, email: null, orders: 0, bookings: 0, totalCents: 0, lastAt: a.at, firstAt: a.at, stamps: 0, nextBookingAt: null };
       byRoot.set(root, c);
     }
     c.phone ??= normalizePhone(a.phone);
@@ -72,6 +74,7 @@ export function groupCustomers(activities: Activity[], upcoming: { phone: string
     if (a.kind === "order") c.orders++;
     else c.bookings++;
     c.totalCents += a.cents;
+    if (a.stamp) c.stamps++;
     c.firstAt = a.at; // ordem do mais recente para o mais antigo: o último visto é o primeiro
   }
 

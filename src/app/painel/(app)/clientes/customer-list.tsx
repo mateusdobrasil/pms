@@ -4,7 +4,7 @@ import { useEffect, useState, useTransition } from "react";
 import { formatBRL } from "@/lib/money";
 import { formatPhone } from "@/lib/format";
 import { DEFAULT_MESSAGE, fillMessage } from "@/lib/customers";
-import { markContacted, setDoNotContact } from "./actions";
+import { markContacted, redeemReward, setDoNotContact } from "./actions";
 
 export type CustomerRow = {
   key: string;
@@ -19,6 +19,7 @@ export type CustomerRow = {
   contactedDays: number | null;
   doNotContact: boolean;
   link: string; // loja ou /agendar
+  loyalty: { current: number; goal: number; prizes: number; keys: string[] } | null; // cartão fidelidade
 };
 
 const STORAGE_KEY = "clientes-mensagem";
@@ -85,6 +86,16 @@ export function CustomerList({ rows, storeName, canMark }: { rows: CustomerRow[]
                   · {formatBRL(c.totalCents)}
                 </p>
                 {c.nextBooking && <p className="font-medium text-sky-700">Tem horário marcado: {c.nextBooking}</p>}
+                {c.loyalty && (
+                  <p className="text-neutral-600">
+                    🎟️ Cartão fidelidade: {c.loyalty.current} de {c.loyalty.goal}
+                    {c.loyalty.prizes > 0 && (
+                      <strong className="ml-2 text-emerald-700">
+                        🎁 {c.loyalty.prizes === 1 ? "1 prêmio para entregar" : `${c.loyalty.prizes} prêmios para entregar`}
+                      </strong>
+                    )}
+                  </p>
+                )}
                 {c.contactedDays != null && <p className="text-emerald-700">Você chamou {ago(c.contactedDays)}</p>}
                 {c.doNotContact && <p className="text-neutral-500">Não chamar mais</p>}
               </div>
@@ -108,6 +119,16 @@ export function CustomerList({ rows, storeName, canMark }: { rows: CustomerRow[]
                   >
                     Mandar e-mail
                   </a>
+                )}
+                {c.loyalty && c.loyalty.prizes > 0 && (
+                  <button
+                    type="button"
+                    disabled={pending}
+                    onClick={() => startTransition(() => redeemReward(c.loyalty!.keys))}
+                    className="rounded-md bg-amber-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-600 disabled:opacity-50"
+                  >
+                    Entregar prêmio
+                  </button>
                 )}
                 {canMark && (
                   <button
