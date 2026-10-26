@@ -104,6 +104,9 @@ export default async function LinksPage() {
                   {state === "active" && url && (
                     <div className="flex flex-wrap items-center gap-2">
                       <LinkShare compact url={url} whatsappText={whatsappShareText(store.name, l.title, formatBRL(l.amount_cents), url)} />
+                      <Link href={`/painel/imprimir/qr?alvo=link&id=${l.public_token}&formato=cartaz`} target="_blank" className="rounded-md border px-2.5 py-1.5 text-xs font-medium transition hover:border-neutral-400">
+                        QR Code
+                      </Link>
                       <form action={cancelPaymentLink}>
                         <input type="hidden" name="id" value={l.id} />
                         <button type="submit" className="rounded-md px-2.5 py-1.5 text-xs font-medium text-red-700 hover:bg-red-50">
