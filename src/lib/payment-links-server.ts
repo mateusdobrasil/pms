@@ -38,6 +38,25 @@ export async function createLinkOrder(db: SupabaseClient, storeId: string, token
   const { customer, errors } = parseCustomer((body as Record<string, unknown> | null)?.customer);
   if (!customer) return { ok: false, errors };
 
+  // Link de uso único com pagamento em andamento: o mesmo cliente (outra aba, voltou e reenviou) retoma o
+  // mesmo pedido; outra pessoa espera. Sem isso, dois pedidos do mesmo link poderiam ser pagos.
+  if (!link.reusable) {
+    const { data: open } = await db
+      .from("orders")
+      .select("public_token, customer_email")
+      .eq("store_id", storeId)
+      .eq("payment_link_id", link.id)
+      .eq("status", "pending_payment")
+      .gt("expires_at", new Date().toISOString())
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (open) {
+      if (open.customer_email === customer.email) return { ok: true, token: open.public_token };
+      return { ok: false, errors: ["Este link está sendo pago por outra pessoa agora. Tente de novo em uma hora ou fale com a loja."], status: 409 };
+    }
+  }
+
   const { data: order, error } = await db
     .from("orders")
     .insert({

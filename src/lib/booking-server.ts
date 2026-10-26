@@ -223,15 +223,13 @@ export async function createBooking(db: Db, storeId: string, input: BookingInput
     console.error("Agendamento não criado", { storeId, error });
     return { error: "Não foi possível agendar agora. Tente de novo." };
   }
-  // Quem estava na lista de espera desse dia e conseguiu agendar sai da lista.
-  after(async () => {
-    await db.from("booking_waitlist").update({ status: "booked" }).eq("store_id", storeId).eq("date", input.date).eq("customer_email", email).eq("status", "waiting");
-  });
-  // Sem pagamento online já está confirmado: avisa o cliente e o salão.
+  // Sem pagamento online já está confirmado: avisa o cliente e o salão, e tira a pessoa da lista de espera.
+  // Com pagamento, isso acontece quando o pagamento confirma (recordBookingPayment).
   if (data.status === "confirmed") {
     after(async () => {
       await notifyBooking(data.id, "confirmed");
       await notifyBooking(data.id, "store");
+      await leaveWaitlist(db, data.id);
     });
   }
   return { token: data.public_token };
@@ -281,6 +279,7 @@ export async function recordBookingPayment(db: Db, booking: BookingRef, payment:
       after(async () => {
         await notifyBooking(booking.id, "confirmed");
         await notifyBooking(booking.id, "store");
+        await leaveWaitlist(db, booking.id);
       });
     }
     // Pagou depois de o horário expirar e alguém já pegou: o dinheiro entrou sem horário. Avisa para devolver.
@@ -453,6 +452,41 @@ export async function joinWaitlist(db: Db, storeId: string, input: WaitlistInput
     return { error: "Não foi possível entrar na lista agora. Tente de novo." };
   }
   return { ok: true };
+}
+
+// Agendamento confirmado: a pessoa sai da lista de espera do mesmo serviço e dia (se estava nela).
+async function leaveWaitlist(db: Db, bookingId: string) {
+  const { data: b } = await db.from("bookings").select("store_id, service_id, starts_at, customer_email").eq("id", bookingId).maybeSingle();
+  if (!b?.customer_email || !b.service_id) return;
+  await db
+    .from("booking_waitlist")
+    .update({ status: "booked" })
+    .eq("store_id", b.store_id)
+    .eq("service_id", b.service_id)
+    .eq("date", dateOf(b.starts_at))
+    .eq("customer_email", b.customer_email.toLowerCase())
+    .eq("status", "waiting");
+}
+
+// Reserva que esperava pagamento e expirou também libera horário (o job do banco não chama o app):
+// a rotina de hora em hora procura as que expiraram na última hora e avisa a lista daqueles dias.
+export async function notifyWaitlistForExpiredHolds(db: Db, now = new Date()) {
+  // A rotina roda de hora em hora das 8h15 às 21h15 (vercel.json): a das 8h15 (11h15 UTC) cobre a noite inteira.
+  const lookbackMinutes = now.getUTCHours() === 11 ? 11 * 60 + 10 : 70;
+  const since = new Date(now.getTime() - lookbackMinutes * 60_000).toISOString();
+  const { data, error } = await db
+    .from("bookings")
+    .select("store_id, starts_at")
+    .in("status", ["expired", "pending_payment"])
+    .gte("expires_at", since)
+    .lte("expires_at", now.toISOString())
+    .limit(500);
+  if (error) return { days: 0 }; // sem a agenda
+  const days = new Map<string, { storeId: string; date: string }>();
+  for (const b of data ?? []) days.set(`${b.store_id}:${dateOf(b.starts_at)}`, { storeId: b.store_id, date: dateOf(b.starts_at) });
+  let notified = 0;
+  for (const d of days.values()) notified += await notifyWaitlist(db, d.storeId, d.date);
+  return { days: days.size, notified };
 }
 
 // Abriu horário no dia (cancelamento ou remarcação): avisa por e-mail quem está na lista e ainda tem horário livre

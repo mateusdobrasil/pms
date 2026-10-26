@@ -41,5 +41,8 @@ export async function cancelPaymentLink(form: FormData) {
   const id = String(form.get("id") ?? "");
   if (!isUuid(id)) return;
   await supabase.from("payment_links").update({ status: "canceled" }).eq("store_id", store.id).eq("id", id).eq("status", "active");
+  // Tentativas ainda abertas deste link também são canceladas: o cliente não consegue mais pagar.
+  await supabase.from("orders").update({ status: "canceled" }).eq("store_id", store.id).eq("payment_link_id", id).eq("status", "pending_payment");
   revalidatePath("/painel/links");
+  revalidatePath("/painel/pedidos");
 }

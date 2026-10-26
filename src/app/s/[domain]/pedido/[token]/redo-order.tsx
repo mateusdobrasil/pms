@@ -2,16 +2,23 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { type CartItem, writeCart } from "@/lib/cart";
+import { type CartItem, readCart, writeCart } from "@/lib/cart";
 import { type CheckoutPrefill, savePrefill } from "@/lib/checkout-prefill";
 
-// Pedido expirado: monta o carrinho com os itens ainda disponíveis e leva ao checkout com os dados preenchidos.
+// Pedido expirado: põe no carrinho os itens ainda disponíveis (sem apagar o que o cliente já tinha nele)
+// e leva ao checkout com os dados preenchidos.
 // auto = veio do e-mail de segunda chance (?refazer=1): faz isso sozinho ao abrir.
 export function RedoOrder({ items, prefill, auto }: { items: CartItem[]; prefill: CheckoutPrefill; auto: boolean }) {
   const router = useRouter();
 
   function redo() {
-    writeCart(items);
+    const cart = readCart();
+    for (const item of items) {
+      const inCart = cart.find((c) => c.variantId === item.variantId);
+      if (inCart) inCart.quantity = Math.max(inCart.quantity, item.quantity); // não dobra se já estava lá
+      else cart.push(item);
+    }
+    writeCart(cart);
     savePrefill(prefill);
     router.push("/checkout");
   }

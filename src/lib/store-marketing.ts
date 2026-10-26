@@ -14,16 +14,14 @@ const NONE: StoreMarketing = { instagram: null, metaPixelId: null, gaMeasurement
 // Instagram e rastreamento da loja. Consulta separada de getStoreByDomain: sem as colunas
 // (SQL 20261023000000 não rodado), a vitrine segue sem esses recursos em vez de quebrar.
 export const getStoreMarketing = cache(async (storeId: string): Promise<StoreMarketing> => {
-  const { data, error } = await createPublicClient()
-    .from("stores")
-    .select("instagram, meta_pixel_id, ga_measurement_id")
-    .eq("id", storeId)
-    .maybeSingle();
+  // Colunas de SQLs diferentes, lidas à parte (e em paralelo): sem uma delas, só aquele recurso fica de fora.
+  const db = createPublicClient();
+  const [{ data, error }, { data: g }, { data: m }] = await Promise.all([
+    db.from("stores").select("instagram, meta_pixel_id, ga_measurement_id").eq("id", storeId).maybeSingle(),
+    db.from("stores").select("google_site_verification").eq("id", storeId).maybeSingle(), // SQL 20261023200000
+    db.from("stores").select("meta_domain_verification").eq("id", storeId).maybeSingle(), // SQL 20261105000000
+  ]);
   if (error || !data) return NONE;
-  // Código de verificação do Google: coluna mais nova (SQL 20261023200000), lida à parte.
-  const { data: g } = await createPublicClient().from("stores").select("google_site_verification").eq("id", storeId).maybeSingle();
-  // Verificação de domínio da Meta: ainda mais nova (SQL 20261105000000).
-  const { data: m } = await createPublicClient().from("stores").select("meta_domain_verification").eq("id", storeId).maybeSingle();
   return {
     instagram: data.instagram,
     metaPixelId: data.meta_pixel_id,

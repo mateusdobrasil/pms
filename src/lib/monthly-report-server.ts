@@ -8,6 +8,7 @@ import { loadStoreCustomers } from "@/lib/customers-server";
 import { buildReport, monthOf, previousMonth } from "@/lib/monthly-report";
 import { sendMonthlyReport } from "@/lib/email";
 import { todayBR } from "@/lib/billing";
+import { chunks, fetchAll } from "@/lib/supabase/fetch-all";
 
 const AWAY_DAYS = 60;
 
@@ -17,37 +18,42 @@ type Month = ReturnType<typeof monthOf>;
 export async function storeMonthReport(db: SupabaseClient, storeId: string, m: Month, now = new Date()) {
   const [y, mo] = m.month.split("-").map(Number);
   const prev = mo === 1 ? monthOf(y - 1, 12) : monthOf(y, mo - 1);
-  const [{ data: orders }, { data: prevOrders }, { data: bookings }, customers, { data: optedOut }] = await Promise.all([
-    db.from("orders").select("id, total_cents, paid_at, shipping_method").eq("store_id", storeId).in("status", SOLD_STATUSES).gte("paid_at", m.from).lt("paid_at", m.to),
-    db.from("orders").select("total_cents").eq("store_id", storeId).in("status", SOLD_STATUSES).gte("paid_at", prev.from).lt("paid_at", prev.to),
-    db.from("bookings").select("status").eq("store_id", storeId).in("status", ["completed", "confirmed", "no_show", "canceled"]).gte("starts_at", m.from).lt("starts_at", m.to),
+  // Tudo em páginas de 1000 e lotes de IDs; erro de consulta derruba o resumo desta loja (tenta de novo amanhã),
+  // em vez de mandar números incompletos.
+  type Sold = { id: string; total_cents: number; paid_at: string; shipping_method: string };
+  const [sold, prevOrders, bookings, customers, { data: optedOut }] = await Promise.all([
+    fetchAll<Sold>((from, to) => db.from("orders").select("id, total_cents, paid_at, shipping_method").eq("store_id", storeId).in("status", SOLD_STATUSES).gte("paid_at", m.from).lt("paid_at", m.to).order("id").range(from, to)),
+    fetchAll<{ total_cents: number }>((from, to) => db.from("orders").select("total_cents").eq("store_id", storeId).in("status", SOLD_STATUSES).gte("paid_at", prev.from).lt("paid_at", prev.to).order("id").range(from, to)),
+    fetchAll<{ status: string }>((from, to) =>
+      db.from("bookings").select("status").eq("store_id", storeId).in("status", ["completed", "confirmed", "no_show", "canceled"]).gte("starts_at", m.from).lt("starts_at", m.to).order("id").range(from, to),
+    ).catch(() => [] as { status: string }[]), // sem a agenda
     loadStoreCustomers(db, storeId, now),
     db.from("customer_contacts").select("customer_key").eq("store_id", storeId).eq("do_not_contact", true),
   ]);
-  const sold = (orders ?? []) as { id: string; total_cents: number; paid_at: string; shipping_method: string }[];
-  const ids = sold.map((o) => o.id);
   const productIds = sold.filter((o) => o.shipping_method !== PAYMENT_LINK_METHOD).map((o) => o.id);
-  const [{ data: items }, { data: payments }] = await Promise.all([
-    productIds.length
-      ? db.from("order_items").select("product_name, unit_price_cents, quantity").eq("store_id", storeId).in("order_id", productIds)
-      : Promise.resolve({ data: [] }),
-    ids.length
-      ? db.from("payments").select(`order_id, amount_cents, ${FEE_FIELDS}`).eq("store_id", storeId).eq("status", "approved").in("order_id", ids)
-      : Promise.resolve({ data: [] }),
-  ]);
+  const items: { product_name: string; unit_price_cents: number; quantity: number }[] = [];
+  for (const ids of chunks(productIds)) {
+    const { data, error } = await db.from("order_items").select("product_name, unit_price_cents, quantity").eq("store_id", storeId).in("order_id", ids);
+    if (error) throw new Error(error.message);
+    items.push(...(data ?? []));
+  }
   // Uma taxa por pedido (o pagamento aprovado dele).
   const feeByOrder = new Map<string, { feeCents: number; netCents: number }>();
-  for (const p of (payments ?? []) as unknown as { order_id: string; amount_cents: number; fee: unknown; net: unknown }[]) {
-    const f = paymentFees(p.amount_cents, p.fee, p.net);
-    if (f && !feeByOrder.has(p.order_id)) feeByOrder.set(p.order_id, f);
+  for (const ids of chunks(sold.map((o) => o.id))) {
+    const { data, error } = await db.from("payments").select(`order_id, amount_cents, ${FEE_FIELDS}`).eq("store_id", storeId).eq("status", "approved").in("order_id", ids);
+    if (error) throw new Error(error.message);
+    for (const p of (data ?? []) as unknown as { order_id: string; amount_cents: number; fee: unknown; net: unknown }[]) {
+      const f = paymentFees(p.amount_cents, p.fee, p.net);
+      if (f && !feeByOrder.has(p.order_id)) feeByOrder.set(p.order_id, f);
+    }
   }
   const skip = new Set(((optedOut ?? []) as { customer_key: string }[]).map((c) => c.customer_key));
   return buildReport({
     orders: sold,
-    items: (items ?? []) as { product_name: string; unit_price_cents: number; quantity: number }[],
+    items,
     fees: [...feeByOrder.values()],
-    previousSalesCents: ((prevOrders ?? []) as { total_cents: number }[]).reduce((s, o) => s + o.total_cents, 0),
-    bookings: (bookings ?? []) as { status: string }[],
+    previousSalesCents: prevOrders.reduce((s, o) => s + o.total_cents, 0),
+    bookings,
     newCustomers: customers.filter((c) => c.firstAt >= m.from && c.firstAt < m.to).length,
     awayCustomers: customers.filter((c) => daysSince(c.lastAt, now) >= AWAY_DAYS && !c.nextBookingAt && !skip.has(c.key)).length,
   });

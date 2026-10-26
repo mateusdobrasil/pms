@@ -7,7 +7,7 @@ import { notifyOrderExpired } from "@/lib/email";
 
 const RECOVERY_WINDOW_HOURS = 48; // pedidos que expiraram até 2 dias atrás
 const RECOVERY_DELAY_MINUTES = 30; // e que expiraram há pelo menos 30 min (o cliente acabou de ver "Expirado")
-const BATCH = 200;
+const BATCH = 50; // por rodada (a rotina roda de hora em hora): cabe folgado no limite de 60 s
 
 type VariantRow = { id: string; stock: number; active: boolean; products: { active: boolean } };
 

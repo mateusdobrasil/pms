@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { timingSafeEqual } from "node:crypto";
+import { isCronAuthorized } from "@/lib/cron-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { runBilling } from "@/lib/billing-server";
 import { sendBookingReminders } from "@/lib/booking-server";
@@ -10,16 +10,8 @@ import { notifyPlatformError } from "@/lib/email";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
-function authorized(req: Request) {
-  const secret = process.env.CRON_SECRET;
-  if (!secret) return false;
-  const a = Buffer.from(req.headers.get("authorization") ?? "");
-  const b = Buffer.from(`Bearer ${secret}`);
-  return a.length === b.length && timingSafeEqual(a, b);
-}
-
 export async function GET(req: Request) {
-  if (!authorized(req)) return NextResponse.json({ error: "não autorizado" }, { status: 401 });
+  if (!isCronAuthorized(req)) return NextResponse.json({ error: "não autorizado" }, { status: 401 });
   // Lembretes da véspera dos agendamentos: mesma rotina das 8h, independente da cobrança.
   const db = createAdminClient();
   const bookings = await sendBookingReminders(db).catch(async (err) => {

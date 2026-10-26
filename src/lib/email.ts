@@ -146,17 +146,6 @@ export async function notifyOrderPaid(orderId: string) {
     if (!o) return;
     const url = orderUrl(o);
 
-    // Aviso no celular do lojista (push), antes dos e-mails: é o que ele vê primeiro.
-    const units = o.order_items.reduce((n, i) => n + i.quantity, 0);
-    await pushToStore(o.store_id, {
-      title: `Nova venda: ${formatBRL(o.total_cents)}`,
-      body: isPaymentLink(o.shipping_method)
-        ? `Link "${o.order_items[0]?.product_name}" · ${o.customer_name}`
-        : `Pedido ${o.code} · ${o.customer_name} · ${units} ${units === 1 ? "item" : "itens"}${o.stock_issue ? " · ATENÇÃO: faltou estoque" : ""}`,
-      url: `/painel/pedidos/${o.id}`,
-      tag: `order-${o.id}`,
-    });
-
     const customerOk = await sendEmail({
       to: o.customer_email,
       fromName: o.stores.name,
@@ -192,7 +181,21 @@ export async function notifyOrderPaid(orderId: string) {
       });
     }
 
-    if (!customerOk) await release(orderId, "notified_paid_at");
+    // Aviso no celular do lojista (push). Só na tentativa que valeu: se o e-mail do cliente falhar, a trava é
+    // liberada e a próxima tentativa avisa (sem tocar o celular de novo a cada repetição).
+    if (!customerOk) {
+      await release(orderId, "notified_paid_at");
+      return;
+    }
+    const units = o.order_items.reduce((n, i) => n + i.quantity, 0);
+    await pushToStore(o.store_id, {
+      title: `Nova venda: ${formatBRL(o.total_cents)}`,
+      body: isPaymentLink(o.shipping_method)
+        ? `Link "${o.order_items[0]?.product_name}" · ${o.customer_name}`
+        : `Pedido ${o.code} · ${o.customer_name} · ${units} ${units === 1 ? "item" : "itens"}${o.stock_issue ? " · ATENÇÃO: faltou estoque" : ""}`,
+      url: `/painel/pedidos/${o.id}`,
+      tag: `order-${o.id}`,
+    });
   } catch (err) {
     console.error("Falha ao notificar pagamento", { orderId, err });
   }
