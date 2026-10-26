@@ -6,6 +6,7 @@ import { notifyOrderExpired } from "@/lib/email";
 // Segunda chance do pedido que expirou sem pagamento: refazer o pedido (página do pedido) e o aviso por e-mail.
 
 const RECOVERY_WINDOW_HOURS = 48; // pedidos que expiraram até 2 dias atrás
+const RECOVERY_DELAY_MINUTES = 30; // e que expiraram há pelo menos 30 min (o cliente acabou de ver "Expirado")
 const BATCH = 200;
 
 type VariantRow = { id: string; stock: number; active: boolean; products: { active: boolean } };
@@ -28,16 +29,19 @@ export async function availableOrderItems(db: SupabaseClient, storeId: string, o
   });
 }
 
-// Rotina diária: um e-mail por pedido expirado nas últimas 48 h, se o cliente não fez outro pedido depois
+// Rotina de hora em hora: um e-mail por pedido expirado entre 30 min e 48 h atrás, se o cliente não fez outro pedido depois
 // e se algum item ainda está à venda. A trava notified_expired_at garante o envio único.
 export async function sendExpiredOrderReminders(db: SupabaseClient) {
-  const since = new Date(new Date().getTime() - RECOVERY_WINDOW_HOURS * 3_600_000).toISOString();
+  const now = new Date().getTime();
+  const since = new Date(now - RECOVERY_WINDOW_HOURS * 3_600_000).toISOString();
+  const until = new Date(now - RECOVERY_DELAY_MINUTES * 60_000).toISOString();
   const { data, error } = await db
     .from("orders")
     .select("id, store_id, customer_email, created_at, stores!inner(status)")
     .eq("status", "expired")
     .is("notified_expired_at", null)
     .gte("expires_at", since)
+    .lte("expires_at", until)
     .eq("stores.status", "active")
     .order("created_at", { ascending: false })
     .limit(BATCH);

@@ -4,7 +4,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { sendExpiredOrderReminders } from "@/lib/order-recovery";
 import { notifyPlatformError } from "@/lib/email";
 
-// Rotina diária das 19h de Brasília (vercel.json → crons): e-mail de segunda chance para pedidos expirados sem pagamento.
+// De hora em hora, das 8h15 às 21h15 de Brasília (vercel.json → crons; nada de e-mail de madrugada):
+// e-mail de segunda chance para pedidos expirados sem pagamento.
 // A Vercel chama com "Authorization: Bearer <CRON_SECRET>"; sem o segredo certo, 401.
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
