@@ -1,17 +1,14 @@
 import Link from "next/link";
 import { requireStore } from "@/lib/panel";
 import { storeBaseUrl } from "@/lib/urls";
-import { SOLD_STATUSES } from "@/lib/order-status";
-import { AWAY_DAYS, type Activity, daysSince, groupCustomers } from "@/lib/customers";
+import { AWAY_DAYS, daysSince } from "@/lib/customers";
+import { loadStoreCustomers } from "@/lib/customers-server";
 import { CustomerList, type CustomerRow } from "./customer-list";
 
 export const metadata = { title: "Clientes · PMS app" };
 
-const HISTORY_DAYS = 730; // 2 anos de pedidos e atendimentos
 const MAX_ROWS = 300;
 
-type OrderRow = { customer_name: string; customer_email: string; customer_phone: string | null; total_cents: number; paid_at: string };
-type BookingRow = { customer_name: string; customer_email: string | null; customer_phone: string | null; price_cents: number; starts_at: string };
 type ContactRow = { customer_key: string; contacted_at: string | null; do_not_contact: boolean };
 
 // "sáb., 31/10 às 14:00"
@@ -28,46 +25,12 @@ export default async function CustomersPage({ searchParams }: { searchParams: Pr
   const sp = await searchParams;
   const away = sp.dias === "todos" ? 0 : (AWAY_DAYS as readonly number[]).includes(Number(sp.dias)) ? Number(sp.dias) : 60;
   const now = new Date();
-  const since = new Date(now.getTime() - HISTORY_DAYS * 86_400_000).toISOString();
-  const nowIso = now.toISOString();
-
-  const [{ data: orders }, { data: past }, { data: upcoming }, { data: contacts, error: contactsError }, { data: domains }, { data: bookingRow }] = await Promise.all([
-    supabase
-      .from("orders")
-      .select("customer_name, customer_email, customer_phone, total_cents, paid_at")
-      .eq("store_id", store.id)
-      .in("status", SOLD_STATUSES)
-      .gte("paid_at", since)
-      .limit(5000),
-    // Atendimentos: marcados como atendidos, ou confirmados com horário que já passou.
-    supabase
-      .from("bookings")
-      .select("customer_name, customer_email, customer_phone, price_cents, starts_at")
-      .eq("store_id", store.id)
-      .in("status", ["completed", "confirmed"])
-      .gte("starts_at", since)
-      .lt("starts_at", nowIso)
-      .limit(5000),
-    supabase
-      .from("bookings")
-      .select("customer_email, customer_phone, starts_at")
-      .eq("store_id", store.id)
-      .in("status", ["confirmed", "pending_payment"])
-      .gte("starts_at", nowIso)
-      .limit(2000),
+  const [customers, { data: contacts, error: contactsError }, { data: domains }, { data: bookingRow }] = await Promise.all([
+    loadStoreCustomers(supabase, store.id, now),
     supabase.from("customer_contacts").select("customer_key, contacted_at, do_not_contact").eq("store_id", store.id),
     supabase.from("store_domains").select("domain, is_primary").eq("store_id", store.id),
     supabase.from("stores").select("booking_enabled").eq("id", store.id).maybeSingle(),
   ]);
-
-  const activities: Activity[] = [
-    ...((orders ?? []) as OrderRow[]).map((o) => ({ kind: "order" as const, name: o.customer_name, phone: o.customer_phone, email: o.customer_email, at: o.paid_at, cents: o.total_cents })),
-    ...((past ?? []) as BookingRow[]).map((b) => ({ kind: "booking" as const, name: b.customer_name, phone: b.customer_phone, email: b.customer_email, at: b.starts_at, cents: b.price_cents })),
-  ];
-  const customers = groupCustomers(
-    activities,
-    ((upcoming ?? []) as { customer_email: string | null; customer_phone: string | null; starts_at: string }[]).map((u) => ({ phone: u.customer_phone, email: u.customer_email, at: u.starts_at })),
-  );
   const marks = new Map(((contacts ?? []) as ContactRow[]).map((c) => [c.customer_key, c]));
 
   const domain = (domains ?? []).find((d) => d.is_primary)?.domain ?? domains?.[0]?.domain;

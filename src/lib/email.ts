@@ -8,6 +8,7 @@ import { googleCalendarUrl } from "@/lib/booking";
 import { isLocalDelivery } from "@/lib/shipping-settings";
 import { pushToStore } from "@/lib/push";
 import { isPaymentLink } from "@/lib/payment-links";
+import type { Report } from "@/lib/monthly-report";
 
 // E-mails transacionais via API do Resend. Sem RESEND_API_KEY, só registra no log (dev).
 // EMAIL_FROM: endereço de um domínio verificado no Resend, ex.: pedidos@pmsapp.dev
@@ -27,6 +28,13 @@ async function trySendEmail(email: Email): Promise<string | null> {
   const fromAddress = process.env.EMAIL_FROM ?? "onboarding@resend.dev";
   if (!apiKey) {
     console.log(`[e-mail não enviado: RESEND_API_KEY ausente] para ${email.to}: ${email.subject}`);
+    // Desenvolvimento: EMAIL_PREVIEW_DIR guarda o HTML de cada e-mail para conferir o visual.
+    const dir = process.env.EMAIL_PREVIEW_DIR;
+    if (dir) {
+      const { writeFile } = await import("node:fs/promises");
+      const name = email.idempotencyKey.replace(/[^a-z0-9-]/gi, "_").slice(0, 80);
+      await writeFile(`${dir}/${name}.html`, email.html).catch(() => {});
+    }
     return null;
   }
   const res = await fetch("https://api.resend.com/emails", {
@@ -567,6 +575,50 @@ async function ownerEmail(storeId: string) {
   if (!owner) return null;
   const { data } = await db.auth.admin.getUserById(owner.user_id);
   return data.user?.email ?? null;
+}
+
+// Resumo do mês para o dono da loja (rotina do dia 1). A trava fica em store_monthly_reports.
+export async function sendMonthlyReport(storeId: string, m: { month: string; label: string; name: string }, r: Report) {
+  const to = await ownerEmail(storeId);
+  const { data: store } = await createAdminClient().from("stores").select("name, primary_color").eq("id", storeId).single();
+  if (!to || !store) return false;
+  const stat = (label: string, value: string, note = "") =>
+    `<td style="width:50%;padding:6px;vertical-align:top"><div style="padding:14px;border-radius:10px;background:#f5f5f5">
+      <div style="font-size:12px;color:#737373">${label}</div><div style="margin-top:4px;font-size:20px;font-weight:bold">${value}</div>${note ? `<div style="margin-top:2px;font-size:12px">${note}</div>` : ""}</div></td>`;
+  const change =
+    r.changePercent == null ? "" : r.changePercent >= 0
+      ? `<span style="color:#047857">▲ ${r.changePercent}% sobre o mês anterior</span>`
+      : `<span style="color:#b91c1c">▼ ${Math.abs(r.changePercent)}% sobre o mês anterior</span>`;
+  const bestDay = r.bestDay ? new Date(`${r.bestDay.date}T12:00:00Z`).toLocaleDateString("pt-BR", { timeZone: "UTC", day: "numeric", month: "long" }) : "";
+  const agenda = r.attended + r.noShows + r.canceled > 0;
+  // Quadros de dois em dois; "Você recebeu" só com a taxa de todas as vendas, "Atendimentos" só com agenda.
+  const stats = [
+    stat("Vendas", formatBRL(r.salesCents), change),
+    stat("Pedidos pagos", String(r.orders), r.orders ? `ticket médio ${formatBRL(r.avgTicketCents)}` : ""),
+    r.netCents != null && stat("Você recebeu (já sem taxas)", formatBRL(r.netCents), `taxas do Mercado Pago: ${formatBRL(r.feeCents)}`),
+    agenda && stat("Atendimentos", String(r.attended), `${r.noShows} falta${r.noShows === 1 ? "" : "s"} · ${r.canceled} cancelado${r.canceled === 1 ? "" : "s"}`),
+    stat("Clientes novos", String(r.newCustomers)),
+  ].filter(Boolean) as string[];
+  const rows = Array.from({ length: Math.ceil(stats.length / 2) }, (_, i) => `<tr>${stats[2 * i]}${stats[2 * i + 1] ?? "<td></td>"}</tr>`).join("");
+  const html = layout(store, `
+    <h1 style="margin:0 0 4px;font-size:22px">Seu resumo de ${esc(m.name)} 📊</h1>
+    <p style="margin:0 0 16px;color:#525252">Como foi ${esc(m.label)} na ${esc(store.name)}.</p>
+    <table role="presentation" style="width:100%;border-collapse:collapse;margin:0 -6px">${rows}</table>
+    ${bestDay ? `<p style="margin:16px 0 0;color:#525252">Melhor dia: <strong>${esc(bestDay)}</strong>, com ${formatBRL(r.bestDay!.cents)} em vendas.</p>` : ""}
+    ${r.top.length ? `<p style="margin:20px 0 6px;font-weight:bold">Mais vendidos</p><ol style="margin:0;padding-left:20px;color:#404040">${r.top
+      .map((t) => `<li style="padding:2px 0">${esc(t.name)} · ${t.quantity} un. · ${formatBRL(t.cents)}</li>`)
+      .join("")}</ol>` : ""}
+    ${r.awayCustomers > 0 ? `<p style="margin:20px 0 0;padding:14px;border-radius:8px;background:#fffbeb;color:#78350f">${r.awayCustomers} cliente${r.awayCustomers === 1 ? " não volta" : "s não voltam"} há mais de 60 dias. Uma mensagem no WhatsApp costuma trazer de volta.</p>
+      ${button(platformUrl("/painel/clientes"), "Chamar clientes de volta", "#16a34a")}` : ""}
+    ${button(platformUrl("/painel"), "Abrir o painel", store.primary_color)}`);
+  return sendEmail({
+    to,
+    fromName: "PMS app",
+    idempotencyKey: `monthly-${storeId}-${m.month}`,
+    track: { kind: "store", refId: null, storeId },
+    subject: `Resumo de ${m.name}: ${formatBRL(r.salesCents)} em vendas${agenda ? `, ${r.attended} atendimento${r.attended === 1 ? "" : "s"}` : ""}`,
+    html,
+  });
 }
 
 // Cada aviso sai uma vez por fatura (coluna notified_<aviso>_at).

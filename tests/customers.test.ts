@@ -21,7 +21,7 @@ describe("clientes da loja", () => {
     ]);
     expect(list).toHaveLength(2);
     const ana = list.find((c) => c.key === "11988887777")!;
-    expect(ana).toMatchObject({ name: "Ana S.", email: "ana@x.com", orders: 1, bookings: 2, totalCents: 15000, lastAt: "2026-03-01T12:00:00Z" });
+    expect(ana).toMatchObject({ name: "Ana S.", email: "ana@x.com", orders: 1, bookings: 2, totalCents: 15000, lastAt: "2026-03-01T12:00:00Z", firstAt: "2026-01-01T12:00:00Z" });
   });
 
   it("sem celular, a chave é o e-mail; sem nenhum dos dois, fica de fora", () => {
