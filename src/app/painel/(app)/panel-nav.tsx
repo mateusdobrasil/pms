@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 
 const LINKS = [
   { href: "/painel", label: "Resumo" },
+  { href: "/painel/vender", label: "Vender" },
   { href: "/painel/pedidos", label: "Pedidos" },
   { href: "/painel/links", label: "Links de pagamento" },
   { href: "/painel/clientes", label: "Clientes" },
@@ -19,7 +20,7 @@ const LINKS = [
 // "Agenda" aparece para quem usa agendamentos (ou já está montando a agenda).
 export function PanelNav({ agenda = false }: { agenda?: boolean }) {
   const pathname = usePathname();
-  const links = agenda || pathname.startsWith("/painel/agenda") ? [...LINKS.slice(0, 2), { href: "/painel/agenda", label: "Agenda" }, ...LINKS.slice(2)] : LINKS;
+  const links = agenda || pathname.startsWith("/painel/agenda") ? [...LINKS.slice(0, 3), { href: "/painel/agenda", label: "Agenda" }, ...LINKS.slice(3)] : LINKS;
   return (
     <nav className="flex gap-1 overflow-x-auto text-sm">
       {links.map((l) => {

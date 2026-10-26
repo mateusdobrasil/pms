@@ -10,6 +10,7 @@ import { SalesChart, TopProducts } from "./sales-chart";
 import { FEE_FIELDS, paymentFees } from "@/lib/payments/fees";
 import { pushPublicKey } from "@/lib/push";
 import { PAYMENT_LINK_METHOD } from "@/lib/payment-links";
+import { isCounterSale } from "@/lib/counter";
 import { PushCard } from "./push-card";
 
 const CHART_DAYS = 30;
@@ -25,7 +26,7 @@ export default async function PanelHome() {
   const [{ data: sold }, { count: toShip }, { count: stockIssues }, { data: lowData, count: lowCount }, { data: recent }, { data: recentItems }, { data: monthPayments }] = await Promise.all([
     supabase
       .from("orders")
-      .select("total_cents, paid_at")
+      .select("id, total_cents, paid_at, shipping_method")
       .eq("store_id", store.id)
       .in("status", SOLD_STATUSES)
       .gte("paid_at", startOfMonth.toISOString()),
@@ -120,7 +121,14 @@ export default async function PanelHome() {
     ? await supabase.from("orders").select("id, code").in("id", badMailOrders.map(([id]) => id))
     : { data: [] };
 
-  const month = (sold ?? []) as { total_cents: number; paid_at: string }[];
+  const month = (sold ?? []) as { id: string; total_cents: number; paid_at: string; shipping_method: string }[];
+  // Venda no balcão não passa pelo Mercado Pago: o valor inteiro é do lojista.
+  for (const o of month) {
+    if (isCounterSale(o.shipping_method) && !counted.has(o.id)) {
+      counted.add(o.id);
+      monthNet += o.total_cents;
+    }
+  }
   const todays = month.filter((o) => new Date(o.paid_at) >= startOfDay);
   // Vendas do mês sem a taxa informada pelo Mercado Pago ficam fora do "Você recebe" (e o cartão avisa quantas).
   const unknownFees = Math.max(0, month.length - counted.size);

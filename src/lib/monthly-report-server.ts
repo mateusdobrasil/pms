@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { SOLD_STATUSES } from "@/lib/order-status";
 import { FEE_FIELDS, paymentFees } from "@/lib/payments/fees";
 import { PAYMENT_LINK_METHOD } from "@/lib/payment-links";
+import { isCounterSale } from "@/lib/counter";
 import { daysSince } from "@/lib/customers";
 import { loadStoreCustomers } from "@/lib/customers-server";
 import { buildReport, monthOf, previousMonth } from "@/lib/monthly-report";
@@ -47,6 +48,8 @@ export async function storeMonthReport(db: SupabaseClient, storeId: string, m: M
       if (f && !feeByOrder.has(p.order_id)) feeByOrder.set(p.order_id, f);
     }
   }
+  // Venda no balcão não passa pelo Mercado Pago: sem taxa, o valor inteiro é do lojista.
+  for (const o of sold) if (isCounterSale(o.shipping_method)) feeByOrder.set(o.id, { feeCents: 0, netCents: o.total_cents });
   const skip = new Set(((optedOut ?? []) as { customer_key: string }[]).map((c) => c.customer_key));
   return buildReport({
     orders: sold,

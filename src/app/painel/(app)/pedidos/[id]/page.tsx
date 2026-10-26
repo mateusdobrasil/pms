@@ -8,6 +8,8 @@ import { MEMBER_TRANSITIONS, SOLD_STATUSES, statusLabel, statusTone, type OrderS
 import { OrderActions, RefundSection } from "./order-actions";
 import { FEE_FIELDS, feePercent, paymentFees } from "@/lib/payments/fees";
 import { isPaymentLink } from "@/lib/payment-links";
+import { COUNTER_PAYMENTS, type CounterPayment, isCounterSale } from "@/lib/counter";
+import { CancelSale } from "../../vender/cancel-sale";
 import { emailStatusLabel, isProblem } from "@/lib/resend-webhook";
 
 type Order = {
@@ -57,6 +59,10 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
   const order = data as Order;
   const isPickup = order.shipping_method === "pickup";
   const fromLink = isPaymentLink(order.shipping_method);
+  // Venda no balcão: forma de pagamento lida à parte (coluna do SQL 20261114000000).
+  const counter = isCounterSale(order.shipping_method);
+  const { data: counterRow } = counter ? await supabase.from("orders").select("counter_payment").eq("id", order.id).maybeSingle() : { data: null };
+  const counterPayment = (counterRow as { counter_payment: CounterPayment | null } | null)?.counter_payment ?? null;
   const phone = order.customer_phone ? `55${order.customer_phone}` : null;
   const address = order.shipping_address;
   const approved = order.payments.find((p) => p.status === "approved");
@@ -135,14 +141,14 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
             </ul>
             <div className="space-y-1 border-t px-4 py-3 text-sm">
               <p className="flex justify-between"><span>Subtotal</span><span>{formatBRL(order.subtotal_cents)}</span></p>
-              {!fromLink && (
+              {!fromLink && !counter && (
                 <p className="flex justify-between">
                   <span>{isPickup ? "Retirada na loja" : order.shipping_method}</span>
                   <span>{formatBRL(order.shipping_cents)}</span>
                 </p>
               )}
               {order.discount_cents > 0 && (
-                <p className="flex justify-between text-emerald-700"><span>Desconto Pix</span><span>−{formatBRL(order.discount_cents)}</span></p>
+                <p className="flex justify-between text-emerald-700"><span>{counter ? "Desconto" : "Desconto Pix"}</span><span>−{formatBRL(order.discount_cents)}</span></p>
               )}
               <p className="flex justify-between font-semibold"><span>Total</span><span>{formatBRL(order.total_cents)}</span></p>
             </div>
@@ -198,7 +204,9 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
           <section className="space-y-1 rounded-xl border bg-white shadow-sm px-4 py-3 text-sm">
             <h2 className="mb-2 font-medium">Cliente</h2>
             <p>{order.customer_name}</p>
-            <p><a href={`mailto:${order.customer_email}`} className="font-medium text-primary-700 hover:underline">{order.customer_email}</a></p>
+            {order.customer_email && (
+              <p><a href={`mailto:${order.customer_email}`} className="font-medium text-primary-700 hover:underline">{order.customer_email}</a></p>
+            )}
             {order.customer_phone && (
               <p>
                 {formatPhone(order.customer_phone)}
@@ -209,12 +217,19 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
                 )}
               </p>
             )}
-            <p className="text-neutral-500">CPF {formatCPF(order.customer_cpf)}</p>
+            {order.customer_cpf && <p className="text-neutral-500">CPF {formatCPF(order.customer_cpf)}</p>}
           </section>
 
           <section className="space-y-1 rounded-xl border bg-white shadow-sm px-4 py-3 text-sm">
             <h2 className="mb-2 font-medium">Entrega</h2>
-            {fromLink ? (
+            {counter ? (
+              <div className="space-y-2">
+                <p className="text-neutral-600">
+                  Venda no balcão{counterPayment ? `, paga em ${COUNTER_PAYMENTS[counterPayment].toLowerCase()}` : ""}. Entregue na hora.
+                </p>
+                {order.status !== "canceled" && <CancelSale orderId={order.id} code={order.code} />}
+              </div>
+            ) : fromLink ? (
               <p className="text-neutral-600">
                 Pago por <Link href="/painel/links" className="font-medium text-primary-700 hover:underline">link de pagamento</Link>. Se houver
                 entrega, combine com o cliente.
