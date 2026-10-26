@@ -5,7 +5,7 @@ import { requireStore } from "@/lib/panel";
 import { isEmail, isValidDocument, onlyDigits } from "@/lib/validation";
 import { isValidBannerLink } from "@/lib/banner";
 import { parseBRL } from "@/lib/money";
-import { parseGoogleVerification, parseInstagramHandle } from "@/lib/store-marketing";
+import { parseInstagramHandle, parseVerificationCode } from "@/lib/store-marketing";
 import { parseCarriers, parseLocalAreas } from "@/lib/shipping-settings";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -74,9 +74,16 @@ export async function saveSettings(_prev: SettingsState, form: FormData): Promis
   // Verificação do Google: só vem no formulário quando a coluna existe no banco.
   const hasGoogle = form.get("google_enabled") === "1";
   const googleText = String(form.get("google_site_verification") ?? "").trim();
-  const googleVerification = googleText ? parseGoogleVerification(googleText) : null;
+  const googleVerification = googleText ? parseVerificationCode(googleText) : null;
   if (hasGoogle && googleText && !googleVerification) {
     return { error: "Código de verificação do Google inválido: cole a etiqueta inteira ou só o código (content)." };
+  }
+  // Verificação de domínio da Meta (catálogo do Instagram): idem.
+  const hasMeta = form.get("meta_enabled") === "1";
+  const metaText = String(form.get("meta_domain_verification") ?? "").trim();
+  const metaVerification = metaText ? parseVerificationCode(metaText) : null;
+  if (hasMeta && metaText && !metaVerification) {
+    return { error: "Código de verificação da Meta inválido: cole a etiqueta inteira ou só o código (content)." };
   }
 
   // Dados da empresa e políticas: só vêm no formulário quando as colunas existem no banco.
@@ -149,6 +156,7 @@ export async function saveSettings(_prev: SettingsState, form: FormData): Promis
       logo_url: logoUrl || null,
       ...(hasBanner ? banner : {}),
       ...(hasGoogle ? { google_site_verification: googleVerification } : {}),
+      ...(hasMeta ? { meta_domain_verification: metaVerification } : {}),
       ...(hasLegal
         ? {
             legal_name: legalName || null,

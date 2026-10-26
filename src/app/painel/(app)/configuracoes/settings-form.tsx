@@ -46,6 +46,7 @@ export function SettingsForm({
   shipping,
   storeUrl,
   googleVerification,
+  metaVerification,
 }: {
   storeId: string;
   settings: Settings;
@@ -58,6 +59,7 @@ export function SettingsForm({
   shipping: ShippingFormSettings | null; // null = SQL das formas de entrega ainda não rodado
   policyBase: PolicyBase;
   googleVerification: string | null | undefined; // undefined = coluna ainda não existe
+  metaVerification: string | null | undefined; // undefined = coluna ainda não existe
   storeUrl: string | null;
 }) {
   const [state, action, pending] = useActionState<SettingsState, FormData>(saveSettings, null);
@@ -280,6 +282,17 @@ export function SettingsForm({
               <code className="block break-all rounded bg-white px-2 py-1.5 font-mono text-xs">{storeUrl}/feed.xml</code>
             </div>
           )}
+          {storeUrl && (
+            <div className="space-y-1 rounded-lg bg-neutral-50 p-3 text-sm">
+              <p className="font-medium text-neutral-700">Produtos no Instagram e no Facebook (grátis)</p>
+              <p className="text-xs text-neutral-500">
+                Para marcar produtos nos posts e stories e anunciar o catálogo, crie um catálogo no Gerenciador de
+                Comércio da Meta (Catálogo → Fontes de dados → Adicionar itens → Feed de dados → Feed programado) com
+                este mesmo endereço, atualizado todo dia. Depois confirme o domínio da loja com o código abaixo.
+              </p>
+              <code className="block break-all rounded bg-white px-2 py-1.5 font-mono text-xs">{storeUrl}/feed.xml</code>
+            </div>
+          )}
           {googleVerification !== undefined && (
             <label className="block space-y-1 text-sm">
               <input type="hidden" name="google_enabled" value="1" />
@@ -294,6 +307,23 @@ export function SettingsForm({
                 O Google Merchant Center e o Search Console pedem para confirmar que o site é seu. Escolha o método
                 &quot;Tag HTML&quot;, copie a etiqueta e cole aqui. Depois de salvar, aguarde 1 minuto e clique em
                 &quot;Verificar&quot; no Google.
+              </span>
+            </label>
+          )}
+          {metaVerification !== undefined && (
+            <label className="block space-y-1 text-sm">
+              <input type="hidden" name="meta_enabled" value="1" />
+              <span className="font-medium text-neutral-700">Código de verificação da Meta (opcional)</span>
+              <input
+                name="meta_domain_verification"
+                defaultValue={metaVerification ?? ""}
+                placeholder='Cole o código ou a etiqueta <meta name="facebook-domain-verification" ...>'
+                className={input}
+              />
+              <span className="text-xs text-neutral-500">
+                No Gerenciador de Negócios da Meta: Configurações do negócio → Segurança da marca → Domínios → Adicionar.
+                Escolha &quot;Adicionar uma metatag&quot;, copie a etiqueta e cole aqui. Depois de salvar, aguarde 1 minuto e
+                clique em &quot;Verificar domínio&quot;.
               </span>
             </label>
           )}

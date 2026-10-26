@@ -109,7 +109,7 @@ function customerWhatsappUrl(o: OrderForEmail) {
   return `https://wa.me/55${o.customer_phone}?text=${encodeURIComponent(text)}`;
 }
 
-type OrderNotice = "notified_paid_at" | "notified_shipped_at" | "notified_refunded_at";
+type OrderNotice = "notified_paid_at" | "notified_shipped_at" | "notified_refunded_at" | "notified_expired_at";
 
 // Trava: só quem preencher a coluna envia. Se o envio falhar, libera para tentar de novo.
 async function claim(orderId: string, column: OrderNotice, statuses: string[]) {
@@ -239,6 +239,40 @@ export async function notifyOrderRefunded(orderId: string, method: "pix" | "card
     if (!ok) await release(orderId, "notified_refunded_at");
   } catch (err) {
     console.error("Falha ao notificar estorno", { orderId, err });
+  }
+}
+
+// Pedido que expirou sem pagamento (Pix vencido, cartão recusado): segunda chance, um e-mail por pedido.
+// O link abre a página do pedido com ?refazer=1, que monta o carrinho de novo e leva ao checkout já preenchido.
+export async function notifyOrderExpired(orderId: string) {
+  try {
+    if (!(await claim(orderId, "notified_expired_at", ["expired"]))) return false;
+    const o = await loadOrder(orderId);
+    const url = o && orderUrl(o);
+    if (!o || !url) return false;
+    const items = o.order_items
+      .map((i) => `<li style="padding:4px 0">${i.quantity}× ${esc(i.product_name)}${i.variant_name !== "Único" ? ` <span style="color:#737373">· ${esc(i.variant_name)}</span>` : ""}</li>`)
+      .join("");
+    const ok = await sendEmail({
+      to: o.customer_email,
+      fromName: o.stores.name,
+      replyTo: o.stores.email,
+      idempotencyKey: `expired-${o.id}`,
+      track: { kind: "order", refId: o.id, storeId: o.store_id },
+      subject: `Ainda dá tempo: finalize seu pedido na ${o.stores.name}`,
+      html: layout(o.stores, `
+        <h1 style="margin:0 0 8px;font-size:22px">Seu pedido ficou pela metade</h1>
+        <p style="margin:0 0 16px;color:#525252">Olá, ${esc(firstName(o.customer_name))}. O prazo para pagar o pedido <strong>${o.code}</strong> acabou
+        antes do pagamento, mas os produtos ainda estão disponíveis. É só um clique para refazer, com seus dados já preenchidos.</p>
+        <ul style="margin:0;padding:0 0 0 18px;font-size:14px">${items}</ul>
+        ${button(`${url}?refazer=1`, "Finalizar minha compra", o.stores.primary_color)}
+        <p style="margin:24px 0 0;font-size:12px;color:#a3a3a3">Preço e frete são conferidos de novo ao finalizar. Se você já comprou, ignore este e-mail. É um aviso único.</p>`),
+    });
+    if (!ok) await release(orderId, "notified_expired_at");
+    return ok;
+  } catch (err) {
+    console.error("Falha ao avisar pedido expirado", { orderId, err });
+    return false;
   }
 }
 

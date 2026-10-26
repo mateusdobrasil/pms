@@ -33,6 +33,8 @@ export async function generateMetadata({ params }: { params: Promise<{ domain: s
     openGraph: { siteName: name, type: "website", locale: "pt_BR", title: name, description },
     // Search Console e Merchant Center: <meta name="google-site-verification">.
     ...(marketing?.googleSiteVerification ? { verification: { google: marketing.googleSiteVerification } } : {}),
+    // Catálogo do Instagram/Facebook: <meta name="facebook-domain-verification">.
+    ...(marketing?.metaDomainVerification ? { other: { "facebook-domain-verification": marketing.metaDomainVerification } } : {}),
   };
 }
 

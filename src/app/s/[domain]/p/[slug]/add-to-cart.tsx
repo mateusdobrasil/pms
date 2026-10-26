@@ -13,13 +13,11 @@ type Variant = { id: string; name: string; priceCents: number; compareAtCents: n
 type Installments = { max: number; interestFree: number } | null;
 
 export function AddToCart({
-  productId,
   productName,
   variants,
   installments,
   pixDiscountPercent,
 }: {
-  productId: string;
   productName: string;
   variants: Variant[];
   installments: Installments;
@@ -40,12 +38,13 @@ export function AddToCart({
   const unavailable = selected ? selected.stock <= 0 : soldOut;
 
   // Depois do efeito do layout, que carrega o Pixel/Analytics (quando o visitante aceitou).
+  // A variação mostrada primeiro representa o produto (ids dos eventos = ids do feed, por variação).
   useEffect(() => {
     const t = setTimeout(() =>
-      trackViewProduct({ id: productId, name: productName, priceCents: Math.min(...variants.map((v) => v.priceCents)), quantity: 1 }),
+      trackViewProduct({ id: firstAvailable.id, name: productName, priceCents: Math.min(...variants.map((v) => v.priceCents)), quantity: 1 }),
     );
     return () => clearTimeout(t);
-  }, [productId, productName, variants]);
+  }, [firstAvailable.id, productName, variants]);
 
   function add() {
     if (!selected) {
@@ -59,7 +58,7 @@ export function AddToCart({
       return;
     }
     addToCart(selected.id, qty);
-    trackAddToCart({ id: productId, name: productName, priceCents: selected.priceCents, quantity: qty });
+    trackAddToCart({ id: selected.id, name: productName, priceCents: selected.priceCents, quantity: qty });
     setMessage(qty < quantity ? `Adicionamos ${qty}, o máximo disponível.` : null);
     setAdded(true);
   }

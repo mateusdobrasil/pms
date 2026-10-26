@@ -131,7 +131,6 @@ export default async function ProductPage({ params }: Params) {
         </div>
 
         <AddToCart
-          productId={product.id}
           productName={product.name}
           installments={installments}
           pixDiscountPercent={promotions.pixDiscountPercent}

@@ -31,6 +31,8 @@ export default async function SettingsPage() {
     .single();
   // Código de verificação do Google: também à parte (SQL 20261023200000).
   const { data: gsv, error: gsvError } = await supabase.from("stores").select("google_site_verification").eq("id", store.id).single();
+  // Verificação de domínio da Meta: também à parte (SQL 20261105000000).
+  const { data: mdv, error: mdvError } = await supabase.from("stores").select("meta_domain_verification").eq("id", store.id).single();
 
   // Dados legais e políticas: também à parte (SQL 20261023100000).
   const { data: legal, error: legalError } = await supabase
@@ -94,6 +96,7 @@ export default async function SettingsPage() {
         policyBase={policyBase}
         storeUrl={domain ? storeBaseUrl(domain) : null}
         googleVerification={gsvError ? undefined : (gsv?.google_site_verification ?? null)}
+        metaVerification={mdvError ? undefined : (mdv?.meta_domain_verification ?? null)}
       />
     </div>
   );

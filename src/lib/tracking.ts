@@ -23,6 +23,7 @@ export function readConsent(): "accepted" | "rejected" | null {
   }
 }
 
+// id = id da variação: o mesmo g:id do feed (feed.xml), para a Meta e o Google casarem os eventos com o catálogo.
 type Item = { id: string; name: string; priceCents: number; quantity: number };
 
 const toBRL = (cents: number) => Math.round(cents) / 100;
@@ -38,13 +39,13 @@ export function trackAddToCart(item: Item) {
   window.gtag?.("event", "add_to_cart", { currency: "BRL", value, items: [gaItem(item)] });
 }
 
-export function trackBeginCheckout(valueCents: number) {
-  window.fbq?.("track", "InitiateCheckout", { value: toBRL(valueCents), currency: "BRL" });
-  window.gtag?.("event", "begin_checkout", { currency: "BRL", value: toBRL(valueCents) });
+export function trackBeginCheckout(valueCents: number, items: Item[]) {
+  window.fbq?.("track", "InitiateCheckout", { ...metaContents(items), value: toBRL(valueCents), currency: "BRL" });
+  window.gtag?.("event", "begin_checkout", { currency: "BRL", value: toBRL(valueCents), items: items.map(gaItem) });
 }
 
 // Compra: uma vez por pedido neste navegador (a página do pedido pode ser aberta várias vezes).
-export function trackPurchase(orderCode: string, valueCents: number) {
+export function trackPurchase(orderCode: string, valueCents: number, items: Item[]) {
   const key = `purchase-tracked:${orderCode}`;
   try {
     if (localStorage.getItem(key)) return;
@@ -52,13 +53,22 @@ export function trackPurchase(orderCode: string, valueCents: number) {
     // sem armazenamento: registra assim mesmo
   }
   if (!window.fbq && !window.gtag) return; // sem consentimento ou sem IDs: não marca como enviado
-  window.fbq?.("track", "Purchase", { value: toBRL(valueCents), currency: "BRL" });
-  window.gtag?.("event", "purchase", { transaction_id: orderCode, currency: "BRL", value: toBRL(valueCents) });
+  window.fbq?.("track", "Purchase", { ...metaContents(items), value: toBRL(valueCents), currency: "BRL" });
+  window.gtag?.("event", "purchase", { transaction_id: orderCode, currency: "BRL", value: toBRL(valueCents), items: items.map(gaItem) });
   try {
     localStorage.setItem(key, "1");
   } catch {
     // ignora
   }
+}
+
+function metaContents(items: Item[]) {
+  return {
+    content_ids: items.map((i) => i.id),
+    contents: items.map((i) => ({ id: i.id, quantity: i.quantity })),
+    content_type: "product",
+    num_items: items.reduce((n, i) => n + i.quantity, 0),
+  };
 }
 
 function gaItem(item: Item) {

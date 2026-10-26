@@ -58,16 +58,16 @@ describe("feed do Google Shopping", () => {
   });
 });
 
-import { parseGoogleVerification } from "@/lib/store-marketing";
+import { parseVerificationCode } from "@/lib/store-marketing";
 
 describe("código de verificação do Google", () => {
   it("aceita a etiqueta inteira ou só o código", () => {
-    expect(parseGoogleVerification('<meta name="google-site-verification" content="abcDEF123_-xyz456" />')).toBe("abcDEF123_-xyz456");
-    expect(parseGoogleVerification("abcDEF123_-xyz456")).toBe("abcDEF123_-xyz456");
+    expect(parseVerificationCode('<meta name="google-site-verification" content="abcDEF123_-xyz456" />')).toBe("abcDEF123_-xyz456");
+    expect(parseVerificationCode("abcDEF123_-xyz456")).toBe("abcDEF123_-xyz456");
   });
 
   it("recusa o que não é código", () => {
-    expect(parseGoogleVerification("<script>alert(1)</script>")).toBeNull();
-    expect(parseGoogleVerification("curto")).toBeNull();
+    expect(parseVerificationCode("<script>alert(1)</script>")).toBeNull();
+    expect(parseVerificationCode("curto")).toBeNull();
   });
 });

@@ -8,15 +8,24 @@ import { statusLabel } from "@/lib/order-status";
 import { PaymentPanel } from "../../payment-panel";
 import { CopyOrderLink } from "./copy-link";
 import { TrackPurchase } from "./track-purchase";
+import { RedoOrder } from "./redo-order";
+import { availableOrderItems } from "@/lib/order-recovery";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Seu pedido", robots: { index: false } };
 
-type Item = { id: string; product_name: string; variant_name: string; unit_price_cents: number; quantity: number };
+type Item = { id: string; variant_id: string | null; product_name: string; variant_name: string; unit_price_cents: number; quantity: number };
 
 // Página única do pedido: pagamento, confirmação e acompanhamento (link com public_token, sem login).
-export default async function OrderPage({ params }: { params: Promise<{ domain: string; token: string }> }) {
+export default async function OrderPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ domain: string; token: string }>;
+  searchParams: Promise<{ refazer?: string }>;
+}) {
   const { domain, token } = await params;
+  const { refazer } = await searchParams;
   if (!isUuid(token)) notFound();
   const store = await getStoreByDomain(domain);
   if (!store) notFound();
@@ -25,7 +34,7 @@ export default async function OrderPage({ params }: { params: Promise<{ domain: 
   const { data: order } = await db
     .from("orders")
     .select(
-      "id, code, status, customer_email, shipping_method, shipping_address, subtotal_cents, shipping_cents, total_cents, pix_discount_cents, discount_cents, tracking_code, expires_at, order_items(id, product_name, variant_name, unit_price_cents, quantity)",
+      "id, code, status, customer_name, customer_email, customer_phone, shipping_method, shipping_address, subtotal_cents, shipping_cents, total_cents, pix_discount_cents, discount_cents, tracking_code, expires_at, order_items(id, variant_id, product_name, variant_name, unit_price_cents, quantity)",
     )
     .eq("store_id", store.id)
     .eq("public_token", token)
@@ -36,6 +45,9 @@ export default async function OrderPage({ params }: { params: Promise<{ domain: 
     order.status === "expired" ||
     (order.status === "pending_payment" && order.expires_at && new Date(order.expires_at) < new Date());
   const awaitingPayment = order.status === "pending_payment" && !expired;
+  // Expirado: o que ainda está à venda pode voltar ao carrinho com um clique.
+  const redoItems = expired ? await availableOrderItems(db, store.id, order.id) : [];
+  const address = order.shipping_address as Record<string, string> | null;
 
   let publicKey: string | null = null;
   if (awaitingPayment) {
@@ -54,13 +66,52 @@ export default async function OrderPage({ params }: { params: Promise<{ domain: 
         <h1 className="text-2xl font-bold tracking-tight">{expired ? statusLabel("expired") : order.status === "paid" ? "Pagamento confirmado" : statusLabel(order.status, order.shipping_method)}</h1>
         {order.status === "paid" && (
           <>
-            <TrackPurchase orderCode={order.code} valueCents={order.total_cents} />
+            <TrackPurchase
+              orderCode={order.code}
+              valueCents={order.total_cents}
+              items={(order.order_items as Item[]).map((i) => ({
+                id: i.variant_id ?? i.id,
+                name: i.product_name,
+                priceCents: i.unit_price_cents,
+                quantity: i.quantity,
+              }))}
+            />
             <p className="mt-2 text-neutral-600">Obrigado! Enviamos a confirmação para {order.customer_email}.</p>
             <p className="mt-1 text-neutral-600">Guarde este link para acompanhar o pedido.</p>
             <CopyOrderLink />
           </>
         )}
-        {expired && <p className="mt-2 text-neutral-600">O prazo para pagamento acabou. <Link href="/" className="underline">Faça um novo pedido</Link>.</p>}
+        {expired &&
+          (redoItems.length ? (
+            <>
+              <p className="mt-2 text-neutral-600">
+                O prazo para pagamento acabou, mas {redoItems.length === order.order_items.length ? "os produtos ainda estão disponíveis" : "parte dos produtos ainda está disponível"}.
+                Refaça o pedido com seus dados já preenchidos.
+              </p>
+              <RedoOrder
+                items={redoItems}
+                auto={refazer === "1"}
+                prefill={{
+                  name: order.customer_name,
+                  email: order.customer_email,
+                  phone: order.customer_phone ?? "",
+                  cep: address?.cep ?? "",
+                  address: address
+                    ? {
+                        street: address.street ?? "",
+                        number: address.number ?? "",
+                        complement: address.complement ?? "",
+                        district: address.district ?? "",
+                        city: address.city ?? "",
+                        state: address.state ?? "",
+                      }
+                    : null,
+                }}
+              />
+            </>
+          ) : (
+            <p className="mt-2 text-neutral-600">O prazo para pagamento acabou. <Link href="/" className="underline">Faça um novo pedido</Link>.</p>
+          ))}
         {order.tracking_code && (
           <p className="mt-2 text-sm">
             Código de rastreio: <span className="font-mono">{order.tracking_code}</span>

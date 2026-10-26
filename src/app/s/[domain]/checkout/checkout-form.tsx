@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { clearCart, readCart } from "@/lib/cart";
 import { formatBRL } from "@/lib/money";
 import { trackBeginCheckout } from "@/lib/tracking";
+import { type CheckoutPrefill, takePrefill } from "@/lib/checkout-prefill";
 
 type Option = {
   id: string;
@@ -50,6 +51,7 @@ export function CheckoutForm() {
   const [address, setAddress] = useState<Address>(EMPTY_ADDRESS);
   const [errors, setErrors] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
+  const [prefill, setPrefill] = useState<CheckoutPrefill | null>(null); // "Refazer pedido" de um pedido expirado
   const requestId = useRef(0); // ignora respostas de CEPs antigos
 
   function applyQuote(q: Quote) {
@@ -63,9 +65,23 @@ export function CheckoutForm() {
     fetchQuote(null)
       .then((q) => {
         applyQuote(q);
-        if (q.lines.length) trackBeginCheckout(q.subtotalCents);
+        if (q.lines.length) {
+          trackBeginCheckout(
+            q.subtotalCents,
+            q.lines.map((l) => ({ id: l.variantId, name: l.productName, priceCents: l.totalCents / l.quantity, quantity: l.quantity })),
+          );
+        }
+        // Refazendo um pedido: dados do cliente e endereço de antes; o CEP recalcula o frete.
+        const saved = takePrefill();
+        if (saved) {
+          setPrefill(saved);
+          if (saved.address) setAddress(saved.address);
+          if (saved.cep && q.shippingNeedsZip !== false) onCepChange(saved.cep);
+        }
       })
       .catch(() => setErrors(["Não foi possível carregar o carrinho."]));
+    // Só ao abrir o checkout.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function onCepChange(value: string) {
@@ -187,11 +203,11 @@ export function CheckoutForm() {
 
       <section className="space-y-3">
         <h2 className="font-semibold">Seus dados</h2>
-        <input name="name" required autoComplete="name" placeholder="Nome completo" className={inputClass} />
-        <input name="email" type="email" required autoComplete="email" placeholder="E-mail" className={inputClass} />
+        <input name="name" required autoComplete="name" placeholder="Nome completo" defaultValue={prefill?.name} className={inputClass} />
+        <input name="email" type="email" required autoComplete="email" placeholder="E-mail" defaultValue={prefill?.email} className={inputClass} />
         <div className="grid grid-cols-2 gap-3">
-          <input name="cpf" required inputMode="numeric" placeholder="CPF" className={inputClass} />
-          <input name="phone" type="tel" required autoComplete="tel" placeholder="Celular com DDD" className={inputClass} />
+          <input name="cpf" required inputMode="numeric" placeholder="CPF" autoFocus={!!prefill} className={inputClass} />
+          <input name="phone" type="tel" required autoComplete="tel" placeholder="Celular com DDD" defaultValue={prefill?.phone} className={inputClass} />
         </div>
       </section>
 
