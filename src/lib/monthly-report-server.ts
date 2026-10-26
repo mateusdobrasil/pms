@@ -48,6 +48,19 @@ export async function storeMonthReport(db: SupabaseClient, storeId: string, m: M
       if (f && !feeByOrder.has(p.order_id)) feeByOrder.set(p.order_id, f);
     }
   }
+  // Atendimentos sem horário vendidos no balcão também contam como atendimentos (SQL 20261115000000).
+  const { count: walkIns } = await db
+    .from("order_items")
+    .select("id, orders!inner(paid_at, status)", { count: "exact", head: true })
+    .eq("store_id", storeId)
+    .not("professional_id", "is", null)
+    .is("booking_id", null)
+    .in("orders.status", SOLD_STATUSES)
+    .gte("orders.paid_at", m.from)
+    .lt("orders.paid_at", m.to);
+  // Sessões de pacote usadas no balcão (sem agendamento) também (SQL 20261116000000).
+  const { count: packageUses } = await db.from("package_uses").select("id", { count: "exact", head: true }).eq("store_id", storeId).is("booking_id", null).gte("used_at", m.from).lt("used_at", m.to);
+  for (let i = 0; i < (walkIns ?? 0) + (packageUses ?? 0); i++) bookings.push({ status: "completed" });
   // Venda no balcão não passa pelo Mercado Pago: sem taxa, o valor inteiro é do lojista.
   for (const o of sold) if (isCounterSale(o.shipping_method)) feeByOrder.set(o.id, { feeCents: 0, netCents: o.total_cents });
   const skip = new Set(((optedOut ?? []) as { customer_key: string }[]).map((c) => c.customer_key));

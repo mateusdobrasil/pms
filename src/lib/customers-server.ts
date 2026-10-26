@@ -7,7 +7,8 @@ import { type LoyaltyConfig, isStamp } from "@/lib/loyalty";
 
 const HISTORY_DAYS = 730; // 2 anos de pedidos e atendimentos
 
-type OrderRow = { customer_name: string; customer_email: string; customer_phone: string | null; total_cents: number; paid_at: string };
+type OrderRow = { customer_name: string; customer_email: string; customer_phone: string | null; total_cents: number; paid_at: string; booking_id?: string | null; has_services?: boolean };
+const ORDER_COLS = "customer_name, customer_email, customer_phone, total_cents, paid_at";
 type BookingRow = { customer_name: string; customer_email: string | null; customer_phone: string | null; price_cents: number; starts_at: string; status: string };
 
 // Clientes da loja (pedidos pagos + atendimentos dos últimos 2 anos, e horários futuros marcados).
@@ -19,9 +20,12 @@ export async function loadStoreCustomers(db: SupabaseClient, storeId: string, no
   const nowIso = now.toISOString();
   const orBooking = <T,>(p: Promise<T[]>) => p.catch(() => [] as T[]);
   const [orders, past, upcoming] = await Promise.all([
-    fetchAll<OrderRow>((from, to) =>
-      db.from("orders").select("customer_name, customer_email, customer_phone, total_cents, paid_at").eq("store_id", storeId).in("status", SOLD_STATUSES).gte("paid_at", since).order("paid_at").order("id").range(from, to),
-    ),
+    // booking_id/has_services: colunas do SQL 20261115000000 (sem elas, lê o básico).
+    (async () => {
+      const page = (cols: string) => (from: number, to: number) =>
+        db.from("orders").select(cols).eq("store_id", storeId).in("status", SOLD_STATUSES).gte("paid_at", since).order("paid_at").order("id").range(from, to);
+      return fetchAll<OrderRow>(page(`${ORDER_COLS}, booking_id, has_services`) as never).catch(() => fetchAll<OrderRow>(page(ORDER_COLS) as never));
+    })(),
     // Atendimentos: marcados como atendidos, ou confirmados com horário que já passou.
     orBooking(
       fetchAll<BookingRow>((from, to) =>
@@ -46,7 +50,7 @@ export async function loadStoreCustomers(db: SupabaseClient, storeId: string, no
   const activities: Activity[] = [
     ...orders.map((o) => {
       const a = { kind: "order" as const, name: o.customer_name, phone: o.customer_phone, email: o.customer_email, at: o.paid_at, cents: o.total_cents };
-      return { ...a, stamp: !!loyalty && isStamp(loyalty, a) };
+      return { ...a, stamp: !!loyalty && isStamp(loyalty, { ...a, fromBooking: !!o.booking_id, hasServices: !!o.has_services }) };
     }),
     ...past.map((b) => {
       const a = { kind: "booking" as const, name: b.customer_name, phone: b.customer_phone, email: b.customer_email, at: b.starts_at, cents: b.price_cents };

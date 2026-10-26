@@ -132,7 +132,8 @@ footer { color: var(--muted); font-size: 14px; border-top: 1px solid var(--line)
 
     <h3>Para vender mais</h3>
     <ul>
-      <li><strong>Vender no balcão</strong>: um caixa simples para as vendas da loja física (dinheiro com troco, Pix, maquininha). O estoque baixa na hora, a venda entra no Resumo e você vê o caixa do dia. <a href="#vender">Ver como usar</a></li>
+      <li><strong>Pacotes de sessões</strong>: venda pacotes como "5 escovas por R$ 200". O cliente paga uma vez e cada atendimento desconta uma sessão, com aviso por e-mail do que sobrou. <a href="#agenda">Ver como usar</a></li>
+      <li><strong>Vender no balcão</strong>: um caixa simples para as vendas da loja física (dinheiro com troco, Pix, maquininha), inclusive serviços: receber um agendamento pela Agenda ou vender para quem chegou sem horário. O estoque baixa na hora, a venda entra no Resumo e você vê o caixa do dia. <a href="#vender">Ver como usar</a></li>
       <li><strong>Cartão fidelidade digital</strong>: "a cada 10 atendimentos ou compras, ganhe 1 corte grátis". Os carimbos são automáticos, o cliente acompanha nos e-mails e é avisado quando ganha o prêmio. <a href="#clientes">Ver como ligar</a></li>
       <li><strong>Comissão por profissional</strong>: defina o percentual de cada profissional (e, se quiser, um diferente por serviço) e veja em Agenda → Comissões quanto pagar a cada um no mês, com planilha. <a href="#agenda">Ver detalhes</a></li>
       <li><strong>QR Code da loja para imprimir</strong>: cartaz A4 para o balcão, etiquetas para sacolas e imagem para os stories, apontando para a loja, a agenda ou um link de pagamento. <a href="#divulgar">Ver detalhes</a></li>
@@ -331,6 +332,14 @@ footer { color: var(--muted); font-size: 14px; border-top: 1px solid var(--line)
       <li><strong>Remarcar ou cancelar pelo link</strong>: até o prazo que você escolheu em Configurações → Agendamentos (padrão: 24 horas antes), o cliente remarca para outro horário livre (o que ele pagou continua valendo) ou cancela. Se pagou online, o valor é <strong>devolvido automaticamente</strong> pelo Mercado Pago (sai do saldo da sua conta). Você recebe um e-mail a cada remarcação ou cancelamento. Depois do prazo, a página orienta o cliente a falar com você pelo WhatsApp.</li>
     </ul>
     <div class="tip bad"><strong>Dois clientes no mesmo horário?</strong>Não acontece: o sistema recusa o segundo, mesmo que os dois cliquem ao mesmo tempo, e mostra os horários que sobraram.</div>
+    <h3>Pacotes de sessões</h3>
+    <p>Para vender sessões antecipadas: "5 escovas por R$ 200", "10 sessões de drenagem". O dinheiro entra na hora e o cliente volta.</p>
+    <ol class="steps">
+      <li><div>Em <span class="where">Agenda → Pacotes</span>, crie o pacote: serviço, número de sessões, preço e validade (em dias, ou sem validade). O painel mostra quanto sai cada sessão.</div></li>
+      <li><div>Venda em <span class="where">Vender → Pacotes</span>: toque no pacote, informe o <strong>nome e o celular do cliente</strong> (o pacote fica no nome dele) e finalize como qualquer venda. O valor entra no caixa do dia e o cliente recebe o e-mail "Seu pacote está ativo".</div></li>
+      <li><div>Quando o cliente com pacote tem horário marcado, o cartão do agendamento mostra <strong>Usar pacote · restam N</strong>: um toque marca como atendido e desconta a sessão, sem cobrar. Cliente que chegou sem horário: em Agenda → Pacotes, no pacote dele, toque em <strong>Usar sessão</strong> e escolha quem atendeu.</div></li>
+    </ol>
+    <div class="tip info"><strong>Comissão e avisos</strong>Cada sessão usada entra na comissão do profissional pelo valor do serviço (como um atendimento normal). O cliente recebe um e-mail a cada uso com as sessões que sobraram. O pacote é reconhecido pelo celular ou e-mail do cliente; ele vale até a data de validade, e você pode cancelar (as sessões restantes deixam de valer).</div>
     <h3>Comissão dos profissionais</h3>
     <p>Na página de cada profissional (<span class="where">Agenda → Profissionais</span>), preencha a <strong>Comissão geral</strong>, por exemplo 40 (%). Se em algum serviço o percentual for outro (por exemplo, 30% na coloração), abra "Percentual diferente em algum serviço" e preencha só ali; em branco vale o geral.</p>
     <p>Em <span class="where">Agenda → Comissões</span>, escolha o mês: cada profissional aparece com o número de atendimentos, o valor produzido e a <strong>comissão a pagar</strong>. Toque no nome para ver atendimento por atendimento (dia, cliente, serviço, valor, % e comissão). <strong>Baixar planilha</strong> gera o arquivo para o Excel, com o total de cada um.</p>
@@ -406,6 +415,11 @@ footer { color: var(--muted); font-size: 14px; border-top: 1px solid var(--line)
       <li><div>Opcional: em "Identificar o cliente", informe o nome e o celular. Assim a compra aparece em Clientes e conta no cartão fidelidade.</div></li>
       <li><div>Toque em <strong>Finalizar venda</strong>. O estoque baixa na hora e a venda aparece em Pedidos já como entregue.</div></li>
     </ol>
+    <h3>Serviços no balcão (salão e estética)</h3>
+    <ul>
+      <li><strong>Cliente com horário marcado</strong>: na <span class="where">Agenda</span>, o cartão do agendamento tem o botão <strong>Receber R$ …</strong>, já descontando o que o cliente pagou online (sinal). Escolha a forma de pagamento (no dinheiro, o painel calcula o troco) e confirme: o atendimento fica como <strong>Atendido</strong> e o valor entra no caixa do dia. O cartão passa a mostrar "Recebido no salão".</li>
+      <li><strong>Cliente sem horário</strong> (chegou na hora): em <span class="where">Vender</span>, na aba <strong>Serviços</strong>, toque no serviço e escolha <strong>quem atendeu</strong>. Dá para juntar serviço e produto na mesma venda (corte + pomada). O atendimento entra na comissão do profissional (Agenda → Comissões, marcado "balcão") e, com o cliente identificado, no cartão fidelidade.</li>
+    </ul>
     <p>Logo abaixo, o <strong>Caixa de hoje</strong> mostra o total vendido no balcão e quanto entrou em cada forma de pagamento, para conferir no fim do dia. Lançou errado? Toque em <strong>Cancelar</strong> na venda: os itens voltam ao estoque (devolva o dinheiro ao cliente, se for o caso).</p>
     <div class="tip info"><strong>Produto sem estoque no sistema</strong>Se o produto está na sua mão mas o sistema diz que acabou, a venda é registrada assim mesmo e fica com o selo "sem estoque": confira e corrija o estoque do produto. As vendas de balcão não pagam taxa do Mercado Pago, então entram inteiras em "Você recebe" (a taxa da sua maquininha não é descontada).</div>
   </section>

@@ -1,5 +1,10 @@
 import Link from "next/link";
 import { formatPhone } from "@/lib/format";
+import { COUNTER_PAYMENTS, type CounterPayment } from "@/lib/counter";
+import { ReceiveBooking } from "./receive-booking";
+import { UsePackage } from "./use-package";
+import { customerKeys, loadCustomerPackages } from "@/lib/packages-server";
+import { pickPackage, remaining } from "@/lib/packages";
 import { requireStore } from "@/lib/panel";
 import { formatBRL } from "@/lib/money";
 import { addDays, todayBR } from "@/lib/billing";
@@ -13,6 +18,7 @@ type Booking = {
   id: string;
   code: string;
   status: BookingStatus;
+  service_id: string | null;
   service_name: string;
   professional_id: string | null;
   professional_name: string;
@@ -20,6 +26,7 @@ type Booking = {
   ends_at: string;
   customer_name: string;
   customer_phone: string | null;
+  customer_email: string | null;
   notes: string | null;
   price_cents: number;
   online_cents: number;
@@ -39,7 +46,12 @@ function money(b: Booking) {
   return parts.filter(Boolean).join(" · ");
 }
 
-function BookingCard({ b, now }: { b: Booking; now: number }) {
+type Receipt = { total_cents: number; counter_payment: CounterPayment };
+
+type PackageOffer = { id: string; left: number; name: string };
+
+function BookingCard({ b, now, receipt, pkg, usedPackage }: { b: Booking; now: number; receipt?: Receipt; pkg?: PackageOffer | null; usedPackage?: boolean }) {
+  const due = Math.max(0, b.price_cents - b.paid_cents);
   const s = BOOKING_STATUS[b.status];
   const faded = b.status === "canceled" || b.status === "expired";
   return (
@@ -55,8 +67,20 @@ function BookingCard({ b, now }: { b: Booking; now: number }) {
           WhatsApp do cliente
         </a>
       )}
-      {!faded && <p className="text-xs text-neutral-500">{money(b)}</p>}
+      {!faded && !receipt && !usedPackage && <p className="text-xs text-neutral-500">{money(b)}</p>}
       {b.notes && <p className="text-xs text-neutral-500">“{b.notes}”</p>}
+      {receipt && (
+        <p className="text-xs font-medium text-emerald-700">
+          Recebido no salão: {formatBRL(receipt.total_cents)} · {COUNTER_PAYMENTS[receipt.counter_payment]}
+        </p>
+      )}
+      {usedPackage && <p className="text-xs font-medium text-violet-700">Sessão de pacote usada</p>}
+      {(b.status === "confirmed" || b.status === "completed") && !receipt && !usedPackage && (
+        <div className="flex flex-wrap gap-2">
+          {pkg && <UsePackage bookingId={b.id} packageId={pkg.id} left={pkg.left} name={pkg.name} />}
+          {due > 0 && <ReceiveBooking bookingId={b.id} dueCents={due} />}
+        </div>
+      )}
       {b.status === "confirmed" && <BookingActions id={b.id} paidLabel={b.paid_cents ? formatBRL(b.paid_cents) : null} past={Date.parse(b.starts_at) < now} />}
     </li>
   );
@@ -89,7 +113,7 @@ export default async function AgendaPage({ searchParams }: { searchParams: Promi
     supabase.from("professionals").select("id, name, active, working_hours(id), professional_services(service_id)").eq("store_id", store.id).order("position").order("name"),
     supabase
       .from("bookings")
-      .select("id, code, status, service_name, professional_id, professional_name, starts_at, ends_at, customer_name, customer_phone, notes, price_cents, online_cents, paid_cents, source")
+      .select("id, code, status, service_id, service_name, professional_id, professional_name, starts_at, ends_at, customer_name, customer_phone, customer_email, notes, price_cents, online_cents, paid_cents, source")
       .eq("store_id", store.id)
       .neq("status", "expired")
       .gte("starts_at", startIso)
@@ -99,6 +123,21 @@ export default async function AgendaPage({ searchParams }: { searchParams: Promi
     supabase.from("stores").select("booking_enabled").eq("id", store.id).single(),
   ]);
   const bookings = (rows ?? []) as Booking[];
+  // Recebimentos no salão (vendas de balcão ligadas ao agendamento). Sem o SQL 20261115000000, nenhum.
+  const { data: receiptRows } = bookings.length
+    ? await supabase.from("orders").select("booking_id, total_cents, counter_payment").eq("store_id", store.id).in("booking_id", bookings.map((x) => x.id)).neq("status", "canceled")
+    : { data: [] };
+  const receipts = new Map(((receiptRows ?? []) as (Receipt & { booking_id: string })[]).map((r) => [r.booking_id, r]));
+  // Pacotes: o cliente tem pacote ativo do serviço? Agendamento já usou sessão? (Sem o SQL dos pacotes, nada.)
+  const open = bookings.filter((x) => x.status === "confirmed" || x.status === "completed");
+  const pkgs = open.length ? await loadCustomerPackages(supabase, store.id, [...new Set(open.flatMap((x) => customerKeys(x.customer_phone, x.customer_email)))]) : [];
+  const { data: useRows } = open.length ? await supabase.from("package_uses").select("booking_id").in("booking_id", open.map((x) => x.id)) : { data: [] };
+  const usedFor = new Set(((useRows ?? []) as { booking_id: string }[]).map((u) => u.booking_id));
+  const offerFor = (x: Booking): PackageOffer | null => {
+    const keys = customerKeys(x.customer_phone, x.customer_email);
+    const p = pickPackage(pkgs.filter((k) => keys.includes(k.customer_key)), x.service_id);
+    return p ? { id: p.id, left: remaining(p), name: p.name } : null;
+  };
   // Lista de espera do dia (visão do dia). Sem o SQL da lista, a consulta falha e a seção não aparece.
   const { data: waitRows } = week
     ? { data: null }
@@ -212,7 +251,7 @@ export default async function AgendaPage({ searchParams }: { searchParams: Promi
                 ) : (
                   <ul className="space-y-2">
                     {list.map((b) => (
-                      <BookingCard key={b.id} b={b} now={now} />
+                      <BookingCard key={b.id} b={b} now={now} receipt={receipts.get(b.id)} pkg={offerFor(b)} usedPackage={usedFor.has(b.id)} />
                     ))}
                   </ul>
                 )}

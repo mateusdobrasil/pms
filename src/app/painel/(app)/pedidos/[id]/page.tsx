@@ -63,6 +63,9 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
   const counter = isCounterSale(order.shipping_method);
   const { data: counterRow } = counter ? await supabase.from("orders").select("counter_payment").eq("id", order.id).maybeSingle() : { data: null };
   const counterPayment = (counterRow as { counter_payment: CounterPayment | null } | null)?.counter_payment ?? null;
+  // Serviços vendidos no balcão: quem atendeu (coluna do SQL 20261115000000).
+  const { data: proRows } = counter ? await supabase.from("order_items").select("id, professional_name").eq("order_id", order.id) : { data: null };
+  const proOf = new Map(((proRows ?? []) as { id: string; professional_name: string | null }[]).map((r) => [r.id, r.professional_name]));
   const phone = order.customer_phone ? `55${order.customer_phone}` : null;
   const address = order.shipping_address;
   const approved = order.payments.find((p) => p.status === "approved");
@@ -133,6 +136,7 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
                   <span>
                     {i.quantity}× {i.product_name}
                     {i.variant_name !== "Único" && <span className="text-neutral-500"> · {i.variant_name}</span>}
+                    {proOf.get(i.id) && <span className="text-neutral-500"> · com {proOf.get(i.id)}</span>}
                     <span className="text-neutral-500"> ({formatBRL(i.unit_price_cents)} cada)</span>
                   </span>
                   <span>{formatBRL(i.unit_price_cents * i.quantity)}</span>

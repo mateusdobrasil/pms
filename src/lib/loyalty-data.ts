@@ -27,15 +27,21 @@ export async function customerStamps(db: SupabaseClient, storeId: string, cfg: L
   const email = who.email?.trim().toLowerCase() || null;
   const match = [email && `customer_email.eq."${email.replace(/"/g, "")}"`, phone && `customer_phone.eq."${phone}"`].filter(Boolean).join(",");
   if (!match) return 0;
+  // Vendas de balcão: booking_id (recebimento de agendamento) e has_services (SQL 20261115000000; sem elas, lê o básico).
+  const ordersQuery = (cols: string) => db.from("orders").select(cols).eq("store_id", storeId).in("status", SOLD_STATUSES).gte("paid_at", cfg.startedAt!).or(match).limit(1000);
+  const loadOrders = async () => {
+    const full = await ordersQuery("total_cents, paid_at, booking_id, has_services");
+    return full.error ? ordersQuery("total_cents, paid_at") : full;
+  };
   const [{ data: orders }, { data: bookings }] = await Promise.all([
-    cfg.counts === "bookings"
-      ? Promise.resolve({ data: [] })
-      : db.from("orders").select("total_cents, paid_at").eq("store_id", storeId).in("status", SOLD_STATUSES).gte("paid_at", cfg.startedAt).or(match).limit(1000),
+    loadOrders(), // sempre: atendimento sem horário no balcão conta mesmo quando o cartão é só de atendimentos
     cfg.counts === "orders"
       ? Promise.resolve({ data: [] })
       : db.from("bookings").select("price_cents, starts_at, status").eq("store_id", storeId).eq("status", "completed").gte("starts_at", cfg.startedAt).or(match).limit(1000),
   ]);
-  const o = ((orders ?? []) as { total_cents: number; paid_at: string }[]).filter((x) => isStamp(cfg, { kind: "order", at: x.paid_at, cents: x.total_cents }));
+  const o = ((orders ?? []) as unknown as { total_cents: number; paid_at: string; booking_id?: string | null; has_services?: boolean }[]).filter((x) =>
+    isStamp(cfg, { kind: "order", at: x.paid_at, cents: x.total_cents, fromBooking: !!x.booking_id, hasServices: !!x.has_services }),
+  );
   const b = ((bookings ?? []) as { price_cents: number; starts_at: string; status: string }[]).filter((x) => isStamp(cfg, { kind: "booking", at: x.starts_at, cents: x.price_cents, status: x.status }));
   return o.length + b.length;
 }

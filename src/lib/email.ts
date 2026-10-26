@@ -178,6 +178,39 @@ export async function notifyLoyaltyReward(storeId: string, who: { name: string; 
   });
 }
 
+// Pacote de sessões: "ativo" (na venda) e "sessão usada" (a cada uso). Sem e-mail do cliente, não envia.
+export async function notifyPackage(customerPackageId: string, kind: "activated" | "used", left?: number) {
+  try {
+    const db = createAdminClient();
+    const { data } = await db
+      .from("customer_packages")
+      .select("id, store_id, name, service_name, sessions_total, expires_at, customer_name, customer_email, stores(name, email, primary_color)")
+      .eq("id", customerPackageId)
+      .single();
+    const p = data as unknown as { id: string; name: string; service_name: string; sessions_total: number; expires_at: string | null; customer_name: string; customer_email: string | null; stores: { name: string; email: string | null; primary_color: string } } | null;
+    if (!p?.customer_email) return;
+    const until = p.expires_at ? `, válido até ${new Date(p.expires_at).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}` : "";
+    const sessions = (n: number) => `${n} ${n === 1 ? "sessão" : "sessões"}`;
+    await sendEmail({
+      to: p.customer_email,
+      fromName: p.stores.name,
+      replyTo: p.stores.email,
+      idempotencyKey: `package-${kind}-${p.id}-${left ?? ""}-${Date.now()}`,
+      subject: kind === "activated" ? `Seu pacote está ativo: ${p.name}` : `Sessão usada: ${left === 0 ? "pacote concluído" : `restam ${sessions(left ?? 0)}`}`,
+      html: layout(p.stores, kind === "activated"
+        ? `<h1 style="margin:0 0 8px;font-size:22px">Seu pacote está ativo ✨</h1>
+           <p style="margin:0 0 16px;color:#525252">Olá, ${esc(firstName(p.customer_name))}. Obrigado pela compra! Seu pacote <strong>${esc(p.name)}</strong> tem
+           <strong>${sessions(p.sessions_total)} de ${esc(p.service_name)}</strong>${esc(until)}.</p>
+           <p style="margin:0;color:#525252">É só agendar (ou chegar) e avisar que é do pacote: cada atendimento desconta uma sessão, e você recebe um aviso com o que sobrou.</p>`
+        : `<h1 style="margin:0 0 8px;font-size:22px">${left === 0 ? "Pacote concluído 🎉" : "Sessão usada ✅"}</h1>
+           <p style="margin:0 0 16px;color:#525252">Olá, ${esc(firstName(p.customer_name))}. Usamos 1 sessão do seu pacote <strong>${esc(p.name)}</strong>.
+           ${left === 0 ? "Esta foi a última. Que tal renovar?" : `Restam <strong>${sessions(left ?? 0)}</strong>${esc(until)}.`}</p>`),
+    });
+  } catch (err) {
+    console.error("Falha ao avisar pacote", { customerPackageId, kind, err });
+  }
+}
+
 // ---------------------------------------------------------------- notificações
 
 export async function notifyOrderPaid(orderId: string) {

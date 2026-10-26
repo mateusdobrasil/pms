@@ -8,6 +8,7 @@ const TABS = [
   { href: "/painel/agenda/servicos", label: "Serviços" },
   { href: "/painel/agenda/profissionais", label: "Profissionais" },
   { href: "/painel/agenda/bloqueios", label: "Folgas e bloqueios" },
+  { href: "/painel/agenda/pacotes", label: "Pacotes" },
   { href: "/painel/agenda/comissoes", label: "Comissões" },
 ];
 

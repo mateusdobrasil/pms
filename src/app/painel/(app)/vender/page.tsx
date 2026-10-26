@@ -3,7 +3,7 @@ import { requireStore } from "@/lib/panel";
 import { formatBRL } from "@/lib/money";
 import { saoPauloBoundaries } from "@/lib/format";
 import { COUNTER_PAYMENTS, type CounterPayment, cashSummary } from "@/lib/counter";
-import { CounterPos, type PosVariant } from "./counter-pos";
+import { CounterPos, type PosPackage, type PosService, type PosVariant } from "./counter-pos";
 import { CancelSale } from "./cancel-sale";
 
 export const metadata = { title: "Vender · PMS app" };
@@ -15,7 +15,7 @@ type SaleRow = { id: string; code: string; status: string; total_cents: number; 
 export default async function SellPage() {
   const { supabase, store } = await requireStore();
   const { startOfDay } = saoPauloBoundaries();
-  const [{ data: rows }, { data: sales, error }] = await Promise.all([
+  const [{ data: rows }, { data: sales, error }, { data: svcRows }, { data: pkgRows }] = await Promise.all([
     supabase
       .from("product_variants")
       .select("id, name, price_cents, stock, products!inner(name, product_images(path, position))")
@@ -31,7 +31,18 @@ export default async function SellPage() {
       .not("counter_payment", "is", null)
       .gte("paid_at", startOfDay.toISOString())
       .order("paid_at", { ascending: false }),
+    // Serviços da agenda (atendimento sem horário): quem faz cada um. Sem a agenda, a lista vem vazia.
+    supabase
+      .from("services")
+      .select("id, name, price_cents, active, professional_services(professionals(id, name, active))")
+      .eq("store_id", store.id)
+      .eq("active", true)
+      .order("position")
+      .order("name"),
+    // Pacotes de sessões à venda (sem o SQL dos pacotes, a lista vem vazia).
+    supabase.from("service_packages").select("id, name, sessions, price_cents").eq("store_id", store.id).eq("active", true).order("name"),
   ]);
+  const packages: PosPackage[] = ((pkgRows ?? []) as { id: string; name: string; sessions: number; price_cents: number }[]).map((p) => ({ id: p.id, name: p.name, sessions: p.sessions, priceCents: p.price_cents }));
 
   if (error) {
     return (
@@ -51,6 +62,14 @@ export default async function SellPage() {
       image: [...v.products.product_images].sort((a, b) => a.position - b.position)[0]?.path ?? null,
     }))
     .sort((a, b) => a.label.localeCompare(b.label, "pt-BR"));
+  const services: PosService[] = ((svcRows ?? []) as unknown as { id: string; name: string; price_cents: number; professional_services: { professionals: { id: string; name: string; active: boolean } | null }[] }[])
+    .map((sv) => ({
+      id: sv.id,
+      name: sv.name,
+      priceCents: sv.price_cents,
+      pros: sv.professional_services.map((ps) => ps.professionals).filter((p): p is { id: string; name: string; active: boolean } => !!p?.active).map((p) => ({ id: p.id, name: p.name })),
+    }))
+    .filter((sv) => sv.pros.length > 0);
   const today = ((sales ?? []) as SaleRow[]);
   const valid = today.filter((s) => s.status !== "canceled");
   const cash = cashSummary(valid);
@@ -62,11 +81,11 @@ export default async function SellPage() {
         <h1 className="text-2xl font-semibold tracking-tight">Vender no balcão</h1>
         <p className="mt-1 text-sm text-neutral-600">
           Registre as vendas da loja física (dinheiro, Pix, maquininha): o estoque baixa na hora e a venda entra no Resumo junto com as vendas
-          online.
+          online.{services.length > 0 && " Serviços para quem chegou sem horário entram na comissão do profissional; cliente agendado se recebe pela Agenda."}
         </p>
       </div>
 
-      <CounterPos variants={variants} />
+      <CounterPos variants={variants} services={services} packages={packages} />
 
       <section className="rounded-xl border bg-white shadow-sm">
         <div className="flex flex-wrap items-baseline justify-between gap-2 border-b px-4 py-3">

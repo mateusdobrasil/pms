@@ -7,7 +7,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { isUuid } from "@/lib/validation";
 import { type CounterSaleInput, cancelCounterSale, createCounterSale } from "@/lib/counter-server";
 import { checkLoyaltyForOrder } from "@/lib/loyalty-server";
-import { notifyBackInStock } from "@/lib/email";
+import { notifyBackInStock, notifyPackage } from "@/lib/email";
 
 // Pedidos e estoque só mudam pelo servidor (service role), depois de conferir o login do lojista.
 export async function registerCounterSale(input: CounterSaleInput) {
@@ -17,6 +17,8 @@ export async function registerCounterSale(input: CounterSaleInput) {
     if (!result.ok) return result;
     // Cliente identificado: carimbo do cartão fidelidade.
     if (input.customer?.phone || input.customer?.email) after(() => checkLoyaltyForOrder(result.id));
+    // Pacotes vendidos: e-mail "seu pacote está ativo" (com o e-mail do cliente).
+    if (result.packageIds?.length) after(async () => { for (const id of result.packageIds!) await notifyPackage(id, "activated"); });
     revalidatePath("/painel", "layout");
     return result;
   } catch (err) {

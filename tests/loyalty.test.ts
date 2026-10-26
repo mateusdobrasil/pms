@@ -17,6 +17,14 @@ describe("carimbos do cartão fidelidade", () => {
     expect(isStamp({ ...cfg, counts: "orders" }, { kind: "booking", at: "2026-10-10T12:00:00Z", cents: 9000, status: "completed" })).toBe(false);
   });
 
+  it("balcão: recebimento de agendamento não carimba; atendimento sem horário conta como atendimento", () => {
+    const at = "2026-10-10T12:00:00Z";
+    expect(isStamp(cfg, { kind: "order", at, cents: 9000, fromBooking: true })).toBe(false);
+    expect(isStamp({ ...cfg, counts: "bookings" }, { kind: "order", at, cents: 1000, hasServices: true })).toBe(true); // abaixo do mínimo, mas é atendimento
+    expect(isStamp({ ...cfg, counts: "orders" }, { kind: "order", at, cents: 1000, hasServices: true })).toBe(false); // só compras: vale o mínimo
+    expect(isStamp({ ...cfg, counts: "orders" }, { kind: "order", at, cents: 9000, hasServices: true })).toBe(true);
+  });
+
   it("programa desligado não carimba", () => {
     expect(isStamp({ ...cfg, enabled: false }, { kind: "order", at: "2026-10-10T12:00:00Z", cents: 9000 })).toBe(false);
   });

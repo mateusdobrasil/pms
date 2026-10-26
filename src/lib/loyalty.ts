@@ -18,9 +18,18 @@ export const LOYALTY_COUNTS: Record<LoyaltyCounts, string> = {
 };
 
 // Vale carimbo? Compra paga (acima do mínimo) ou atendimento marcado como "atendido", depois do início.
-export function isStamp(cfg: LoyaltyConfig, a: { kind: "order" | "booking"; at: string; cents: number; status?: string }) {
+// Venda de balcão: o recebimento de um agendamento (fromBooking) não carimba (o atendimento já carimbou);
+// com atendimento sem horário (hasServices), conta como atendimento. Uma venda vale no máximo um carimbo.
+export function isStamp(
+  cfg: LoyaltyConfig,
+  a: { kind: "order" | "booking"; at: string; cents: number; status?: string; fromBooking?: boolean; hasServices?: boolean },
+) {
   if (!cfg.enabled || !cfg.startedAt || a.at < cfg.startedAt) return false;
-  if (a.kind === "order") return cfg.counts !== "bookings" && a.cents >= cfg.minOrderCents;
+  if (a.kind === "order") {
+    if (a.fromBooking) return false;
+    if (a.hasServices && cfg.counts !== "orders") return true;
+    return cfg.counts !== "bookings" && a.cents >= cfg.minOrderCents;
+  }
   return cfg.counts !== "orders" && a.status === "completed";
 }
 
