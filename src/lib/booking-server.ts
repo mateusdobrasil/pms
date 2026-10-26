@@ -344,7 +344,7 @@ export async function cancelBooking(db: Db, storeId: string, token: string, by: 
     .in("status", ["confirmed", "pending_payment"])
     .select("id");
   if (!data?.length) return { error: "Este agendamento não pode mais ser cancelado." };
-  if (b.status === "confirmed") after(() => notifyBooking(b.id, "canceled"));
+  if (b.status === "confirmed") after(() => notifyBooking(b.id, "canceled", by));
   return { ok: true };
 }
 

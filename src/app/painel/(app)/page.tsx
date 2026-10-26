@@ -8,6 +8,8 @@ import { todayBR } from "@/lib/billing";
 import { dailySales, topProducts, windowStart } from "@/lib/sales";
 import { SalesChart, TopProducts } from "./sales-chart";
 import { FEE_FIELDS, paymentFees } from "@/lib/payments/fees";
+import { pushPublicKey } from "@/lib/push";
+import { PushCard } from "./push-card";
 
 const CHART_DAYS = 30;
 
@@ -137,6 +139,9 @@ export default async function PanelHome() {
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-semibold tracking-tight">Resumo</h1>
+
+      {/* Sem as chaves VAPID na Vercel, o painel não oferece o aviso no celular. */}
+      {pushPublicKey() && <PushCard publicKey={pushPublicKey()!} />}
 
       {(stockIssues ?? 0) > 0 && (
         <p className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">

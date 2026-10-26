@@ -6,6 +6,7 @@ import { platformUrl, storeBaseUrl } from "@/lib/urls";
 import { type InvoiceKind, formatDay, invoiceTitle, lastPayDay } from "@/lib/billing";
 import { googleCalendarUrl } from "@/lib/booking";
 import { isLocalDelivery } from "@/lib/shipping-settings";
+import { pushToStore } from "@/lib/push";
 
 // E-mails transacionais via API do Resend. Sem RESEND_API_KEY, só registra no log (dev).
 // EMAIL_FROM: endereço de um domínio verificado no Resend, ex.: pedidos@pmsapp.dev
@@ -135,6 +136,15 @@ export async function notifyOrderPaid(orderId: string) {
     const o = await loadOrder(orderId);
     if (!o) return;
     const url = orderUrl(o);
+
+    // Aviso no celular do lojista (push), antes dos e-mails: é o que ele vê primeiro.
+    const units = o.order_items.reduce((n, i) => n + i.quantity, 0);
+    await pushToStore(o.store_id, {
+      title: `Nova venda: ${formatBRL(o.total_cents)}`,
+      body: `Pedido ${o.code} · ${o.customer_name} · ${units} ${units === 1 ? "item" : "itens"}${o.stock_issue ? " · ATENÇÃO: faltou estoque" : ""}`,
+      url: `/painel/pedidos/${o.id}`,
+      tag: `order-${o.id}`,
+    });
 
     const customerOk = await sendEmail({
       to: o.customer_email,
@@ -280,6 +290,7 @@ export async function notifyOrderExpired(orderId: string) {
 
 type BookingForEmail = {
   id: string;
+  store_id: string;
   code: string;
   public_token: string;
   status: string;
@@ -322,7 +333,8 @@ function bookingSummary(b: BookingForEmail) {
 
 // E-mails do agendamento, cada um uma vez (colunas notified_*). "store" vai para o lojista.
 // rescheduled: aviso de remarcação (sem trava: cada nova data gera um e-mail próprio).
-export async function notifyBooking(bookingId: string, notice: BookingNotice | "rescheduled") {
+// by: quem cancelou (o lojista não recebe no celular o aviso do cancelamento que ele mesmo fez).
+export async function notifyBooking(bookingId: string, notice: BookingNotice | "rescheduled", by: "customer" | "store" = "customer") {
   const db = createAdminClient();
   try {
     const column = notice === "rescheduled" ? null : BOOKING_COLUMN[notice];
@@ -346,6 +358,24 @@ export async function notifyBooking(bookingId: string, notice: BookingNotice | "
     const cal = `<p style="margin:12px 0 0;font-size:13px"><a href="${esc(calendar)}" style="color:#525252">Adicionar ao Google Agenda</a></p>`;
     const whats = b.stores.whatsapp ? `<p style="margin:16px 0 0;color:#525252;font-size:13px">Dúvidas? <a href="https://wa.me/${b.stores.whatsapp}">Fale com a gente pelo WhatsApp</a>.</p>` : "";
     const hi = `Olá, ${esc(firstName(b.customer_name))}.`;
+
+    // Aviso no celular do lojista (push), independente dos e-mails: novo, remarcado ou cancelado pelo cliente.
+    const push = {
+      store: "Novo agendamento 📅",
+      rescheduled: "Agendamento remarcado",
+      canceled: by === "customer" ? "Agendamento cancelado" : null,
+      confirmed: null,
+      reminder: null,
+    }[notice];
+    if (push) {
+      const day = new Date(b.starts_at).toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" }); // AAAA-MM-DD
+      await pushToStore(b.store_id, {
+        title: push,
+        body: `${b.customer_name} · ${b.service_name} · ${bookingWhen(b.starts_at)}${notice === "canceled" ? " · horário liberado" : ""}`,
+        url: `/painel/agenda?dia=${day}`,
+        tag: `booking-${b.id}`,
+      });
+    }
 
     if (notice === "store") {
       if (!b.stores.email) return;

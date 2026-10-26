@@ -3,8 +3,10 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { PlatformBrand } from "../brand";
 import { LoginForm } from "./login-form";
 import { PlatformWhatsappButton } from "../../whatsapp-button";
+import { panelAppMetadata, panelViewport } from "../app-metadata";
 
-export const metadata = { title: "Entrar · PMS app", robots: { index: false } };
+export const metadata = { title: "Entrar · PMS app", robots: { index: false }, ...panelAppMetadata };
+export const viewport = panelViewport;
 
 export default async function LoginPage() {
   const supabase = await createSupabaseServerClient();

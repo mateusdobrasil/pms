@@ -5,8 +5,10 @@ import { formatDay, lastPayDay, todayBR } from "@/lib/billing";
 import { storeTestMode, testAccessUrl } from "@/lib/test-mode";
 import { signOut } from "../actions";
 import { PanelNav } from "./panel-nav";
+import { panelAppMetadata, panelViewport } from "../app-metadata";
 
-export const metadata = { title: "Painel · PMS app", robots: { index: false } };
+export const metadata = { title: "Painel · PMS app", robots: { index: false }, ...panelAppMetadata };
+export const viewport = panelViewport;
 
 export default async function PanelLayout({ children }: { children: ReactNode }) {
   const { supabase, store, email } = await requireStore();
