@@ -9,6 +9,7 @@ import { parseTime } from "@/lib/booking";
 import { instantOf } from "@/lib/booking-slots";
 import { cancelBooking } from "@/lib/booking-server";
 import { notifyBooking } from "@/lib/email";
+import { effectivePercent } from "@/lib/commission";
 
 export type AgendaState = { error?: string; ok?: string } | null;
 
@@ -29,10 +30,35 @@ export async function setBookingStatus(_prev: AgendaState, form: FormData): Prom
   if (status !== "completed" && status !== "no_show") return { error: "Situação inválida." };
   const own = await ownBooking(String(form.get("id") ?? ""));
   if (!own) return { error: "Agendamento não encontrado." };
-  const { data } = await own.db.from("bookings").update({ status }).eq("id", own.booking.id).eq("status", "confirmed").select("id");
+  // Atendido: grava o percentual de comissão de agora (mudar o percentual depois não altera este atendimento).
+  const commission = status === "completed" ? await commissionFor(own.db, own.booking.id) : undefined;
+  const { data } = await own.db
+    .from("bookings")
+    .update({ status, ...(commission !== undefined ? { commission_percent: commission } : {}) })
+    .eq("id", own.booking.id)
+    .eq("status", "confirmed")
+    .select("id");
   if (!data?.length) return { error: "Este agendamento não está mais confirmado." };
   refresh();
   return { ok: status === "completed" ? "Marcado como atendido." : "Marcado como falta." };
+}
+
+// Percentual do profissional para o serviço do agendamento (null = sem comissão definida).
+// undefined = colunas da comissão ainda não existem (SQL 20261112000000): marca sem gravar.
+async function commissionFor(db: ReturnType<typeof createAdminClient>, bookingId: string) {
+  const { data: b } = await db.from("bookings").select("professional_id, service_id").eq("id", bookingId).single();
+  if (!b?.professional_id) return null;
+  const [{ data: pro, error }, { data: ps }] = await Promise.all([
+    db.from("professionals").select("commission_percent").eq("id", b.professional_id).maybeSingle(),
+    b.service_id
+      ? db.from("professional_services").select("commission_percent").eq("professional_id", b.professional_id).eq("service_id", b.service_id).maybeSingle()
+      : Promise.resolve({ data: null }),
+  ]);
+  if (error) return undefined;
+  return effectivePercent(
+    (pro as { commission_percent: number | null } | null)?.commission_percent ?? null,
+    (ps as { commission_percent: number | null } | null)?.commission_percent ?? null,
+  );
 }
 
 // O salão cancela (sem prazo). Pagamento online é estornado antes.

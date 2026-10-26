@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { requireStore } from "@/lib/panel";
 import { isUuid } from "@/lib/validation";
 import { WEEKDAYS, formatTime, parseRanges } from "@/lib/booking";
+import { parsePercent } from "@/lib/commission";
 
 export type ProfessionalState = { error?: string; ok?: string } | null;
 
@@ -49,9 +50,22 @@ export async function saveProfessional(_prev: ProfessionalState, form: FormData)
   }
   const serviceIds = form.getAll("services").map(String).filter(isUuid);
 
+  // Comissão: só vem no formulário quando as colunas existem (SQL 20261112000000).
+  const hasCommission = form.get("commission_enabled") === "1";
+  const general = parsePercent(String(form.get("commission") ?? ""));
+  if (hasCommission && general === undefined) return { error: "Comissão geral inválida: use um número de 0 a 100, por exemplo 40 ou 37,5." };
+  const perService = new Map<string, number | null>();
+  if (hasCommission) {
+    for (const sid of serviceIds) {
+      const v = parsePercent(String(form.get(`commission_${sid}`) ?? ""));
+      if (v === undefined) return { error: "Comissão de algum serviço inválida: use um número de 0 a 100 ou deixe em branco." };
+      perService.set(sid, v);
+    }
+  }
+
   const { data, error } = await supabase
     .from("professionals")
-    .update({ name, active: form.get("active") === "on" })
+    .update({ name, active: form.get("active") === "on", ...(hasCommission ? { commission_percent: general } : {}) })
     .eq("id", id)
     .eq("store_id", store.id)
     .select("id");
@@ -62,7 +76,9 @@ export async function saveProfessional(_prev: ProfessionalState, form: FormData)
   if (serviceIds.length) {
     const { data: valid } = await supabase.from("services").select("id").eq("store_id", store.id).in("id", serviceIds);
     if (valid?.length) {
-      await supabase.from("professional_services").insert(valid.map((s) => ({ store_id: store.id, professional_id: id, service_id: s.id })));
+      await supabase
+        .from("professional_services")
+        .insert(valid.map((s) => ({ store_id: store.id, professional_id: id, service_id: s.id, ...(hasCommission ? { commission_percent: perService.get(s.id) ?? null } : {}) })));
     }
   }
   await supabase.from("working_hours").delete().eq("professional_id", id).eq("store_id", store.id);

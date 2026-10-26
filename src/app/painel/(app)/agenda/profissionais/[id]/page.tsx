@@ -23,6 +23,17 @@ export default async function ProfessionalPage({ params, searchParams }: { param
   ]);
   if (!pro) notFound();
   const isNew = !!(await searchParams).novo;
+  // Comissão: colunas do SQL 20261112000000, lidas à parte (sem elas, a seção não aparece).
+  const [{ data: rate, error: rateError }, { data: perService }] = await Promise.all([
+    supabase.from("professionals").select("commission_percent").eq("id", id).maybeSingle(),
+    supabase.from("professional_services").select("service_id, commission_percent").eq("professional_id", id),
+  ]);
+  const commission = rateError
+    ? undefined
+    : {
+        general: (rate as { commission_percent: number | null } | null)?.commission_percent ?? null,
+        perService: Object.fromEntries(((perService ?? []) as { service_id: string; commission_percent: number | null }[]).map((p) => [p.service_id, p.commission_percent])),
+      };
 
   const wh = pro.working_hours as { weekday: number; start_time: string; end_time: string }[];
   const hours = Array.from({ length: 7 }, (_, d) =>
@@ -41,6 +52,7 @@ export default async function ProfessionalPage({ params, searchParams }: { param
         professional={{ id: pro.id, name: pro.name, active: pro.active, serviceIds: (pro.professional_services as { service_id: string }[]).map((s) => s.service_id) }}
         services={(services ?? []) as { id: string; name: string; active: boolean }[]}
         hours={hours}
+        commission={commission}
       />
       <form action={deleteProfessional} className="pt-2">
         <input type="hidden" name="id" value={pro.id} />

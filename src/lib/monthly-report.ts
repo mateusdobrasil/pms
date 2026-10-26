@@ -23,6 +23,20 @@ export function monthOf(year: number, month: number) {
   };
 }
 
+// "?mes=2026-10" das telas por mês; sem parâmetro (ou inválido), o mês de hoje.
+export function parseMonthParam(param: string | undefined, today: string) {
+  const [ty, tm] = today.split("-").map(Number);
+  const m = /^(\d{4})-(\d{2})$/.exec(param ?? "");
+  const ok = m && Number(m[2]) >= 1 && Number(m[2]) <= 12;
+  return ok ? { year: Number(m[1]), month: Number(m[2]) } : { year: ty, month: tm };
+}
+
+// Mês anterior/seguinte (delta em meses).
+export function shiftMonth(year: number, month: number, delta: number) {
+  const t = year * 12 + (month - 1) + delta;
+  return { year: Math.floor(t / 12), month: (t % 12) + 1 };
+}
+
 export type ReportInput = {
   orders: { total_cents: number; paid_at: string }[];
   items: { product_name: string; unit_price_cents: number; quantity: number }[]; // só produtos (sem links de pagamento)

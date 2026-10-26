@@ -6,6 +6,7 @@ import { WEEKDAYS } from "@/lib/booking";
 import { createProfessional, saveProfessional, type ProfessionalState } from "./actions";
 
 const input = "w-full rounded-md border bg-white px-3 py-2 text-sm";
+const pct = (n: number | null) => (n == null ? "" : String(n).replace(".", ","));
 
 export function CreateProfessionalForm() {
   const [state, action, pending] = useActionState<ProfessionalState, FormData>(createProfessional, null);
@@ -26,10 +27,12 @@ export function ProfessionalForm({
   professional,
   services,
   hours,
+  commission,
 }: {
   professional: { id: string; name: string; active: boolean; serviceIds: string[] };
   services: { id: string; name: string; active: boolean }[];
   hours: string[]; // 7 textos, domingo a sábado: "09:00-12:00, 13:00-18:00"
+  commission?: { general: number | null; perService: Record<string, number | null> }; // undefined = SQL da comissão não rodado
 }) {
   const [state, action, pending] = useActionState<ProfessionalState, FormData>(saveProfessional, null);
   const formRef = useRef<HTMLFormElement>(null);
@@ -71,6 +74,40 @@ export function ProfessionalForm({
           </div>
         )}
       </section>
+
+      {commission && (
+        <section className="space-y-3 rounded-xl border bg-white p-5 shadow-sm">
+          <input type="hidden" name="commission_enabled" value="1" />
+          <h2 className="font-medium">Comissão</h2>
+          <label className="flex flex-wrap items-center gap-2">
+            <span className="font-medium text-neutral-700">Comissão geral</span>
+            <input name="commission" inputMode="decimal" defaultValue={pct(commission.general)} placeholder="ex.: 40" className="w-24 rounded-md border bg-white px-3 py-2 text-sm" />
+            <span className="text-neutral-500">% do valor de cada serviço atendido</span>
+          </label>
+          {services.some((s) => professional.serviceIds.includes(s.id)) && (
+            <details className="text-sm" open={Object.values(commission.perService).some((v) => v != null)}>
+              <summary className="cursor-pointer text-neutral-600">Percentual diferente em algum serviço</summary>
+              <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                {services
+                  .filter((s) => professional.serviceIds.includes(s.id))
+                  .map((s) => (
+                    <label key={s.id} className="flex items-center justify-between gap-2 rounded-md bg-neutral-50 px-3 py-2">
+                      <span className="min-w-0 truncate">{s.name}</span>
+                      <span className="flex shrink-0 items-center gap-1">
+                        <input name={`commission_${s.id}`} inputMode="decimal" defaultValue={pct(commission.perService[s.id] ?? null)} placeholder="geral" className="w-20 rounded-md border bg-white px-2 py-1 text-sm" />%
+                      </span>
+                    </label>
+                  ))}
+              </div>
+              <p className="mt-2 text-xs text-neutral-500">Em branco, vale a comissão geral. Serviço marcado agora em &quot;Serviços que faz&quot; aparece aqui depois de salvar.</p>
+            </details>
+          )}
+          <p className="text-xs text-neutral-500">
+            A comissão de cada atendimento fica gravada quando você marca &quot;Atendido&quot; na agenda: mudar o percentual depois não altera o que já
+            foi fechado. Veja o total do mês em Agenda → Comissões.
+          </p>
+        </section>
+      )}
 
       <section className="space-y-3 rounded-xl border bg-white p-5 shadow-sm">
         <div className="flex flex-wrap items-baseline justify-between gap-2">

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildReport, monthOf, previousMonth } from "@/lib/monthly-report";
+import { buildReport, monthOf, parseMonthParam, previousMonth, shiftMonth } from "@/lib/monthly-report";
 
 describe("mês do resumo", () => {
   it("mês anterior, inclusive na virada do ano", () => {
@@ -46,5 +46,17 @@ describe("números do resumo", () => {
   it("mais vendidos: os 3 que mais faturaram", () => {
     const items = ["A", "B", "C", "D"].map((n, i) => ({ product_name: n, unit_price_cents: 1000 * (i + 1), quantity: 1 }));
     expect(buildReport({ ...base, orders: [], items }).top.map((t) => t.name)).toEqual(["D", "C", "B"]);
+  });
+});
+
+describe("mês das telas", () => {
+  it("lê ?mes= e cai no mês de hoje quando inválido", () => {
+    expect(parseMonthParam("2026-09", "2026-10-26")).toEqual({ year: 2026, month: 9 });
+    expect(parseMonthParam(undefined, "2026-10-26")).toEqual({ year: 2026, month: 10 });
+    expect(parseMonthParam("2026-13", "2026-10-26")).toEqual({ year: 2026, month: 10 });
+  });
+  it("anda de mês na virada do ano", () => {
+    expect(shiftMonth(2026, 1, -1)).toEqual({ year: 2025, month: 12 });
+    expect(shiftMonth(2026, 12, 1)).toEqual({ year: 2027, month: 1 });
   });
 });
