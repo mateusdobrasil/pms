@@ -7,6 +7,7 @@ import { isUuid } from "@/lib/validation";
 import { MEMBER_TRANSITIONS, SOLD_STATUSES, statusLabel, statusTone, type OrderStatus } from "@/lib/order-status";
 import { OrderActions, RefundSection } from "./order-actions";
 import { FEE_FIELDS, feePercent, paymentFees } from "@/lib/payments/fees";
+import { isPaymentLink } from "@/lib/payment-links";
 import { emailStatusLabel, isProblem } from "@/lib/resend-webhook";
 
 type Order = {
@@ -55,6 +56,7 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
   if (!data) notFound();
   const order = data as Order;
   const isPickup = order.shipping_method === "pickup";
+  const fromLink = isPaymentLink(order.shipping_method);
   const phone = order.customer_phone ? `55${order.customer_phone}` : null;
   const address = order.shipping_address;
   const approved = order.payments.find((p) => p.status === "approved");
@@ -133,10 +135,12 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
             </ul>
             <div className="space-y-1 border-t px-4 py-3 text-sm">
               <p className="flex justify-between"><span>Subtotal</span><span>{formatBRL(order.subtotal_cents)}</span></p>
-              <p className="flex justify-between">
-                <span>{isPickup ? "Retirada na loja" : order.shipping_method}</span>
-                <span>{formatBRL(order.shipping_cents)}</span>
-              </p>
+              {!fromLink && (
+                <p className="flex justify-between">
+                  <span>{isPickup ? "Retirada na loja" : order.shipping_method}</span>
+                  <span>{formatBRL(order.shipping_cents)}</span>
+                </p>
+              )}
               {order.discount_cents > 0 && (
                 <p className="flex justify-between text-emerald-700"><span>Desconto Pix</span><span>−{formatBRL(order.discount_cents)}</span></p>
               )}
@@ -210,7 +214,12 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
 
           <section className="space-y-1 rounded-xl border bg-white shadow-sm px-4 py-3 text-sm">
             <h2 className="mb-2 font-medium">Entrega</h2>
-            {isPickup ? (
+            {fromLink ? (
+              <p className="text-neutral-600">
+                Pago por <Link href="/painel/links" className="font-medium text-primary-700 hover:underline">link de pagamento</Link>. Se houver
+                entrega, combine com o cliente.
+              </p>
+            ) : isPickup ? (
               <p>Retirada na loja</p>
             ) : address ? (
               <>

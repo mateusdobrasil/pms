@@ -135,7 +135,7 @@ export async function priceCart(db: SupabaseClient, storeId: string, items: Cart
   return { lines, subtotalCents, problems };
 }
 
-function parseCustomer(raw: unknown): { customer: CustomerInput | null; errors: string[] } {
+export function parseCustomer(raw: unknown): { customer: CustomerInput | null; errors: string[] } {
   const r = (raw ?? {}) as Record<string, unknown>;
   const str = (v: unknown) => (typeof v === "string" ? v.trim() : "");
   const customer = {

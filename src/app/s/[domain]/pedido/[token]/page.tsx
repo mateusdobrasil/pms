@@ -10,6 +10,7 @@ import { CopyOrderLink } from "./copy-link";
 import { TrackPurchase } from "./track-purchase";
 import { RedoOrder } from "./redo-order";
 import { availableOrderItems } from "@/lib/order-recovery";
+import { isPaymentLink, linkState } from "@/lib/payment-links";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Seu pedido", robots: { index: false } };
@@ -46,7 +47,15 @@ export default async function OrderPage({
     (order.status === "pending_payment" && order.expires_at && new Date(order.expires_at) < new Date());
   const awaitingPayment = order.status === "pending_payment" && !expired;
   // Expirado: o que ainda está à venda pode voltar ao carrinho com um clique.
-  const redoItems = expired ? await availableOrderItems(db, store.id, order.id) : [];
+  const fromLink = isPaymentLink(order.shipping_method);
+  const redoItems = expired && !fromLink ? await availableOrderItems(db, store.id, order.id) : [];
+  // Pedido de link de pagamento que expirou: o cliente volta ao link (se ele ainda estiver aberto) e paga de novo.
+  let reopenLink: string | null = null;
+  if (expired && fromLink) {
+    const { data: o } = await db.from("orders").select("payment_links(public_token, status, expires_at)").eq("id", order.id).single();
+    const link = (o as unknown as { payment_links: { public_token: string; status: "active" | "paid" | "canceled"; expires_at: string | null } | null } | null)?.payment_links;
+    if (link && linkState(link) === "active") reopenLink = `/pagar/${link.public_token}`;
+  }
   const address = order.shipping_address as Record<string, string> | null;
 
   let publicKey: string | null = null;
@@ -110,7 +119,17 @@ export default async function OrderPage({
               />
             </>
           ) : (
-            <p className="mt-2 text-neutral-600">O prazo para pagamento acabou. <Link href="/" className="underline">Faça um novo pedido</Link>.</p>
+            <p className="mt-2 text-neutral-600">
+              O prazo para pagamento acabou.{" "}
+              {reopenLink ? (
+                <Link href={reopenLink} className="underline">Abrir o link de pagamento de novo</Link>
+              ) : fromLink ? (
+                "Fale com a loja para receber um link novo."
+              ) : (
+                <Link href="/" className="underline">Faça um novo pedido</Link>
+              )}
+              {!fromLink || reopenLink ? "." : ""}
+            </p>
           ))}
         {order.tracking_code && (
           <p className="mt-2 text-sm">
@@ -144,10 +163,12 @@ export default async function OrderPage({
         </ul>
         <div className="mt-3 space-y-1 text-sm">
           <p className="flex justify-between"><span>Subtotal</span><span>{formatBRL(order.subtotal_cents)}</span></p>
-          <p className="flex justify-between">
-            <span>{order.shipping_method === "pickup" ? "Retirada na loja" : order.shipping_method}</span>
-            <span>{formatBRL(order.shipping_cents)}</span>
-          </p>
+          {!fromLink && (
+            <p className="flex justify-between">
+              <span>{order.shipping_method === "pickup" ? "Retirada na loja" : order.shipping_method}</span>
+              <span>{formatBRL(order.shipping_cents)}</span>
+            </p>
+          )}
           {order.discount_cents > 0 && (
             <p className="flex justify-between text-emerald-700"><span>Desconto Pix</span><span>−{formatBRL(order.discount_cents)}</span></p>
           )}

@@ -9,6 +9,7 @@ import { dailySales, topProducts, windowStart } from "@/lib/sales";
 import { SalesChart, TopProducts } from "./sales-chart";
 import { FEE_FIELDS, paymentFees } from "@/lib/payments/fees";
 import { pushPublicKey } from "@/lib/push";
+import { PAYMENT_LINK_METHOD } from "@/lib/payment-links";
 import { PushCard } from "./push-card";
 
 const CHART_DAYS = 30;
@@ -58,9 +59,10 @@ export default async function PanelHome() {
       .gte("paid_at", chartFrom),
     supabase
       .from("order_items")
-      .select("product_name, unit_price_cents, quantity, orders!inner(status, paid_at)")
+      .select("product_name, unit_price_cents, quantity, orders!inner(status, paid_at, shipping_method)")
       .eq("store_id", store.id)
       .in("orders.status", SOLD_STATUSES)
+      .neq("orders.shipping_method", PAYMENT_LINK_METHOD) // cobrança avulsa não é produto: fora do "Mais vendidos"
       .gte("orders.paid_at", chartFrom),
     // Pagamentos aprovados das vendas do mês: taxa do Mercado Pago e valor líquido.
     supabase

@@ -7,6 +7,7 @@ import { type InvoiceKind, formatDay, invoiceTitle, lastPayDay } from "@/lib/bil
 import { googleCalendarUrl } from "@/lib/booking";
 import { isLocalDelivery } from "@/lib/shipping-settings";
 import { pushToStore } from "@/lib/push";
+import { isPaymentLink } from "@/lib/payment-links";
 
 // E-mails transacionais via API do Resend. Sem RESEND_API_KEY, só registra no log (dev).
 // EMAIL_FROM: endereço de um domínio verificado no Resend, ex.: pedidos@pmsapp.dev
@@ -141,7 +142,9 @@ export async function notifyOrderPaid(orderId: string) {
     const units = o.order_items.reduce((n, i) => n + i.quantity, 0);
     await pushToStore(o.store_id, {
       title: `Nova venda: ${formatBRL(o.total_cents)}`,
-      body: `Pedido ${o.code} · ${o.customer_name} · ${units} ${units === 1 ? "item" : "itens"}${o.stock_issue ? " · ATENÇÃO: faltou estoque" : ""}`,
+      body: isPaymentLink(o.shipping_method)
+        ? `Link "${o.order_items[0]?.product_name}" · ${o.customer_name}`
+        : `Pedido ${o.code} · ${o.customer_name} · ${units} ${units === 1 ? "item" : "itens"}${o.stock_issue ? " · ATENÇÃO: faltou estoque" : ""}`,
       url: `/painel/pedidos/${o.id}`,
       tag: `order-${o.id}`,
     });
@@ -156,7 +159,7 @@ export async function notifyOrderPaid(orderId: string) {
       html: layout(o.stores, `
         <h1 style="margin:0 0 8px;font-size:22px">Pagamento confirmado!</h1>
         <p style="margin:0 0 20px;color:#525252">Olá, ${esc(firstName(o.customer_name))}. Recebemos o pagamento do pedido <strong>${o.code}</strong>.
-        ${o.shipping_method === "pickup" ? "Avisaremos quando estiver pronto para retirada." : isLocalDelivery(o.shipping_method) ? "Avisaremos quando sair para entrega." : "Avisaremos quando for enviado, com o código de rastreio."}</p>
+        ${isPaymentLink(o.shipping_method) ? `A ${esc(o.stores.name)} já foi avisada. Guarde este e-mail como comprovante.` : o.shipping_method === "pickup" ? "Avisaremos quando estiver pronto para retirada." : isLocalDelivery(o.shipping_method) ? "Avisaremos quando sair para entrega." : "Avisaremos quando for enviado, com o código de rastreio."}</p>
         ${itemsTable(o)}
         ${o.shipping_address ? addressBlock(o.shipping_address) : ""}
         ${url ? button(url, "Acompanhar pedido", o.stores.primary_color) : ""}`),
@@ -727,7 +730,7 @@ function itemsTable(o: OrderForEmail) {
   const shippingLabel = o.shipping_method === "pickup" ? "Retirada na loja" : esc(o.shipping_method);
   return `<table style="width:100%;border-collapse:collapse;font-size:14px">${rows}
     <tr><td style="padding:8px 0;color:#525252">Subtotal</td><td style="padding:8px 0;text-align:right">${formatBRL(o.subtotal_cents)}</td></tr>
-    <tr><td style="padding:0 0 8px;color:#525252">${shippingLabel}</td><td style="padding:0 0 8px;text-align:right">${o.shipping_cents ? formatBRL(o.shipping_cents) : "Grátis"}</td></tr>${
+    ${isPaymentLink(o.shipping_method) ? "" : `<tr><td style="padding:0 0 8px;color:#525252">${shippingLabel}</td><td style="padding:0 0 8px;text-align:right">${o.shipping_cents ? formatBRL(o.shipping_cents) : "Grátis"}</td></tr>`}${
       o.discount_cents ? `
     <tr><td style="padding:0 0 8px;color:#047857">Desconto Pix</td><td style="padding:0 0 8px;text-align:right;color:#047857">−${formatBRL(o.discount_cents)}</td></tr>` : ""
     }
