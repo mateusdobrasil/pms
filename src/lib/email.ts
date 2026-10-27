@@ -415,10 +415,18 @@ export async function notifyOrderShipped(orderId: string) {
 
 // Pedido cancelado com estorno pelo painel: avisa o cliente de quando o dinheiro volta.
 export async function notifyOrderRefunded(orderId: string, method: "pix" | "card") {
+  // Rastro no log (Vercel → Logs, filtro "[estorno]"): diagnóstico do e-mail de estorno que não saiu em produção.
+  console.log("[estorno] e-mail: início", { orderId });
   try {
-    if (!(await claim(orderId, "notified_refunded_at", ["canceled"]))) return;
+    if (!(await claim(orderId, "notified_refunded_at", ["canceled"]))) {
+      console.log("[estorno] e-mail: trava não conseguida (já enviado ou pedido não cancelado)", { orderId });
+      return;
+    }
     const o = await loadOrder(orderId);
-    if (!o) return;
+    if (!o) {
+      console.log("[estorno] e-mail: pedido não encontrado", { orderId });
+      return;
+    }
     const when =
       method === "pix"
         ? "Como o pagamento foi por Pix, o valor volta para a sua conta em instantes."
@@ -437,9 +445,10 @@ export async function notifyOrderRefunded(orderId: string, method: "pix" | "card
         ${itemsTable(o)}
         ${o.stores.whatsapp ? `<p style="margin:20px 0 0;color:#525252">Dúvidas? Fale com a gente pelo <a href="https://wa.me/${o.stores.whatsapp}">WhatsApp</a>.</p>` : ""}`),
     });
+    console.log(`[estorno] e-mail: ${ok ? "enviado" : "recusado (trava liberada para tentar de novo)"}`, { orderId });
     if (!ok) await release(orderId, "notified_refunded_at");
   } catch (err) {
-    console.error("Falha ao notificar estorno", { orderId, err });
+    console.error("[estorno] Falha ao notificar estorno", { orderId, err });
   }
 }
 

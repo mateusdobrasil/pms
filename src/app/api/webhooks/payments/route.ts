@@ -11,8 +11,9 @@ import { BOOKING_PAYMENT_FIELDS, recordBookingPayment } from "@/lib/booking-serv
 // Assim sabemos qual credencial usar para consultar o pagamento.
 //
 // Segurança: o status nunca vem do payload — sempre consultamos o pagamento com o token da loja,
-// então um aviso forjado não confirma nada. A assinatura (x-signature) é uma camada extra:
-// se a loja tem o segredo cadastrado e o header vier, ele precisa bater.
+// então um aviso forjado não confirma nada. A assinatura (x-signature) só é conferida e registrada no log:
+// o Mercado Pago manda dois avisos por pagamento (o do webhook do painel, assinado com o segredo dele, e o da
+// notification_url, que não confere com esse segredo), e recusar um aviso só atrasaria a confirmação.
 
 export async function POST(req: Request) {
   const url = new URL(req.url);
@@ -54,19 +55,8 @@ export async function POST(req: Request) {
       dataId: queryDataId ?? paymentId,
       secret: secret.gateway_webhook_secret,
     });
-    if (!valid) {
-      // Quase sempre é o segredo de outra aplicação do Mercado Pago (ex.: trocou de TEST- para APP_USR- e manteve o
-      // segredo antigo). O pagamento ainda confirma pela página do pedido, mas sem o webhook atrasa: avisa o admin.
-      console.error("Webhook com assinatura inválida", { storeId, paymentId });
-      after(() =>
-        notifyPlatformError(`webhook:assinatura:${storeId}`, "Webhook de pagamento recusado: assinatura não confere", {
-          loja: storeId,
-          pagamento: paymentId,
-          o_que_fazer: "Em /admin → loja → Pagamento e frete, troque o segredo do webhook pelo da mesma aplicação das credenciais (Mercado Pago → Suas integrações → aplicação → Webhooks → assinatura secreta) ou remova o segredo.",
-        }),
-      );
-      return NextResponse.json({ error: "assinatura inválida" }, { status: 401 });
-    }
+    // Não confere: segue mesmo assim (o status vem da consulta ao Mercado Pago, abaixo), só registra.
+    if (!valid) console.log("Webhook sem assinatura válida; conferindo o pagamento no Mercado Pago", { storeId, paymentId });
   }
 
   // Idempotência: registra o evento; se já foi processado, encerra.

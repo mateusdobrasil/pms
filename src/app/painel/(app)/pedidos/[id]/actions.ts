@@ -125,6 +125,7 @@ export async function refundOrder(_prev: OrderActionState, form: FormData): Prom
     return { error: "O dinheiro foi devolvido, mas não foi possível atualizar o pedido. Recarregue a página; se continuar, fale com o suporte." };
   }
 
+  console.log("[estorno] pedido cancelado; e-mail agendado para depois da resposta", { orderId: id });
   after(() => notifyOrderRefunded(id, payment.method));
   if (restock) after(() => notifyBackInStock(store.id));
   return done(id, restock ? "Pedido cancelado, valor estornado e itens devolvidos ao estoque." : "Pedido cancelado e valor estornado.");

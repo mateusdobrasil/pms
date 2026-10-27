@@ -134,8 +134,8 @@ const SECRET_FIELDS = [
   {
     name: "gateway_webhook_secret",
     label: "Mercado Pago — assinatura secreta do webhook",
-    // Segredo de outra aplicação faz o webhook ser recusado (o pagamento só confirma pela página do pedido).
-    hint: "Precisa ser da mesma aplicação do Access Token. Ao trocar de TEST- para APP_USR-, troque este também (ou remova).",
+    // Opcional: a assinatura só é conferida e registrada no log (o pagamento é sempre consultado no Mercado Pago).
+    hint: "Opcional. Use o da mesma aplicação do Access Token (ao trocar de TEST- para APP_USR-, troque este também). Mesmo sem ele, ou com um errado, o pagamento confirma: o sistema sempre consulta o Mercado Pago.",
   },
   { name: "melhor_envio_token", label: "Melhor Envio — token" },
 ] as const;
