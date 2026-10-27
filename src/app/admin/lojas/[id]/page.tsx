@@ -9,8 +9,9 @@ import { formatDateTime } from "@/lib/format";
 import { daysLate, dueDateOptions, formatDay, invoiceTitle, todayBR } from "@/lib/billing";
 import { INVOICE_FIELDS, type InvoiceRow } from "@/lib/billing-server";
 import { isTestToken, testAccessUrl } from "@/lib/test-mode";
-import { cancelInvoice, markInvoicePaid, removeDomain, removeMember, setPrimaryDomain, setStoreStatus, setWhatsappReminders } from "../../actions";
-import { whatsappConfigured } from "@/lib/whatsapp";
+import { cancelInvoice, markInvoicePaid, removeDomain, removeMember, setPrimaryDomain, setStoreStatus, setWhatsappEvents, setWhatsappReminders } from "../../actions";
+import { whatsappConnected } from "@/lib/whatsapp";
+import { WA_EVENTS, WA_EVENT_KEYS } from "@/lib/whatsapp-events";
 import { AddDomainForm, AddMemberForm, BillingForm, BrandingForm, SecretsForm } from "../../forms";
 
 export default async function AdminStorePage({ params }: { params: Promise<{ id: string }> }) {
@@ -32,14 +33,22 @@ export default async function AdminStorePage({ params }: { params: Promise<{ id:
   // Cobrança: colunas e tabela do SQL 20261024000000, lidas à parte (sem o SQL, a seção avisa).
   // WhatsApp: coluna e registro do SQL 20261118000000 (sem eles, a seção não aparece).
   const monthStart = new Date(`${todayBR().slice(0, 7)}-01T00:00:00-03:00`).toISOString();
-  const [{ data: wa, error: waError }, { count: waSent }, { count: waFailed }] = await Promise.all([
+  // whatsapp_events (SQL 20261119000000) à parte: sem ela, a escolha de eventos não aparece.
+  const [{ data: wa, error: waError }, { data: waEvents, error: waEventsError }, { count: waSent }, { count: waFailed }] = await Promise.all([
     db.from("stores").select("whatsapp_reminders").eq("id", id).maybeSingle(),
+    db.from("stores").select("whatsapp_events").eq("id", id).maybeSingle(),
     db.from("whatsapp_messages").select("id", { count: "exact", head: true }).eq("store_id", id).eq("status", "sent").gte("created_at", monthStart),
     db.from("whatsapp_messages").select("id", { count: "exact", head: true }).eq("store_id", id).eq("status", "failed").gte("created_at", monthStart),
   ]);
   const whatsapp = waError
     ? null
-    : { enabled: !!(wa as { whatsapp_reminders?: boolean } | null)?.whatsapp_reminders, sent: waSent ?? 0, failed: waFailed ?? 0, configured: whatsappConfigured() };
+    : {
+        enabled: !!(wa as { whatsapp_reminders?: boolean } | null)?.whatsapp_reminders,
+        events: waEventsError ? undefined : ((waEvents as { whatsapp_events: string[] | null } | null)?.whatsapp_events ?? null),
+        sent: waSent ?? 0,
+        failed: waFailed ?? 0,
+        configured: whatsappConnected(),
+      };
   const [{ data: billing, error: billingError }, { data: invoiceRows }] = await Promise.all([
     db.from("stores").select("setup_fee_cents, monthly_fee_cents, billing_starts_on, suspended_for_billing").eq("id", id).single(),
     db.from("store_invoices").select(INVOICE_FIELDS).eq("store_id", id).order("due_date", { ascending: false }),
@@ -236,22 +245,37 @@ export default async function AdminStorePage({ params }: { params: Promise<{ id:
 
         {whatsapp && (
           <section className={card}>
-            <h2 className="font-semibold">Lembrete por WhatsApp</h2>
+            <h2 className="font-semibold">WhatsApp</h2>
             <p className="text-sm text-neutral-600">
               {whatsapp.enabled
-                ? "Ligado: os clientes recebem o lembrete da véspera pelo WhatsApp oficial da plataforma (além do e-mail)."
+                ? "Ligado: os eventos marcados abaixo saem pelo WhatsApp oficial da plataforma (além do e-mail), desde que tenham modelo em WhatsApp → Modelos."
                 : "Desligado. O custo por mensagem é da plataforma: ligue para lojas com plano que inclua o WhatsApp."}
               {" "}Este mês: <strong>{whatsapp.sent}</strong> {whatsapp.sent === 1 ? "mensagem enviada" : "mensagens enviadas"}
               {whatsapp.failed > 0 && <span className="text-red-700"> · {whatsapp.failed} com falha</span>}.
             </p>
-            {!whatsapp.configured && <p className="text-sm text-amber-700">As variáveis do WhatsApp ainda não estão configuradas na Vercel: nada é enviado.</p>}
+            {!whatsapp.configured && <p className="text-sm text-amber-700">O WhatsApp ainda não está conectado (token e número na Vercel): nada é enviado.</p>}
             <form action={setWhatsappReminders}>
               <input type="hidden" name="storeId" value={store.id} />
               <input type="hidden" name="enabled" value={whatsapp.enabled ? "0" : "1"} />
               <button type="submit" className={`rounded-lg px-4 py-2 text-sm font-semibold shadow-sm ${whatsapp.enabled ? "border bg-white hover:bg-neutral-50" : "bg-emerald-600 text-white hover:bg-emerald-700"}`}>
-                {whatsapp.enabled ? "Desligar lembrete por WhatsApp" : "Ligar lembrete por WhatsApp"}
+                {whatsapp.enabled ? "Desligar WhatsApp" : "Ligar WhatsApp"}
               </button>
             </form>
+            {whatsapp.enabled && whatsapp.events !== undefined && (
+              <form action={setWhatsappEvents} className="space-y-2 border-t pt-3 text-sm">
+                <input type="hidden" name="storeId" value={store.id} />
+                <p className="font-medium">Eventos desta loja</p>
+                <div className="grid gap-1 sm:grid-cols-2">
+                  {WA_EVENT_KEYS.map((e) => (
+                    <label key={e} className="flex items-center gap-2">
+                      <input type="checkbox" name="events" value={e} defaultChecked={!whatsapp.events || whatsapp.events.includes(e)} />
+                      {WA_EVENTS[e].label}
+                    </label>
+                  ))}
+                </div>
+                <button type="submit" className="rounded-md border bg-white px-3 py-1.5 text-xs font-semibold hover:bg-neutral-50">Salvar eventos</button>
+              </form>
+            )}
           </section>
         )}
 

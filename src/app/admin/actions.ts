@@ -11,6 +11,7 @@ import { isStoreSubdomain, storeDomainError, storeSubdomain } from "@/lib/store-
 import { isEmail, isUuid, onlyDigits } from "@/lib/validation";
 import { BILLING, isDueDay, todayBR } from "@/lib/billing";
 import { parseBRL } from "@/lib/money";
+import { WA_EVENT_KEYS } from "@/lib/whatsapp-events";
 
 const MAX_FEE_CENTS = 10_000_000; // R$ 100.000,00: trava contra erro de digitação
 import { issueInvoices, reactivateIfClear } from "@/lib/billing-server";
@@ -123,6 +124,16 @@ export async function setWhatsappReminders(form: FormData) {
   await db.from("stores").update({ whatsapp_reminders: form.get("enabled") === "1" }).eq("id", id);
   refresh(id);
   revalidatePath("/admin/whatsapp");
+}
+
+// Eventos do WhatsApp que a loja usa (todos marcados = nulo: entra também evento novo que for criado).
+export async function setWhatsappEvents(form: FormData) {
+  const { db } = await requireAdmin();
+  const id = String(form.get("storeId") ?? "");
+  if (!isUuid(id)) return;
+  const chosen = WA_EVENT_KEYS.filter((e) => form.getAll("events").includes(e));
+  await db.from("stores").update({ whatsapp_events: chosen.length === WA_EVENT_KEYS.length ? null : chosen }).eq("id", id);
+  refresh(id);
 }
 
 export async function addDomain(_prev: AdminState, form: FormData): Promise<AdminState> {

@@ -12,6 +12,8 @@ import { isPackagePurchase } from "@/lib/packages";
 import type { Report } from "@/lib/monthly-report";
 import { progressText } from "@/lib/loyalty";
 import { customerStamps, getLoyaltyConfig } from "@/lib/loyalty-data";
+import { bookingFields, orderFields } from "@/lib/whatsapp-events";
+import { sendWhatsappEvent } from "@/lib/whatsapp-send";
 
 // E-mails transacionais via API do Resend. Sem RESEND_API_KEY, só registra no log (dev).
 // EMAIL_FROM: endereço de um domínio verificado no Resend, ex.: pedidos@pmsapp.dev
@@ -122,6 +124,21 @@ function customerWhatsappUrl(o: OrderForEmail) {
   return `https://wa.me/55${o.customer_phone}?text=${encodeURIComponent(text)}`;
 }
 
+// Dados do pedido para as variáveis do WhatsApp (o link do lojista leva ao pedido no painel).
+function orderWhatsappData(o: OrderForEmail, link: string | null) {
+  return orderFields({
+    customerName: o.customer_name,
+    storeName: o.stores.name,
+    code: o.code,
+    totalCents: o.total_cents,
+    items: o.order_items.map((i) => ({ name: i.variant_name && i.variant_name !== "Único" ? `${i.product_name} (${i.variant_name})` : i.product_name, quantity: i.quantity })),
+    link: link ?? "",
+    customerPhone: o.customer_phone ? formatPhone(o.customer_phone) : null,
+    tracking: o.tracking_code,
+    shipping: o.shipping_method === "pickup" ? "retirada na loja" : o.shipping_method,
+  });
+}
+
 type OrderNotice = "notified_paid_at" | "notified_shipped_at" | "notified_refunded_at" | "notified_expired_at";
 
 // Trava: só quem preencher a coluna envia. Se o envio falhar, libera para tentar de novo.
@@ -163,9 +180,10 @@ async function packageLine(bookingId: string) {
 }
 
 // Completou o cartão fidelidade: e-mail para o cliente e aviso no celular da loja (a trava é a linha do prêmio).
-export async function notifyLoyaltyReward(storeId: string, who: { name: string; email: string | null }, reward: string) {
+export async function notifyLoyaltyReward(storeId: string, who: { name: string; email: string | null; phone?: string | null }, reward: string) {
   const { data: store } = await createAdminClient().from("stores").select("name, email, primary_color").eq("id", storeId).single();
   if (!store) return;
+  await sendWhatsappEvent({ storeId, event: "loyalty_reward", phone: who.phone, data: { first_name: firstName(who.name), customer_name: who.name, store_name: store.name, reward } });
   if (who.email) {
     await sendEmail({
       to: who.email,
@@ -194,13 +212,28 @@ export async function notifyPackage(customerPackageId: string, kind: "activated"
     const db = createAdminClient();
     const { data } = await db
       .from("customer_packages")
-      .select("id, store_id, name, service_name, sessions_total, expires_at, customer_name, customer_email, stores(name, email, primary_color)")
+      .select("id, store_id, name, service_name, sessions_total, expires_at, customer_name, customer_email, customer_phone, stores(name, email, primary_color)")
       .eq("id", customerPackageId)
       .single();
-    const p = data as unknown as { id: string; name: string; service_name: string; sessions_total: number; expires_at: string | null; customer_name: string; customer_email: string | null; stores: { name: string; email: string | null; primary_color: string } } | null;
-    if (!p?.customer_email) return;
-    const until = p.expires_at ? `, válido até ${new Date(p.expires_at).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}` : "";
+    const p = data as unknown as { id: string; store_id: string; name: string; service_name: string; sessions_total: number; expires_at: string | null; customer_name: string; customer_email: string | null; customer_phone: string | null; stores: { name: string; email: string | null; primary_color: string } } | null;
+    if (!p) return;
+    const untilDate = p.expires_at ? new Date(p.expires_at).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" }) : null;
+    const until = untilDate ? `, válido até ${untilDate}` : "";
     const sessions = (n: number) => `${n} ${n === 1 ? "sessão" : "sessões"}`;
+    await sendWhatsappEvent({
+      storeId: p.store_id,
+      event: kind === "activated" ? "package_activated" : "package_used",
+      phone: p.customer_phone,
+      data: {
+        first_name: firstName(p.customer_name),
+        customer_name: p.customer_name,
+        store_name: p.stores.name,
+        package_name: p.name,
+        sessions_left: sessions(kind === "activated" ? p.sessions_total : (left ?? 0)),
+        valid_until: untilDate ?? "sem prazo",
+      },
+    });
+    if (!p.customer_email) return;
     await sendEmail({
       to: p.customer_email,
       fromName: p.stores.name,
@@ -282,6 +315,9 @@ export async function notifyOrderPaid(orderId: string) {
       url: `/painel/pedidos/${o.id}`,
       tag: `order-${o.id}`,
     });
+    // WhatsApp (se a loja usa): confirmação para o cliente e aviso de venda para o WhatsApp da loja.
+    await sendWhatsappEvent({ storeId: o.store_id, event: "order_paid", phone: o.customer_phone, data: orderWhatsappData(o, url), orderId: o.id });
+    await sendWhatsappEvent({ storeId: o.store_id, event: "store_new_sale", data: orderWhatsappData(o, platformUrl(`/painel/pedidos/${o.id}`)), orderId: o.id });
   } catch (err) {
     console.error("Falha ao notificar pagamento", { orderId, err });
   }
@@ -316,7 +352,11 @@ export async function notifyOrderShipped(orderId: string) {
            ${o.tracking_code ? `<p style="margin:0 0 20px;padding:14px;border-radius:8px;background:#f5f5f5;font-size:15px">Código de rastreio:<br><strong style="font-size:18px;letter-spacing:1px">${esc(o.tracking_code)}</strong></p>` : ""}`)
         + (url ? button(url, "Acompanhar pedido", o.stores.primary_color) : "")),
     });
-    if (!ok) await release(orderId, "notified_shipped_at");
+    if (!ok) {
+      await release(orderId, "notified_shipped_at");
+      return;
+    }
+    await sendWhatsappEvent({ storeId: o.store_id, event: pickup ? "order_ready" : "order_shipped", phone: o.customer_phone, data: orderWhatsappData(o, url), orderId: o.id });
   } catch (err) {
     console.error("Falha ao notificar envio", { orderId, err });
   }
@@ -477,7 +517,21 @@ export async function notifyBooking(bookingId: string, notice: BookingNotice | "
       });
     }
 
+    // WhatsApp (se a loja usa): mesmos dados nos eventos do cliente e do lojista.
+    const waData = bookingFields({
+      customerName: b.customer_name,
+      storeName: b.stores.name,
+      serviceName: b.service_name,
+      professionalName: b.professional_name,
+      startsAt: b.starts_at,
+      link: link ?? "",
+      customerPhone: b.customer_phone ? formatPhone(b.customer_phone) : null,
+    });
+    const waConfirmed = () => sendWhatsappEvent({ storeId: b.store_id, event: "booking_confirmed", phone: b.customer_phone, data: waData, bookingId: b.id });
+
     if (notice === "store") {
+      const day = new Date(b.starts_at).toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
+      await sendWhatsappEvent({ storeId: b.store_id, event: "store_new_booking", data: { ...waData, link: platformUrl(`/painel/agenda?dia=${day}`) }, bookingId: b.id });
       if (!b.stores.email) return;
       await sendEmail({
         to: b.stores.email,
@@ -494,7 +548,10 @@ export async function notifyBooking(bookingId: string, notice: BookingNotice | "
       });
       return;
     }
-    if (!b.customer_email) return;
+    if (!b.customer_email) {
+      if (notice === "confirmed") await waConfirmed(); // sem e-mail, o WhatsApp é o único aviso
+      return;
+    }
 
     const content = {
       confirmed: { subject: `Agendamento confirmado: ${b.service_name}`, body: `<h1 style="margin:0 0 8px;font-size:22px">Agendamento confirmado ✅</h1><p style="margin:0 0 16px;color:#525252">${hi} Seu horário está garantido.</p>${bookingSummary(b)}${manage}${cal}${whats}` },
@@ -516,6 +573,7 @@ export async function notifyBooking(bookingId: string, notice: BookingNotice | "
       html: layout(b.stores, notice === "confirmed" ? content.body + (await packageLine(b.id)) + (await loyaltyLine(b.store_id, b.customer_email, b.customer_phone)) : content.body),
     });
     if (!ok && column) await db.from("bookings").update({ [column]: null }).eq("id", bookingId);
+    if (ok && notice === "confirmed") await waConfirmed(); // só na tentativa que valeu (a trava é a mesma do e-mail)
     // Remarcação: o lojista também fica sabendo.
     if (notice === "rescheduled" && b.stores.email) {
       await sendEmail({
@@ -546,16 +604,18 @@ export async function notifyWaitlistOpening(entryId: string, freeTimes: string[]
   try {
     const { data } = await createAdminClient()
       .from("booking_waitlist")
-      .select("id, store_id, service_id, professional_id, date, customer_name, customer_email, services(name), professionals(name), stores(name, email, whatsapp, primary_color, store_domains(domain, is_primary))")
+      .select("id, store_id, service_id, professional_id, date, customer_name, customer_email, customer_phone, services(name), professionals(name), stores(name, email, whatsapp, primary_color, store_domains(domain, is_primary))")
       .eq("id", entryId)
       .single();
     if (!data) return false;
     const e = data as unknown as {
       id: string;
+      store_id: string;
       service_id: string;
       date: string;
       customer_name: string;
       customer_email: string;
+      customer_phone: string;
       services: { name: string } | null;
       professionals: { name: string } | null;
       stores: { name: string; email: string | null; whatsapp: string | null; primary_color: string; store_domains: { domain: string; is_primary: boolean }[] };
@@ -565,6 +625,13 @@ export async function notifyWaitlistOpening(entryId: string, freeTimes: string[]
     const day = new Date(`${e.date}T12:00:00Z`).toLocaleDateString("pt-BR", { timeZone: "UTC", weekday: "long", day: "numeric", month: "long" });
     const service = e.services?.name ?? "o serviço";
     const times = freeTimes.slice(0, 8).join(", ") + (freeTimes.length > 8 ? " e outros" : "");
+    const scheduleUrl = `${storeBaseUrl(domain)}/agendar?servico=${e.service_id}&data=${e.date}`;
+    await sendWhatsappEvent({
+      storeId: e.store_id,
+      event: "waitlist_opening",
+      phone: e.customer_phone,
+      data: { first_name: firstName(e.customer_name), customer_name: e.customer_name, store_name: e.stores.name, service, date: day, free_times: times, link: scheduleUrl },
+    });
     return await sendEmail({
       to: e.customer_email,
       fromName: e.stores.name,
@@ -576,7 +643,7 @@ export async function notifyWaitlistOpening(entryId: string, freeTimes: string[]
         <p style="margin:0 0 16px;color:#525252">Olá, ${esc(firstName(e.customer_name))}. Você está na lista de espera da ${esc(e.stores.name)} para
         <strong>${esc(service)}</strong>${e.professionals ? ` com ${esc(e.professionals.name)}` : ""} em <strong>${esc(day)}</strong>, e acabou de abrir horário.</p>
         <p style="margin:0 0 4px;padding:14px;border-radius:8px;background:#f5f5f5;font-size:15px">Horários livres agora: <strong>${esc(times)}</strong></p>
-        ${button(`${storeBaseUrl(domain)}/agendar?servico=${e.service_id}&data=${e.date}`, "Agendar agora", e.stores.primary_color)}
+        ${button(scheduleUrl, "Agendar agora", e.stores.primary_color)}
         <p style="margin:24px 0 0;font-size:12px;color:#a3a3a3">Quem agendar primeiro leva o horário. Se não der desta vez, você continua na lista e avisamos de novo se abrir outro.</p>`),
     });
   } catch (err) {

@@ -1,15 +1,17 @@
 import "server-only";
 
 // WhatsApp Business (Cloud API da Meta), pelo número oficial da plataforma. Mensagem iniciada pela empresa
-// só com template aprovado no WhatsApp Manager (categoria utilidade).
+// só com template aprovado no WhatsApp Manager; qual template cada evento usa fica em /admin → WhatsApp → Modelos.
 // WHATSAPP_TOKEN: token permanente (usuário do sistema) · WHATSAPP_PHONE_NUMBER_ID: id do número
-// WHATSAPP_REMINDER_TEMPLATE: nome do template do lembrete · WHATSAPP_TEMPLATE_LANG: idioma (padrão pt_BR)
+// WHATSAPP_BUSINESS_ACCOUNT_ID: conta (para listar os templates) · WHATSAPP_REMINDER_TEMPLATE: antigo, só para o
+// lembrete enquanto ele não tem modelo · WHATSAPP_TEMPLATE_LANG: idioma padrão (pt_BR)
 const GRAPH = "https://graph.facebook.com/v21.0";
 
 export const reminderTemplate = () => process.env.WHATSAPP_REMINDER_TEMPLATE || null;
 
-export function whatsappConfigured() {
-  return !!(process.env.WHATSAPP_TOKEN && process.env.WHATSAPP_PHONE_NUMBER_ID && reminderTemplate());
+// Conectado à Meta (token e número). Os templates de cada evento ficam em /admin → WhatsApp → Modelos.
+export function whatsappConnected() {
+  return !!(process.env.WHATSAPP_TOKEN && process.env.WHATSAPP_PHONE_NUMBER_ID);
 }
 
 // Celular brasileiro (10 ou 11 dígitos, sem o 55) no formato da API: 55 + DDD + número.
@@ -19,7 +21,7 @@ export const toWhatsappNumber = (phone: string | null | undefined) => {
 };
 
 // Envia um template com os parâmetros do corpo ({{1}}, {{2}}...). Devolve o id da mensagem ou o erro.
-export async function sendTemplate(to: string, template: string, params: string[]): Promise<{ ok: true; id: string | null } | { ok: false; error: string }> {
+export async function sendTemplate(to: string, template: string, params: string[], language?: string): Promise<{ ok: true; id: string | null } | { ok: false; error: string }> {
   const token = process.env.WHATSAPP_TOKEN;
   const phoneId = process.env.WHATSAPP_PHONE_NUMBER_ID;
   if (!token || !phoneId) return { ok: false, error: "WhatsApp não configurado" };
@@ -33,7 +35,7 @@ export async function sendTemplate(to: string, template: string, params: string[
         type: "template",
         template: {
           name: template,
-          language: { code: process.env.WHATSAPP_TEMPLATE_LANG || "pt_BR" },
+          language: { code: language || process.env.WHATSAPP_TEMPLATE_LANG || "pt_BR" },
           // A Meta recusa parâmetro vazio ou com quebra de linha/tabulação.
           components: [{ type: "body", parameters: params.map((text) => ({ type: "text", text: text.replace(/[\n\t]+/g, " ").trim() || "-" })) }],
         },
@@ -46,14 +48,6 @@ export async function sendTemplate(to: string, template: string, params: string[
     return { ok: false, error: String(err).slice(0, 300) };
   }
 }
-
-// Texto do template de lembrete para cadastrar no WhatsApp Manager (categoria Utilidade, Português (BR)).
-// A Meta não aceita variável no começo nem no fim do corpo.
-export const REMINDER_TEMPLATE_TEXT =
-  "Olá, {{1}}! Lembrete do seu horário na {{2}} amanhã: {{3}} às {{4}}, com {{5}}. Para remarcar ou cancelar, use o link {{6}} . Até lá!";
-
-// Exemplo de parâmetros (o WhatsApp Manager pede exemplos ao cadastrar; o envio de teste usa os mesmos).
-export const REMINDER_SAMPLE = ["Ana", "Salão Exemplo", "Escova", "14:00", "Bia", "https://www.pmsapp.dev"];
 
 // Celular para exibir sem expor tudo: 5511987654321 → 55 11 9****-4321.
 export const maskPhone = (phone: string) => phone.replace(/^(\d{2})(\d{2})(\d)\d+(\d{4})$/, "$1 $2 $3****-$4");
@@ -95,6 +89,10 @@ export async function checkPhoneNumber() {
 export async function listTemplates() {
   const waba = process.env.WHATSAPP_BUSINESS_ACCOUNT_ID;
   if (!waba) return { ok: false as const, error: "WHATSAPP_BUSINESS_ACCOUNT_ID ausente" };
-  const r = await graphGet<{ data: { name: string; language: string; status: string; category: string }[] }>(`${waba}/message_templates?fields=name,language,status,category&limit=100`);
-  return r.ok ? { ok: true as const, templates: r.data.data } : r;
+  const r = await graphGet<{ data: { name: string; language: string; status: string; category: string; components?: { type: string; text?: string }[] }[] }>(
+    `${waba}/message_templates?fields=name,language,status,category,components&limit=200`,
+  );
+  if (!r.ok) return r;
+  // Corpo do template (o texto com {{1}}, {{2}}...), para contar as variáveis e montar a prévia.
+  return { ok: true as const, templates: r.data.data.map((t) => ({ name: t.name, language: t.language, status: t.status, category: t.category, body: t.components?.find((c) => c.type === "BODY")?.text ?? "" })) };
 }

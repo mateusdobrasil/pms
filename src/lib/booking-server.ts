@@ -5,8 +5,10 @@ import { notifyBooking, notifyPlatformError, notifyWaitlistOpening } from "@/lib
 import { pushToStore } from "@/lib/push";
 import { packageForNewBooking } from "@/lib/packages-server";
 import { PROVIDER, type GatewayPayment, getPayment, refundPayment } from "@/lib/payments/mercadopago";
-import { canSelfManage, formatTime, onlineCents, parseTime, type PaymentMode, whatsappReminderParams } from "@/lib/booking";
-import { reminderTemplate, sendTemplate, toWhatsappNumber, whatsappConfigured } from "@/lib/whatsapp";
+import { canSelfManage, formatTime, onlineCents, parseTime, type PaymentMode } from "@/lib/booking";
+import { toWhatsappNumber, whatsappConnected } from "@/lib/whatsapp";
+import { bookingFields } from "@/lib/whatsapp-events";
+import { eventTemplate, sendWhatsappEvent } from "@/lib/whatsapp-send";
 import { storeBaseUrl } from "@/lib/urls";
 import { type Interval, bookingDays, dayStartMs, daySlots, instantOf, mergeSlots, weekdayOf } from "@/lib/booking-slots";
 import { addDays, todayBR } from "@/lib/billing";
@@ -435,7 +437,8 @@ type WhatsappBooking = {
 // Lembrete da véspera também pelo WhatsApp, nas lojas em que o super-admin ligou (o custo é da plataforma).
 // Trava própria (notified_reminder_whatsapp_at): cada agendamento recebe uma vez; cada envio fica registrado.
 async function sendWhatsappReminders(db: Db, day: string) {
-  if (!whatsappConfigured()) return { sent: 0, failed: 0, skipped: "não configurado" };
+  if (!whatsappConnected()) return { sent: 0, failed: 0, skipped: "não configurado" };
+  if (!(await eventTemplate(db, "booking_reminder"))?.enabled) return { sent: 0, failed: 0, skipped: "sem modelo" };
   const { data, error } = await db
     .from("bookings")
     .select("id, store_id, public_token, customer_name, customer_phone, service_name, professional_name, starts_at, stores!inner(name, whatsapp_reminders, store_domains(domain, is_primary))")
@@ -446,34 +449,23 @@ async function sendWhatsappReminders(db: Db, day: string) {
     .gte("starts_at", new Date(dayStartMs(day)).toISOString())
     .lt("starts_at", new Date(dayStartMs(addDays(day, 1))).toISOString());
   if (error) return { sent: 0, failed: 0, skipped: error.message }; // sem o SQL do WhatsApp
-  const template = reminderTemplate()!;
   let sent = 0, failed = 0;
   for (const b of (data ?? []) as unknown as WhatsappBooking[]) {
-    const to = toWhatsappNumber(b.customer_phone);
     const domain = (b.stores.store_domains.find((d) => d.is_primary) ?? b.stores.store_domains[0])?.domain;
-    if (!to || !domain) continue;
+    if (!toWhatsappNumber(b.customer_phone) || !domain) continue;
     const { data: claimed } = await db.from("bookings").update({ notified_reminder_whatsapp_at: new Date().toISOString() }).eq("id", b.id).is("notified_reminder_whatsapp_at", null).select("id");
     if (!claimed?.length) continue;
-    const params = whatsappReminderParams({
+    const fields = bookingFields({
       customerName: b.customer_name,
       storeName: b.stores.name,
       serviceName: b.service_name,
-      startsAt: b.starts_at,
       professionalName: b.professional_name,
+      startsAt: b.starts_at,
       link: `${storeBaseUrl(domain)}/agendamento/${b.public_token}`,
     });
-    const r = await sendTemplate(to, template, params);
-    await db.from("whatsapp_messages").insert({
-      store_id: b.store_id,
-      booking_id: b.id,
-      to_phone: to,
-      template,
-      wa_message_id: r.ok ? r.id : null,
-      status: r.ok ? "sent" : "failed",
-      error: r.ok ? null : r.error,
-    });
-    if (r.ok) sent++;
-    else failed++;
+    const r = await sendWhatsappEvent({ storeId: b.store_id, event: "booking_reminder", phone: b.customer_phone, data: fields, bookingId: b.id }, db);
+    if (r === "sent") sent++;
+    else if (r === "failed") failed++;
   }
   return { sent, failed };
 }

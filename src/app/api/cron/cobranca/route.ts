@@ -19,9 +19,24 @@ export async function GET(req: Request) {
     await notifyPlatformError("cron:lembretes", "Erro nos lembretes de agendamento", { erro: String(err) });
     return { reminders: 0, error: String(err) };
   });
-  // Lembrete por WhatsApp com falha (template não aprovado, token vencido, número inválido): avisa o admin.
-  const wa = "whatsapp" in bookings ? (bookings.whatsapp as { sent: number; failed: number; skipped?: string }) : null;
-  if (wa?.failed) await notifyPlatformError("cron:whatsapp", "Lembretes por WhatsApp com falha", { enviados: wa.sent, falharam: wa.failed, detalhe: "Veja a tabela whatsapp_messages (coluna error)." });
+  // WhatsApp com falha nas últimas 24 h, em qualquer evento (template não aprovado, token vencido, variáveis
+  // erradas, número inválido): avisa o admin uma vez por dia, com o erro mais recente.
+  const since = new Date(Date.now() - 24 * 3600_000).toISOString();
+  const { data: waFailed, count: waFailedCount } = await db
+    .from("whatsapp_messages")
+    .select("template, error", { count: "exact" })
+    .eq("status", "failed")
+    .gte("created_at", since)
+    .order("created_at", { ascending: false })
+    .limit(1);
+  if (waFailedCount) {
+    await notifyPlatformError("cron:whatsapp", "Mensagens de WhatsApp com falha", {
+      falharam_24h: waFailedCount,
+      ultimo_template: waFailed?.[0]?.template,
+      ultimo_erro: waFailed?.[0]?.error,
+      detalhe: "Veja /admin → WhatsApp → Últimas mensagens.",
+    });
+  }
   try {
     const result = await runBilling(db);
     console.log("Cobrança diária", result, "| lembretes", bookings);
