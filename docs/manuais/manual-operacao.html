@@ -110,6 +110,7 @@ footer { grid-column: 1 / -1; color: var(--muted); font-size: 13px; border-top: 
       <li><a href="#testes">Como testar</a></li>
       <li><a href="#problemas">Problemas conhecidos</a></li>
       <li><a href="#rotinas">Rotinas de operação</a></li>
+      <li><a href="#producao">Roteiro de testes em produção</a></li>
     </ol>
   </nav>
 
@@ -186,7 +187,7 @@ footer { grid-column: 1 / -1; color: var(--muted); font-size: 13px; border-top: 
         <li><strong>Verificação em duas etapas obrigatória no <code>/admin</code></strong>: além da senha, o super-admin digita o código de 6 dígitos de um app autenticador (Supabase Auth MFA, TOTP). Sem o código nesta sessão (<code>aal2</code>), <code>requireAdmin()</code> manda para <code>/admin-verificacao</code>; isso vale para páginas, ações e o manual de operação. O painel do lojista não pede código.</li>
         <li>Textos de interface em português do Brasil.</li>
       </ul>
-      <div class="note"><strong>Fora da v1 (só com pedido explícito)</strong>Cupons, avaliações, carrinho abandonado, conta de cliente, marketplaces, ERP, NF-e e mais de um gateway de pagamento.</div>
+      <div class="note"><strong>Fora da v1 (só com pedido explícito)</strong>Carrinho abandonado, conta de cliente, marketplaces, ERP, NF-e e mais de um gateway de pagamento. (Cupons e avaliações saíram desta lista em outubro de 2026, a pedido.)</div>
     </section>
 
     <section id="ambiente">
@@ -450,6 +451,83 @@ node --env-file=.env.local scripts/restaurar-fotos.mjs --aplicar  # restaura</co
       <p>Sem o código não há como entrar no <code>/admin</code>. No SQL Editor do Supabase, apague o autenticador da conta; no próximo login, o <code>/admin</code> pede um cadastro novo:</p>
       <pre><code>delete from auth.mfa_factors where user_id = (select id from auth.users where email = 'admin@pms.com');</code></pre>
       <div class="note warn"><strong>Proteja o acesso ao Supabase</strong>Quem entra no painel do Supabase consegue tirar a verificação em duas etapas por esse SQL. Ative também a verificação em duas etapas na sua conta do Supabase (Account → Security).</div>
+    </section>
+
+    <section id="producao">
+      <h2><span class="n">15</span>Roteiro de testes em produção</h2>
+      <p>Um passo a passo para conferir com dinheiro de verdade, em <strong>www.pmsapp.dev</strong>, tudo o que os testes locais cobriram com credenciais de teste. Faça na ordem: cada fase usa o que a anterior deixou pronto. Use valores de <strong>R$ 1,00</strong>, o seu próprio cartão e banco, e o seu celular. No fim, estorne o que pagou.</p>
+      <div class="note warn"><strong>Antes de tudo</strong>Use uma loja sua (por exemplo, a Loja Teste) com as credenciais <strong>de produção</strong> (<code>APP_USR-</code>) da sua conta do Mercado Pago. Com <code>APP_USR-</code> a loja sai do modo de teste e qualquer pessoa pode comprar nela; se não quiser isso, faça os testes de uma vez e volte para <code>TEST-</code> no fim (fase 8). O webhook não precisa de cadastro: cada pagamento já informa ao Mercado Pago o endereço <code>PLATFORM_URL/api/webhooks/payments?store=&lt;id&gt;</code>.</div>
+
+      <h3>Fase 0: o ambiente está completo</h3>
+      <ol class="steps">
+        <li><div><strong>Versão no ar</strong><br>Vercel → Deployments: o último deploy de produção é o do último commit enviado ao GitHub, com status Ready.<br><em>Esperado:</em> o mesmo commit de <code>git log -1</code>.</div></li>
+        <li><div><strong>Banco</strong><br>A pasta <code>supabase/migrations/</code> está vazia (tudo rodado e movido para <code>executado/</code>).<br><em>Esperado:</em> nenhum SQL pendente.</div></li>
+        <li><div><strong>Variáveis na Vercel</strong><br>Settings → Environment Variables (Production): Supabase, <code>PLATFORM_URL</code> (https://www.pmsapp.dev), <code>NEXT_PUBLIC_ROOT_DOMAINS</code>, <code>RESEND_API_KEY</code>, <code>EMAIL_FROM</code>, <code>ALERT_EMAIL</code>, <code>CRON_SECRET</code>, <code>VAPID_*</code>, <code>MP_PLATFORM_ACCESS_TOKEN</code>, <code>WHATSAPP_TOKEN</code>, <code>WHATSAPP_PHONE_NUMBER_ID</code>, <code>WHATSAPP_BUSINESS_ACCOUNT_ID</code>, <code>BLOB_READ_WRITE_TOKEN</code>, <code>RESEND_WEBHOOK_SECRET</code>.<br><em>Esperado:</em> todas presentes.</div></li>
+        <li><div><strong>Rotinas</strong><br>Vercel → Settings → Cron Jobs.<br><em>Esperado:</em> 5 rotinas: cobranca (11:00 UTC), backup-fotos (06:00 UTC), pedidos-expirados (de hora em hora), resumo-mensal (dias 1 a 3) e campanhas (a cada 5 min, 12 a 23 UTC).</div></li>
+        <li><div><strong>WhatsApp</strong><br><code>/admin</code> → WhatsApp → Conexão.<br><em>Esperado:</em> "Conectado" com o número oficial e a lista de templates da conta carregando.</div></li>
+      </ol>
+
+      <h3>Fase 1: pagamento real por link (R$ 1,00)</h3>
+      <ol class="steps">
+        <li><div><strong>Credenciais de produção</strong><br><code>/admin</code> → loja → Pagamento e frete: Access Token e Public Key <code>APP_USR-</code>.<br><em>Esperado:</em> a faixa "Loja em preparação" some da vitrine e do topo do painel.</div></li>
+        <li><div><strong>Painel no celular</strong><br>No celular, abra o painel da loja e toque em <strong>Ativar neste aparelho</strong> (Resumo).<br><em>Esperado:</em> chega a notificação de teste.</div></li>
+        <li><div><strong>Link de R$ 1,00 pago no Pix</strong><br>Painel → Divulgar → Links de pagamento → "Teste Pix", R$ 1,00. Abra o link no celular, preencha com os seus dados e pague no app do banco.<br><em>Esperado:</em> em até 1 minuto a página mostra o pagamento aprovado; o pedido aparece em Vendas → Pedidos como Pago; chegam os e-mails "Pagamento confirmado" (comprador) e "Nova venda" (loja) e a notificação "Nova venda" no celular; o pedido mostra a taxa do Mercado Pago e "Você recebe".</div></li>
+        <li><div><strong>Link de R$ 1,00 pago no cartão</strong><br>Outro link, pago com o seu cartão de crédito.<br><em>Esperado:</em> aprovado na hora, com os mesmos avisos.</div></li>
+        <li><div><strong>Estorno</strong><br>Abra um dos pedidos → <strong>Cancelar e estornar</strong>. Depois estorne o outro.<br><em>Esperado:</em> o pedido vira Cancelado, chega o e-mail "cancelado e estornado" e o valor volta (Pix: na hora; cartão: na fatura).</div></li>
+      </ol>
+      <div class="note"><strong>Se não confirmar</strong>Vercel → Logs (filtre por <code>/api/webhooks/payments</code> e <code>/api/orders</code>). Valor diferente do pedido não confirma e gera alerta no <code>ALERT_EMAIL</code>. A página do pedido consulta o status a cada 5 segundos, então confirma mesmo com o webhook atrasado.</div>
+
+      <h3>Fase 2: compra na loja com cupom</h3>
+      <ol class="steps">
+        <li><div><strong>Produto de teste</strong><br>Produtos → Novo produto "Teste produção", R$ 2,00, estoque 1. Em Configurações, retirada na loja ligada.</div></li>
+        <li><div><strong>Cupom</strong><br>Divulgar → Cupons → <code>TESTE50</code>, 50%, só na loja virtual, limite de 1 uso. Copie o link do cupom.</div></li>
+        <li><div><strong>Compra</strong><br>No celular, abra o link do cupom, ponha o produto no carrinho, escolha retirada e pague no Pix.<br><em>Esperado:</em> o checkout mostra "Cupom TESTE50 −R$ 1,00" e total R$ 1,00 (com desconto no Pix ligado, o Pix sai menor); depois de pago, o estoque vai a 0, o cupom aparece como "Esgotado" e o e-mail traz a linha do cupom.</div></li>
+        <li><div><strong>Entrega e avaliação</strong><br>No pedido: "Marcar como pronto para retirada" e depois "Retirado". Na página do pedido, "⭐ Avaliar a compra".<br><em>Esperado:</em> e-mail "pronto para retirada"; a avaliação aparece em <code>/avaliacoes</code> e chega a notificação "Nova avaliação". (O convite automático por e-mail sai 2 dias depois de "Retirado", entre 9h e 21h.)</div></li>
+        <li><div><strong>Estorno</strong><br>Cancelar e estornar, devolvendo ao estoque.</div></li>
+      </ol>
+
+      <h3>Fase 3: agenda com sinal</h3>
+      <ol class="steps">
+        <li><div><strong>Serviço de teste</strong><br>Agenda → Serviços: "Teste produção", R$ 2,00, sinal de 50%, com um profissional e horário livre.</div></li>
+        <li><div><strong>Agendar e pagar o sinal</strong><br>Pela loja, agende e pague o sinal de R$ 1,00 no Pix.<br><em>Esperado:</em> "Agendamento confirmado", e-mail de confirmação, e-mail e notificação "Novo agendamento" para a loja; na Agenda, "pago online R$ 1,00 · receber R$ 1,00".</div></li>
+        <li><div><strong>Cancelar pelo link</strong><br>Na página do agendamento, "Cancelar".<br><em>Esperado:</em> o sinal volta pelo Mercado Pago, chegam os e-mails de cancelamento (cliente e loja) e o horário fica livre.</div></li>
+        <li><div><strong>Lembrete (opcional)</strong><br>Agende para amanhã, sem pagamento online.<br><em>Esperado:</em> às 8h do dia seguinte chega o e-mail de lembrete (e o WhatsApp, com a fase 4 pronta).</div></li>
+      </ol>
+
+      <h3>Fase 4: WhatsApp</h3>
+      <ol class="steps">
+        <li><div><strong>Templates aprovados</strong><br>Para cada evento que for usar, o template sugerido em <code>/admin</code> → WhatsApp → Modelos está aprovado na Meta e escolhido ali, com a prévia conferida.</div></li>
+        <li><div><strong>Envio de teste</strong><br>"Enviar teste" para o seu celular, evento por evento.<br><em>Esperado:</em> a mensagem chega em segundos, com os dados de exemplo nos lugares certos; erro da Meta aparece na hora e em Últimas mensagens.</div></li>
+        <li><div><strong>Evento de verdade</strong><br>Com o WhatsApp da loja ligado em <code>/admin</code> → loja, repita um pagamento da fase 1.<br><em>Esperado:</em> "Compra confirmada" no seu WhatsApp e "Nova venda" no WhatsApp da loja, as duas como Enviada em Últimas mensagens.</div></li>
+        <li><div><strong>Campanha</strong><br>Com o template de marketing aprovado: cota 5 na loja, marque a caixa de novidades numa compra sua e mande uma campanha em Divulgar → Campanhas.<br><em>Esperado:</em> chega entre 9h e 21h; o link "não receber mais" tira você da lista.</div></li>
+      </ol>
+
+      <h3>Fase 5: rotinas</h3>
+      <ol class="steps">
+        <li><div><strong>Rodar à mão</strong><br><code>curl -H "Authorization: Bearer $CRON_SECRET" https://www.pmsapp.dev/api/cron/pedidos-expirados</code> (troque o final por <code>cobranca</code>, <code>campanhas</code> ou <code>backup-fotos</code>). Rodar de novo não repete o que já foi feito.<br><em>Esperado:</em> resposta JSON com os números de cada parte, sem <code>error</code>.</div></li>
+        <li><div><strong>No dia seguinte</strong><br>Vercel → Cron Jobs.<br><em>Esperado:</em> cada rotina com a última execução bem-sucedida e nada no <code>ALERT_EMAIL</code>.</div></li>
+      </ol>
+
+      <h3>Fase 6: e-mails</h3>
+      <ol class="steps">
+        <li><div><strong>Resend</strong><br>Resend → Emails: os e-mails das fases anteriores.<br><em>Esperado:</em> todos Delivered, saindo de <code>pedidos@pmsapp.dev</code>, nenhum Bounced. Se cair no spam do Gmail, marque "não é spam" e confira o DMARC.</div></li>
+      </ol>
+
+      <h3>Fase 7: o que leva dias</h3>
+      <ul>
+        <li><strong>Convite de avaliação</strong>: 2 dias depois de marcar um pedido como entregue (fase 2), entre 9h e 21h.</li>
+        <li><strong>Cupom de aniversário</strong>: ligue na loja, informe o seu aniversário como hoje numa compra (dd/mm) e espere a rotina (9h às 21h): chega o e-mail com o cupom NIVER….</li>
+        <li><strong>Resumo do mês</strong>: dia 1, 8h, no e-mail do dono da loja.</li>
+        <li><strong>Cobrança</strong>: só com valores configurados em <code>/admin</code> → loja → Cobrança.</li>
+      </ul>
+
+      <h3>Fase 8: arrumar depois</h3>
+      <ol class="steps">
+        <li><div>Todos os pagamentos de teste <strong>estornados</strong> (fases 1, 2 e 3).</div></li>
+        <li><div>Produto, serviço e cupom de teste apagados ou desativados.</div></li>
+        <li><div>Se a loja não vai vender agora, volte as credenciais para <code>TEST-</code> (a faixa "Loja em preparação" volta).</div></li>
+        <li><div>Cota de campanhas e WhatsApp da loja como devem ficar.</div></li>
+      </ol>
     </section>
   </main>
 
