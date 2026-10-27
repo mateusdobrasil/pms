@@ -6,6 +6,7 @@ export const PLATFORM_CONTACT = {
   email: "contato@pmsapp.dev",
   webmailUrl: "https://mail.umbler.com", // caixa de contato@pmsapp.dev (Umbler)
   whatsappMessage: "Olá! Quero saber mais sobre a loja virtual do PMS app.",
+  demoStoreUrl: "https://pms.minhaloja.promo", // loja de demonstração (Loja Teste): produtos, agenda e avaliações de exemplo
 };
 
 export function platformWhatsappUrl(message = PLATFORM_CONTACT.whatsappMessage) {

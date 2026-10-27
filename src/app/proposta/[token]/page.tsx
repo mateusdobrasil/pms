@@ -64,8 +64,8 @@ export default async function PublicProposalPage({
             <h1 className="text-2xl font-bold tracking-tight">{p.business_name}</h1>
             <p className="text-neutral-600">A/C {p.client_name}</p>
             <p className="mt-4 text-neutral-700">
-              Uma loja virtual completa, no domínio da sua marca, pronta para vender com Pix e cartão. Nós cuidamos da tecnologia, da hospedagem
-              e das atualizações; você cuida dos produtos e das vendas.
+              Tudo pronto, com a sua marca, para vender e atender online com Pix e cartão. Nós cuidamos da tecnologia, da hospedagem e das
+              atualizações; você cuida do seu negócio.
             </p>
           </section>
 

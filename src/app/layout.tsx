@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "PMS app",
-  description: "Lojas virtuais prontas para pequenos lojistas.",
+  description: "Loja virtual e agenda online prontas, com a sua marca: Pix e cartão, agendamento com sinal e WhatsApp oficial.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

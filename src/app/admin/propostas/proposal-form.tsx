@@ -1,10 +1,10 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useRef } from "react";
 import { submitKeepingValues } from "@/lib/form-submit";
 import { centsToInput } from "@/lib/money";
 import { formatPhone } from "@/lib/format";
-import { DEFAULT_PROPOSAL_ITEMS, type Proposal } from "@/lib/proposals";
+import { DEFAULT_PROPOSAL_ITEMS, PROPOSAL_ITEM_MODELS, type Proposal } from "@/lib/proposals";
 import { BILLING } from "@/lib/billing";
 import { emailProposal, saveProposal, type ProposalState } from "./actions";
 
@@ -34,6 +34,15 @@ function Field({ label, children, hint }: { label: string; children: React.React
 
 export function ProposalForm({ proposal, defaultValidUntil }: { proposal: Proposal | null; defaultValidUntil: string }) {
   const [state, action, pending] = useActionState<ProposalState, FormData>(saveProposal, null);
+  const items = useRef<HTMLTextAreaElement>(null);
+  // Troca a lista pelo modelo do tipo de negócio (pergunta antes, se a lista atual foi editada).
+  function applyModel(text: string) {
+    const el = items.current;
+    if (!el) return;
+    const isModel = Object.values(PROPOSAL_ITEM_MODELS).some((m) => m.items === el.value);
+    if (el.value.trim() && !isModel && !window.confirm("Trocar a lista atual pelo modelo? O que você editou será substituído.")) return;
+    el.value = text;
+  }
   return (
     <form onSubmit={submitKeepingValues(action)} className="space-y-4 rounded-xl border bg-white p-5 shadow-sm">
       {proposal && <input type="hidden" name="id" value={proposal.id} />}
@@ -70,8 +79,16 @@ export function ProposalForm({ proposal, defaultValidUntil }: { proposal: Propos
           <input name="valid_until" type="date" required defaultValue={proposal?.valid_until ?? defaultValidUntil} className={input} />
         </Field>
       </div>
-      <Field label="O que está incluído" hint="Um item por linha. Já vem com os recursos da plataforma: edite à vontade.">
-        <textarea name="items" rows={11} defaultValue={proposal?.items ?? DEFAULT_PROPOSAL_ITEMS} className={input} />
+      <div className="flex flex-wrap items-center gap-2 text-sm">
+        <span className="text-neutral-600">Modelo da lista:</span>
+        {Object.entries(PROPOSAL_ITEM_MODELS).map(([k, m]) => (
+          <button key={k} type="button" onClick={() => applyModel(m.items)} className="rounded-full border px-3 py-1 hover:border-neutral-400">
+            {m.label}
+          </button>
+        ))}
+      </div>
+      <Field label="O que está incluído" hint="Um item por linha. Escolha o modelo do tipo de negócio acima e edite à vontade.">
+        <textarea ref={items} name="items" rows={14} defaultValue={proposal?.items ?? DEFAULT_PROPOSAL_ITEMS} className={input} />
       </Field>
       <Field label="Condições e observações (opcional)" hint="Ex.: prazo de entrega da loja, desconto à vista, fidelidade.">
         <textarea name="notes" rows={4} defaultValue={proposal?.notes ?? ""} className={input} />

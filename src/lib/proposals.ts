@@ -23,20 +23,37 @@ export const PROPOSAL_FIELDS =
 
 export const PROPOSAL_VALID_DAYS = 15;
 
-// Texto inicial de "O que está incluído" (editável em cada proposta).
-export const DEFAULT_PROPOSAL_ITEMS = [
-  "Loja virtual completa no domínio da sua marca, com logo e cores",
-  "Pagamento por Pix e cartão (Mercado Pago), com o dinheiro direto na sua conta",
-  "Catálogo com fotos, tamanhos e cores, estoque por variação e categorias",
-  "Checkout sem cadastro e acompanhamento do pedido por link",
-  "Frete calculado pelo Melhor Envio e opção de retirada na loja",
-  "E-mails automáticos de pedido confirmado e enviado",
-  "Painel de pedidos, produtos e resumo de vendas",
-  "Botão de WhatsApp em todas as páginas",
-  "Produtos no Google Shopping e integração com Instagram, Meta Pixel e Google Analytics",
+// Textos de "O que está incluído" (editáveis em cada proposta): um modelo por tipo de negócio.
+const COMMON_START = [
+  "Loja no domínio da sua marca (ou em sualoja.minhaloja.promo), com logo e cores",
+  "Pagamento por Pix e cartão (Mercado Pago), com o dinheiro direto na sua conta, sem comissão sobre as vendas",
+];
+const COMMON_END = [
+  "Avaliações dos clientes na loja, cartão fidelidade e cupom de aniversário",
+  "Link para a bio do Instagram e QR Codes para imprimir",
+  "Painel no celular, com aviso a cada venda e agendamento, e resumo do mês por e-mail",
   "Páginas de trocas e privacidade prontas (LGPD e Código de Defesa do Consumidor)",
   "Configuração inicial e suporte pelo WhatsApp",
-].join("\n");
+];
+const STORE_ITEMS = [
+  "Catálogo com fotos, tamanhos e cores, estoque por variação e categorias",
+  "Checkout sem cadastro e acompanhamento do pedido por link",
+  "Frete pelo Melhor Envio, entrega própria e retirada na loja",
+  "Cupons de desconto, links de pagamento e caixa para vendas no balcão",
+  "Produtos no Google Shopping e no catálogo do Instagram, com Meta Pixel e Google Analytics",
+];
+const SERVICE_ITEMS = [
+  "Agenda online: o cliente escolhe serviço, profissional e horário, com sinal no Pix ou cartão",
+  "Remarcação e cancelamento pelo cliente, com estorno automático, e lista de espera",
+  "Lembrete da véspera e confirmação pelo WhatsApp oficial",
+  "Pacotes de sessões e comissão por profissional, com o fechamento do mês",
+];
+export const PROPOSAL_ITEM_MODELS = {
+  loja: { label: "Loja", items: [...COMMON_START, ...STORE_ITEMS, ...COMMON_END].join("\n") },
+  servicos: { label: "Serviços com hora marcada", items: [...COMMON_START, ...SERVICE_ITEMS, ...COMMON_END].join("\n") },
+  completo: { label: "Loja + agenda", items: [...COMMON_START, ...STORE_ITEMS, ...SERVICE_ITEMS, ...COMMON_END].join("\n") },
+} as const;
+export const DEFAULT_PROPOSAL_ITEMS = PROPOSAL_ITEM_MODELS.loja.items;
 
 export type ProposalStatus = "rascunho" | "enviada" | "vista" | "aceita" | "vencida";
 
