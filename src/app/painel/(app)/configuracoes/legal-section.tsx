@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { formatDocument } from "@/lib/format";
 import { onlyDigits } from "@/lib/validation";
-import { policyToText, privacyPolicyTemplate, returnsPolicyTemplate, type PolicyStore } from "@/lib/policies";
+import { POLICY_TEMPLATE_DATE, policyToText, privacyPolicyTemplate, returnsPolicyTemplate, type PolicyStore } from "@/lib/policies";
 
 export type PolicyBase = Omit<PolicyStore, "legalName" | "document" | "address" | "about">;
 
@@ -115,6 +115,13 @@ export function LegalSection({
           template={(form) => buildTemplate("returns", policyBase, form)}
           storeUrl={storeUrl}
         />
+        {legal.privacy_policy && (
+          <p className="rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-900">
+            O modelo da política de privacidade foi atualizado em {POLICY_TEMPLATE_DATE}: agora fala da agenda, dos avisos e das novidades pelo WhatsApp, do
+            cupom de aniversário e das avaliações (só do que a sua loja usa). Como você usa um texto próprio, ele não muda sozinho: confira se ele cobre esses
+            pontos, ou apague o texto para usar o modelo.
+          </p>
+        )}
         <PolicyField
           name="privacy_policy"
           label="Política de privacidade"

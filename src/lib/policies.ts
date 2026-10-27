@@ -17,7 +17,17 @@ export type PolicyStore = {
   address: string | null;
   about: string | null; // "Quem somos" escrito pelo lojista (vazio = só o nome da loja)
   hasAnalytics: boolean; // Pixel da Meta ou Google Analytics configurado
+  features?: PolicyFeatures; // recursos ligados (sem isso, só a compra e as avaliações)
 };
+
+// Recursos que coletam dados além da compra; a política só fala do que a loja usa.
+export type PolicyFeatures = {
+  booking: boolean; // agenda online
+  whatsapp: boolean; // avisos pelo WhatsApp oficial da plataforma
+  campaigns: boolean; // novidades e promoções pelo WhatsApp (com aceite)
+  birthday: boolean; // cupom de aniversário
+};
+const NO_FEATURES: PolicyFeatures = { booking: false, whatsapp: false, campaigns: false, birthday: false };
 
 // Quem responde pela loja, sem repetir o nome dela: razão social (quando diferente do nome), documento e endereço.
 function legalParts(s: PolicyStore) {
@@ -45,6 +55,8 @@ function contact(s: PolicyStore) {
 }
 
 export function privacyPolicyTemplate(s: PolicyStore): PolicySection[] {
+  const f = s.features ?? NO_FEATURES;
+  const list = (items: (string | false)[]) => items.filter(Boolean) as string[];
   return [
     {
       title: "Quem somos",
@@ -54,24 +66,40 @@ export function privacyPolicyTemplate(s: PolicyStore): PolicySection[] {
     },
     {
       title: "Quais dados coletamos",
-      paragraphs: [
+      paragraphs: list([
         "Para processar a sua compra, pedimos nome, CPF, e-mail, celular e, quando há entrega, o endereço. Também registramos os produtos comprados, os valores e a situação do pagamento e da entrega.",
+        f.booking &&
+          "Ao agendar um horário, registramos também o serviço, o profissional, a data, a hora e as observações que você escrever. O CPF só é pedido quando há pagamento online.",
+        f.birthday && "Se você quiser, o dia e o mês do seu aniversário (sem o ano), para receber um cupom de presente.",
+        "Se você avaliar uma compra ou um atendimento, a nota e o comentário.",
         "Não temos acesso aos dados do seu cartão: eles são digitados em um formulário seguro do Mercado Pago e ficam só com ele.",
-      ],
+      ]),
     },
     {
       title: "Para que usamos",
+      paragraphs: list([
+        `Usamos os seus dados para registrar e entregar o pedido${f.booking ? ", confirmar e lembrar o seu horário" : ""}, confirmar o pagamento, enviar e-mails sobre a compra (confirmação, envio e rastreio)${f.whatsapp ? " e avisos pelo WhatsApp sobre o seu pedido ou horário" : ""}, prestar atendimento, prevenir fraudes e cumprir obrigações legais e fiscais.`,
+        "Depois da entrega ou do atendimento, enviamos um convite para você avaliar, se quiser.",
+        f.birthday && "Com o seu aniversário, enviamos no dia um cupom de presente, por e-mail (e pelo WhatsApp, se você aceitou receber novidades).",
+        f.campaigns &&
+          "Novidades e promoções pelo WhatsApp só chegam se você marcar a caixa \"Quero receber novidades e promoções\" na compra ou no agendamento. Cada mensagem traz um link para sair da lista, e você sai na hora.",
+        "Não vendemos os seus dados e não enviamos propaganda sem o seu consentimento.",
+      ]),
+    },
+    {
+      title: "Avaliações",
       paragraphs: [
-        "Usamos os seus dados para registrar e entregar o pedido, confirmar o pagamento, enviar e-mails sobre a compra (confirmação, envio e rastreio), prestar atendimento, prevenir fraudes e cumprir obrigações legais e fiscais.",
-        "Não vendemos os seus dados e não enviamos propaganda por e-mail sem o seu consentimento.",
+        "As avaliações aparecem na loja com o seu primeiro nome e a inicial do sobrenome (por exemplo, \"Ana S.\"), a nota, o comentário e o mês. Nunca publicamos e-mail, telefone, CPF ou endereço. Podemos responder publicamente e ocultar avaliações ofensivas.",
+        `Para tirar a sua avaliação da loja, fale com a gente ${contact(s)}.`,
       ],
     },
     {
       title: "Com quem compartilhamos",
-      paragraphs: [
-        "Compartilhamos apenas o necessário para concluir a compra: com o Mercado Pago, que processa o pagamento; com o Melhor Envio e a transportadora escolhida, que fazem a entrega; e com a PMS app, plataforma que hospeda esta loja e envia os e-mails do pedido em nosso nome.",
+      paragraphs: list([
+        `Compartilhamos apenas o necessário para concluir a compra: com o Mercado Pago, que processa o pagamento; com o Melhor Envio e a transportadora escolhida, que fazem a entrega; e com a PMS app, plataforma que hospeda esta loja e envia os e-mails${f.whatsapp ? " e as mensagens de WhatsApp" : ""} em nosso nome.`,
+        f.whatsapp && "As mensagens de WhatsApp são enviadas pelo número oficial da PMS app na plataforma da Meta (WhatsApp Business), que recebe o seu número de celular e o texto da mensagem para entregá-la.",
         "Também podemos informar dados a autoridades públicas quando a lei exigir.",
-      ],
+      ]),
     },
     {
       title: "Cookies e medição de visitas",
@@ -84,14 +112,16 @@ export function privacyPolicyTemplate(s: PolicyStore): PolicySection[] {
     },
     {
       title: "Por quanto tempo guardamos",
-      paragraphs: [
+      paragraphs: list([
         "Guardamos os dados do pedido pelo tempo necessário para a entrega, o atendimento, a garantia e o cumprimento de obrigações legais. Registros fiscais e de compra são mantidos pelos prazos exigidos em lei (em geral, 5 anos).",
-      ],
+        f.campaigns && "O aceite para receber novidades vale até você sair da lista.",
+        f.birthday && "O aniversário fica guardado até você pedir para apagar.",
+      ]),
     },
     {
       title: "Seus direitos",
       paragraphs: [
-        `Você pode pedir a confirmação de que tratamos seus dados, o acesso a eles, a correção, a exclusão dos que não precisamos mais guardar por lei, a portabilidade e informações sobre o compartilhamento. Para isso, fale com a gente ${contact(s)}. Respondemos em até 15 dias.`,
+        `Você pode pedir a confirmação de que tratamos seus dados, o acesso a eles, a correção, a exclusão dos que não precisamos mais guardar por lei, a portabilidade e informações sobre o compartilhamento${f.campaigns || f.birthday ? ", e retirar a qualquer momento o consentimento que deu (por exemplo, para novidades pelo WhatsApp ou o cupom de aniversário)" : ""}. Para isso, fale com a gente ${contact(s)}. Respondemos em até 15 dias.`,
       ],
     },
     {

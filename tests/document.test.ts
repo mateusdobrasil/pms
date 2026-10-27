@@ -44,6 +44,25 @@ describe("políticas da loja", () => {
     expect(policyToText(privacyPolicyTemplate({ ...store, hasAnalytics: true }))).toContain("Pixel da Meta");
   });
 
+  it("privacidade fala só dos recursos que a loja usa (avaliações sempre)", () => {
+    const bare = policyToText(privacyPolicyTemplate(store));
+    expect(bare).toContain("Ana S.");
+    expect(bare).toContain("convite para você avaliar");
+    expect(bare).not.toMatch(/WhatsApp Business|aniversário|agendar um horário|sair da lista/);
+    expect(bare).toContain("não enviamos propaganda sem o seu consentimento");
+    const all = policyToText(privacyPolicyTemplate({ ...store, features: { booking: true, whatsapp: true, campaigns: true, birthday: true } }));
+    expect(all).toContain("Ao agendar um horário");
+    expect(all).toContain("confirmar e lembrar o seu horário");
+    expect(all).toContain("avisos pelo WhatsApp sobre o seu pedido ou horário");
+    expect(all).toContain("Meta (WhatsApp Business)");
+    expect(all).toContain("dia e o mês do seu aniversário (sem o ano)");
+    expect(all).toContain("Cada mensagem traz um link para sair da lista");
+    expect(all).toContain("retirar a qualquer momento o consentimento");
+    const whatsOnly = policyToText(privacyPolicyTemplate({ ...store, features: { booking: false, whatsapp: true, campaigns: false, birthday: false } }));
+    expect(whatsOnly).toContain("Meta (WhatsApp Business)");
+    expect(whatsOnly).not.toMatch(/sair da lista|aniversário/);
+  });
+
   it("Quem somos: texto do lojista ou só o nome, sem repetir o nome da loja", () => {
     const bare = { ...store, legalName: null, document: null, address: null };
     const quem = (s: PolicyStore) => returnsPolicyTemplate(s).find((x) => x.title === "Quem somos")!.paragraphs;

@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { getStoreByDomain } from "@/lib/store";
 import { getStoreLegal } from "@/lib/store-legal";
 import { getStoreMarketing } from "@/lib/store-marketing";
+import { getPolicyFeatures } from "@/lib/policy-features";
 import {
   POLICY_TEMPLATE_DATE,
   customPolicySections,
@@ -22,7 +23,7 @@ export const POLICY_TITLES: Record<PolicyKind, string> = {
 export async function PolicyPage({ domain, kind }: { domain: string; kind: PolicyKind }) {
   const store = await getStoreByDomain(domain);
   if (!store) notFound();
-  const [legal, marketing] = await Promise.all([getStoreLegal(store.id), getStoreMarketing(store.id)]);
+  const [legal, marketing, features] = await Promise.all([getStoreLegal(store.id), getStoreMarketing(store.id), getPolicyFeatures(store.id)]);
 
   const custom = kind === "privacy" ? legal.privacyPolicy : legal.returnsPolicy;
   const data: PolicyStore = {
@@ -34,6 +35,7 @@ export async function PolicyPage({ domain, kind }: { domain: string; kind: Polic
     address: legal.address,
     about: legal.about,
     hasAnalytics: !!(marketing.metaPixelId || marketing.gaMeasurementId),
+    features,
   };
   const sections: PolicySection[] = custom
     ? customPolicySections(custom)

@@ -1,4 +1,5 @@
 import { requireStore } from "@/lib/panel";
+import { getPolicyFeatures } from "@/lib/policy-features";
 import { SettingsForm } from "./settings-form";
 import { storeBaseUrl } from "@/lib/urls";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -73,6 +74,7 @@ export default async function SettingsPage() {
     email: data!.email,
     whatsapp: data!.whatsapp,
     hasAnalytics: !!(marketing?.meta_pixel_id || marketing?.ga_measurement_id),
+    features: await getPolicyFeatures(store.id),
   };
 
   return (
