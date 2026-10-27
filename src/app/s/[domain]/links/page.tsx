@@ -12,6 +12,8 @@ import { formatBRL } from "@/lib/money";
 import { ThumbImage } from "@/lib/thumb-image";
 import { fetchProducts } from "../product-grid";
 import { NoPhoto } from "../no-photo";
+import { storeReviews } from "@/lib/reviews-server";
+import { RatingLine } from "../reviews-ui";
 
 export const revalidate = 60;
 export const metadata = { title: "Links" };
@@ -31,6 +33,7 @@ export default async function BioPage({ params }: { params: Promise<{ domain: st
     getStoreMarketing(store.id),
     createPublicClient().from("stores").select("bio_text, bio_links").eq("id", store.id).maybeSingle(), // SQL 20261120000000
   ]);
+  const { summary: rating } = await storeReviews(db, store.id, 1);
   const extra = readBioLinks(bio?.bio_links);
   const bookingOn = !!booking?.enabled;
   const promo = [
@@ -61,6 +64,7 @@ export default async function BioPage({ params }: { params: Promise<{ domain: st
         <h1 className="text-2xl font-bold tracking-tight">{store.name}</h1>
         {marketing.instagram && <p className="text-sm text-neutral-500">@{marketing.instagram}</p>}
         {bio?.bio_text && <p className="text-neutral-700">{bio.bio_text}</p>}
+        {rating.count > 0 && <RatingLine summary={rating} href="/avaliacoes" className="text-sm" />}
         {promo.length > 0 && (
           <p className="inline-block rounded-full px-3 py-1 text-xs font-semibold text-white" style={{ background: "var(--brand)" }}>
             {promo.join(" · ")}

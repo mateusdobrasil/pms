@@ -14,6 +14,9 @@ import { isPaymentLink, linkState } from "@/lib/payment-links";
 import { isPackagePurchase } from "@/lib/packages";
 import { discountLines } from "@/lib/coupons";
 import { orderCoupon } from "@/lib/coupons-server";
+import { COUNTER_METHOD } from "@/lib/counter";
+
+const fromLinkMethod = (m: string | null) => isPaymentLink(m) || isPackagePurchase(m) || m === COUNTER_METHOD;
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Seu pedido", robots: { index: false } };
@@ -45,6 +48,10 @@ export default async function OrderPage({
     .maybeSingle();
   if (!order) notFound();
   const coupon = order.discount_cents > 0 ? await orderCoupon(db, order.id) : null;
+  // Avaliar: compra entregue ou enviada (não balcão, link de pagamento ou pacote) e ainda sem avaliação (sem o SQL, não aparece).
+  const reviewKind = !fromLinkMethod(order.shipping_method) && ["shipped", "delivered"].includes(order.status);
+  const { count: reviewed, error: reviewErr } = reviewKind ? await db.from("reviews").select("id", { count: "exact", head: true }).eq("order_id", order.id) : { count: 1, error: null };
+  const canReview = reviewKind && !reviewErr && !reviewed;
 
   const expired =
     order.status === "expired" ||
@@ -139,6 +146,11 @@ export default async function OrderPage({
           <p className="mt-2 text-sm">
             Código de rastreio: <span className="font-mono">{order.tracking_code}</span>
           </p>
+        )}
+        {canReview && (
+          <Link href={`/avaliar/${token}`} className="mt-3 inline-block rounded-lg border-2 px-4 py-2 text-sm font-semibold" style={{ borderColor: "var(--brand)", color: "var(--brand)" }}>
+            ⭐ Avaliar a compra
+          </Link>
         )}
       </header>
 

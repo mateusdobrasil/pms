@@ -63,6 +63,9 @@ export default async function BookingPage({
   }
   const remaining = b.price_cents - b.paid_cents;
   const coupon = await orderCoupon(db, b.id, "bookings"); // price_cents já vem com o desconto
+  // Avaliar: atendimento feito e ainda sem avaliação (sem o SQL, não aparece).
+  const { count: reviewed, error: reviewErr } = b.status === "completed" ? await db.from("reviews").select("id", { count: "exact", head: true }).eq("booking_id", b.id) : { count: 1, error: null };
+  const canReview = b.status === "completed" && !reviewErr && !reviewed;
   // Agendado com pacote (SQL 20261117000000): a sessão é descontada no atendimento, nada a pagar.
   const { data: pk } = await db.from("bookings").select("customer_packages(name)").eq("id", b.id).maybeSingle();
   const packageName = (pk as { customer_packages: { name: string } | null } | null)?.customer_packages?.name ?? null;
@@ -149,6 +152,11 @@ export default async function BookingPage({
       )}
 
       {manageable && <ManageBooking token={token} paidLabel={b.paid_cents ? formatBRL(b.paid_cents) : null} deadline={deadline} />}
+      {canReview && (
+        <Link href={`/avaliar/${token}`} className="inline-block rounded-lg border-2 px-4 py-2 text-sm font-semibold" style={{ borderColor: "var(--brand)", color: "var(--brand)" }}>
+          ⭐ Avaliar o atendimento
+        </Link>
+      )}
 
       {store.whatsapp && (
         <p className="text-sm text-neutral-600">

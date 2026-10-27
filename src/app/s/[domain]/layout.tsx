@@ -206,6 +206,7 @@ export default async function StoreLayout({
                 <Link href="/meus-pedidos" className="block py-1.5 hover:text-white">Meus pedidos</Link>
               </>
             )}
+            <Link href="/avaliacoes" className="block py-1.5 hover:text-white">Avaliações</Link>
             <Link href="/trocas-e-devolucoes" className="block py-1.5 hover:text-white">Trocas e devoluções</Link>
             <Link href="/politica-de-privacidade" className="block py-1.5 hover:text-white">Política de privacidade</Link>
           </div>

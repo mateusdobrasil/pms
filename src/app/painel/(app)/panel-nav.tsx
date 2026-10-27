@@ -62,6 +62,7 @@ export function PanelNav({ agenda = false, campaigns = false, email }: { agenda?
         { href: "/painel/divulgar", label: "QR Code e link da bio" },
         { href: "/painel/links", label: "Links de pagamento" },
         { href: "/painel/cupons", label: "Cupons" },
+        { href: "/painel/avaliacoes", label: "Avaliações" },
         ...(campaigns || pathname.startsWith("/painel/campanhas") ? [{ href: "/painel/campanhas", label: "Campanhas no WhatsApp" }] : []),
       ],
     },

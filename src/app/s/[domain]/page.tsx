@@ -8,6 +8,9 @@ import { getBookingSettings, loadCatalog, type BookableService } from "@/lib/boo
 import { packagesForSale } from "@/lib/packages-server";
 import { formatDuration, onlineCents } from "@/lib/booking";
 import { formatBRL } from "@/lib/money";
+import { serviceRatings, storeReviews } from "@/lib/reviews-server";
+import type { RatingSummary } from "@/lib/reviews";
+import { RatingLine, ReviewCard } from "./reviews-ui";
 
 export const revalidate = 60;
 
@@ -22,17 +25,39 @@ export default async function StoreHome({ params }: { params: Promise<{ domain: 
   const servicesOnly = !!booking?.enabled && products.length === 0;
   const services = servicesOnly ? (await loadCatalog(db, store.id)).services : [];
   const hasPackages = servicesOnly && (await packagesForSale(db, store.id)).length > 0;
+  // Avaliações (SQL 20261123000000; sem ele, a seção não aparece): média e as 3 mais recentes com comentário.
+  const [{ summary, reviews }, ratings] = await Promise.all([storeReviews(db, store.id, 20), servicesOnly ? serviceRatings(db, store.id) : Promise.resolve(new Map())]);
+  const highlights = reviews.filter((r) => r.comment).slice(0, 3);
 
   return (
     <div className="space-y-10">
       <Hero store={store} banner={banner} servicesOnly={servicesOnly} />
+      {summary.count > 0 && (
+        <div className="-mt-6 text-center text-sm">
+          <RatingLine summary={summary} href="/avaliacoes" />
+        </div>
+      )}
 
       {servicesOnly ? (
-        <ServicesSection services={services} hasPackages={hasPackages} />
+        <ServicesSection services={services} hasPackages={hasPackages} ratings={ratings} />
       ) : (
         <section className="space-y-5">
           <h2 className="text-xl font-bold tracking-tight">Produtos</h2>
           {products.length === 0 ? <p className="text-neutral-600">Nenhum produto cadastrado ainda.</p> : <ProductGrid products={products} />}
+        </section>
+      )}
+
+      {highlights.length > 0 && (
+        <section className="space-y-4">
+          <div className="flex flex-wrap items-end justify-between gap-2">
+            <h2 className="text-xl font-bold tracking-tight">O que os clientes dizem</h2>
+            <Link href="/avaliacoes" className="text-sm font-medium underline" style={{ color: "var(--brand)" }}>Ver todas as avaliações</Link>
+          </div>
+          <ul className="grid gap-3 md:grid-cols-3">
+            {highlights.map((r) => (
+              <ReviewCard key={r.id} r={r} storeName={store.name} />
+            ))}
+          </ul>
         </section>
       )}
     </div>
@@ -47,7 +72,7 @@ function paymentNote(s: BookableService) {
 }
 
 // Serviços da agenda no lugar dos produtos (cada cartão abre o agendamento já com o serviço escolhido).
-function ServicesSection({ services, hasPackages }: { services: BookableService[]; hasPackages: boolean }) {
+function ServicesSection({ services, hasPackages, ratings }: { services: BookableService[]; hasPackages: boolean; ratings: Map<string, RatingSummary> }) {
   return (
     <section className="space-y-5">
       <div className="flex flex-wrap items-end justify-between gap-3">
@@ -80,6 +105,7 @@ function ServicesSection({ services, hasPackages }: { services: BookableService[
                 <span className="shrink-0 text-lg font-bold">{formatBRL(s.price_cents)}</span>
               </span>
               <span className="mt-1 text-sm text-neutral-500">{formatDuration(s.duration_minutes)} · {paymentNote(s)}</span>
+              {ratings.get(s.id) && <RatingLine summary={ratings.get(s.id)!} className="mt-1 text-xs" />}
               {s.description && <span className="mt-2 text-sm text-neutral-600">{s.description}</span>}
               <span className="mt-auto pt-4 text-sm font-semibold" style={{ color: "var(--brand)" }}>
                 Agendar →

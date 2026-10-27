@@ -64,6 +64,7 @@ export type WaEvent =
   | "loyalty_reward"
   | "store_new_sale"
   | "store_new_booking"
+  | "review_request"
   | "campaign"
   | "birthday";
 
@@ -85,6 +86,12 @@ export const WA_EVENTS: Record<WaEvent, EventDef> = {
   loyalty_reward: { label: "Prêmio do cartão fidelidade", description: "Quando o cliente completa o cartão.", audience: "customer", fields: ["first_name", "customer_name", "store_name", "reward"] },
   store_new_sale: { label: "Nova venda (para o lojista)", description: "Para o WhatsApp da loja, a cada venda paga.", audience: "store", fields: ["store_name", "customer_name", "customer_phone", "order_code", "total", "items", "link"] },
   store_new_booking: { label: "Novo agendamento (para o lojista)", description: "Para o WhatsApp da loja, a cada agendamento novo.", audience: "store", fields: ["store_name", "customer_name", "customer_phone", "service", "professional", "date", "time", "link"] },
+  review_request: {
+    label: "Pedido de avaliação",
+    description: "Uns dias depois da entrega, ou 2 h depois do atendimento, com o link para avaliar.",
+    audience: "customer",
+    fields: ["first_name", "customer_name", "store_name", "service", "link"],
+  },
   campaign: {
     label: "Campanha (novidades e promoções)",
     description: "Enviada pelo lojista em Painel → Divulgar → Campanhas, só para quem aceitou receber. Categoria Marketing na Meta.",
@@ -183,6 +190,11 @@ export const WA_SUGGESTIONS: Record<WaEvent, { name: string; body: string; param
     name: "novo_agendamento_loja",
     body: "Novo agendamento na {{1}}: {{2}} com {{3}}, {{4}} às {{5}}. Cliente: {{6}} ({{7}}). Veja no painel.",
     params: ["store_name", "service", "professional", "date", "time", "customer_name", "customer_phone"],
+  },
+  review_request: {
+    name: "pedido_avaliacao",
+    body: "Olá, {{1}}! Como foi a sua experiência com a {{2}}? A sua opinião ajuda muito: avalie em {{3}} . Obrigado!",
+    params: ["first_name", "store_name", "link"],
   },
   campaign: {
     name: "campanha_loja",

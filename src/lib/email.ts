@@ -211,6 +211,27 @@ export async function notifyLoyaltyReward(storeId: string, who: { name: string; 
   });
 }
 
+// Pedido de avaliação (a trava é review_requested_at no pedido ou no agendamento).
+export async function notifyReviewRequest(
+  store: { id: string; name: string; email: string | null; primary_color: string },
+  who: { name: string; email: string },
+  r: { kind: "order" | "booking"; link: string; serviceName?: string },
+) {
+  const what = r.kind === "order" ? "a sua compra" : `o seu atendimento${r.serviceName ? ` (${r.serviceName})` : ""}`;
+  return sendEmail({
+    to: who.email,
+    fromName: store.name,
+    replyTo: store.email,
+    idempotencyKey: `review-request-${r.link}`,
+    subject: `Como foi ${r.kind === "order" ? "a sua compra" : "o seu atendimento"} na ${store.name}?`,
+    html: layout(store, `
+      <h1 style="margin:0 0 8px;font-size:22px">Como foi? ⭐</h1>
+      <p style="margin:0 0 16px;color:#525252">Olá, ${esc(firstName(who.name))}. Conta pra gente o que achou de ${esc(what)}: leva menos de um minuto e ajuda outros clientes a escolher.</p>
+      <p style="margin:0 0 8px;text-align:center;font-size:28px;letter-spacing:4px">${[1, 2, 3, 4, 5].map((n) => `<a href="${esc(r.link)}?nota=${n}" style="color:#f59e0b;text-decoration:none">★</a>`).join("")}</p>
+      ${button(r.link, "Avaliar", store.primary_color)}`),
+  });
+}
+
 // Cupom de aniversário (a trava é customer_birthdays.last_sent_year). Devolve se o e-mail saiu.
 export async function notifyBirthday(
   store: { id: string; name: string; email: string | null; primary_color: string },
