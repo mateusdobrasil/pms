@@ -24,11 +24,14 @@ export default async function PanelLayout({ children }: { children: ReactNode })
   const oldestDue = overdue?.[0]?.due_date as string | undefined;
 
   // Menu "Agenda": agendamentos ligados ou já com serviço cadastrado (sem o SQL, fica escondido).
-  const [{ data: bookingRow }, { count: serviceCount }] = await Promise.all([
+  // Menu "Campanhas": loja com cota de campanhas no WhatsApp (SQL 20261120200000; sem ele, escondido).
+  const [{ data: bookingRow }, { count: serviceCount }, { data: campaignRow }] = await Promise.all([
     supabase.from("stores").select("booking_enabled").eq("id", store.id).maybeSingle(),
     supabase.from("services").select("id", { count: "exact", head: true }).eq("store_id", store.id),
+    supabase.from("stores").select("whatsapp_campaign_quota").eq("id", store.id).maybeSingle(),
   ]);
   const agenda = !!(bookingRow as { booking_enabled?: boolean } | null)?.booking_enabled || (serviceCount ?? 0) > 0;
+  const campaigns = ((campaignRow as { whatsapp_campaign_quota?: number } | null)?.whatsapp_campaign_quota ?? 0) > 0;
 
   // Modo de teste (Mercado Pago TEST-): link que libera as compras de teste no domínio da loja.
   const testMode = await storeTestMode(store.id);
@@ -66,7 +69,7 @@ export default async function PanelLayout({ children }: { children: ReactNode })
             <button type="submit" className="rounded-md px-2 py-1 hover:bg-white/10 hover:text-white">Sair</button>
           </form>
           <div className="w-full sm:w-auto sm:flex-1">
-            <PanelNav agenda={agenda} />
+            <PanelNav agenda={agenda} campaigns={campaigns} />
           </div>
         </div>
       </header>

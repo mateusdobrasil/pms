@@ -3,7 +3,7 @@ import { notifyPlatformError } from "@/lib/email";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getStoreFromRequest } from "@/lib/request-store";
 import { isUuid } from "@/lib/validation";
-import { ORDER_PAYMENT_FIELDS, amountFor, recordPayment } from "@/lib/payments/record";
+import { amountFor, recordPayment, selectPaymentOrder } from "@/lib/payments/record";
 import { rateLimit } from "@/lib/rate-limit";
 import {
   MercadoPagoError,
@@ -28,12 +28,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ token: 
   if (limited) return limited;
 
   const db = createAdminClient();
-  const { data: order } = await db
-    .from("orders")
-    .select(`${ORDER_PAYMENT_FIELDS}, code, expires_at, customer_name, customer_email, customer_cpf`)
-    .eq("store_id", store.id)
-    .eq("public_token", token)
-    .maybeSingle();
+  const order = await selectPaymentOrder<{ code: string; expires_at: string | null; customer_name: string; customer_email: string; customer_cpf: string }>((fields) =>
+    db.from("orders").select(`${fields}, code, expires_at, customer_name, customer_email, customer_cpf`).eq("store_id", store.id).eq("public_token", token).maybeSingle(),
+  );
   if (!order) return fail("Pedido não encontrado", 404);
   if (order.status !== "pending_payment") return fail("Este pedido não está mais aguardando pagamento.", 409);
   if (order.expires_at && new Date(order.expires_at) < new Date()) {

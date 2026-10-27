@@ -14,6 +14,7 @@ import { CartLink } from "./cart-link";
 import { createPublicClient } from "@/lib/supabase/public";
 import { StoreWhatsappButton } from "./store-whatsapp";
 import { TestModeBanner } from "./test-mode-banner";
+import { CouponCapture } from "./coupon-capture";
 import { storeTestMode } from "@/lib/test-mode";
 import { getBookingSettings } from "@/lib/booking-server";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -83,6 +84,7 @@ export default async function StoreLayout({
   return (
     <div style={theme} className="flex min-h-screen flex-col bg-white">
       {testMode && <TestModeBanner />}
+      <CouponCapture />
       {promoText ? (
         <p className="px-4 py-1.5 text-center text-xs font-medium text-white sm:text-sm" style={{ background: "var(--brand)" }}>
           {promoText}

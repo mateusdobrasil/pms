@@ -9,6 +9,7 @@ const LIMITS = {
   pay: { limit: 12, windowSeconds: 10 * 60 }, // tentativas de pagamento (barra teste de cartões roubados)
   stockAlert: { limit: 10, windowSeconds: 10 * 60 }, // pedidos de "avise-me quando chegar"
   booking: { limit: 10, windowSeconds: 10 * 60 }, // agendamentos criados
+  coupon: { limit: 20, windowSeconds: 10 * 60 }, // cupons conferidos no checkout (barra quem tenta adivinhar)
 } as const;
 
 export type RateLimitAction = keyof typeof LIMITS;

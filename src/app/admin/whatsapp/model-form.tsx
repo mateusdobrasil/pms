@@ -14,6 +14,7 @@ export function ModelForm({ event, templates, current }: { event: WaEvent; templ
   const [state, action, pending] = useActionState<ModelState, FormData>(saveEventTemplate, null);
   const suggestion = WA_SUGGESTIONS[event];
   const fields = WA_EVENTS[event].fields;
+  const campaign = WA_EVENTS[event].audience === "optin";
   const [name, setName] = useState(current?.template ?? suggestion.name);
   const [language, setLanguage] = useState(current?.language ?? "pt_BR");
   const meta = templates?.find((t) => t.name === name && t.language === language) ?? null;
@@ -56,7 +57,9 @@ export function ModelForm({ event, templates, current }: { event: WaEvent; templ
         )}
       </div>
       {meta && meta.status !== "APPROVED" && <p className="text-amber-700">Este template ainda não está aprovado na Meta ({meta.status}): o envio falha até aprovar.</p>}
-      {meta?.category === "MARKETING" && <p className="text-amber-700">Categoria marketing: custa mais e só pode ir para quem aceitou receber. Para avisos de pedido e agenda, use Utilidade.</p>}
+      {campaign
+        ? meta && meta.category !== "MARKETING" && <p className="text-amber-700">Campanha é propaganda: cadastre o template na categoria Marketing (a Meta recategoriza ou bloqueia propaganda em Utilidade).</p>
+        : meta?.category === "MARKETING" && <p className="text-amber-700">Categoria marketing: custa mais e só pode ir para quem aceitou receber. Para avisos de pedido e agenda, use Utilidade.</p>}
 
       {count > 0 && (
         <div className="grid gap-2 sm:grid-cols-2">

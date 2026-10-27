@@ -39,6 +39,7 @@ export async function POST(req: Request) {
     phone: String(b.phone ?? ""),
     cpf: String(b.cpf ?? ""),
     notes: String(b.notes ?? ""),
+    whatsappOptIn: b.whatsappOptIn === true,
   });
   if ("error" in result) return NextResponse.json({ error: result.error }, { status: 409 });
   return NextResponse.json({ token: result.token }, { status: 201 });

@@ -15,6 +15,10 @@
     {
       "path": "/api/cron/resumo-mensal",
       "schedule": "0 11 1-3 * *"
+    },
+    {
+      "path": "/api/cron/campanhas",
+      "schedule": "*/5 12-23 * * *"
     }
   ]
 }

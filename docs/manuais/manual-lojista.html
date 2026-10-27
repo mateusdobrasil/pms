@@ -112,7 +112,9 @@ footer { color: var(--muted); font-size: 14px; border-top: 1px solid var(--line)
       <li><a href="#vender">Vender no balcão<span>Caixa da loja física</span></a></li>
       <li><a href="#links">Links de pagamento<span>Cobrar pelo WhatsApp e Instagram</span></a></li>
       <li><a href="#clientes">Clientes<span>Chamar de volta quem sumiu</span></a></li>
-      <li><a href="#divulgar">Divulgar<span>QR Code e resumo do mês</span></a></li>
+      <li><a href="#divulgar">Divulgar<span>Link da bio, QR Code e resumo do mês</span></a></li>
+      <li><a href="#cupons">Cupons<span>Desconto com código ou link</span></a></li>
+      <li><a href="#campanhas">Campanhas no WhatsApp<span>Novidades para quem aceitou</span></a></li>
       <li><a href="#entrega">Entrega e frete<span>Etiqueta e rastreio</span></a></li>
       <li><a href="#assinatura">Assinatura<span>Mensalidade e faturas</span></a></li>
       <li><a href="#duvidas">Dúvidas frequentes<span>Respostas rápidas</span></a></li>
@@ -132,6 +134,9 @@ footer { color: var(--muted); font-size: 14px; border-top: 1px solid var(--line)
 
     <h3>Para vender mais</h3>
     <ul>
+      <li><strong>Cupons de desconto</strong>: percentual ou valor fixo, com validade, compra mínima, limite de usos e opção de 1 uso por cliente. O cliente digita no checkout ou chega por um link que já aplica o cupom. <a href="#cupons">Ver como criar</a></li>
+      <li><strong>Link para a bio do Instagram</strong>: uma página com os botões da sua loja (comprar, agendar, pacotes, WhatsApp), seus links extras e produtos em destaque. <a href="#divulgar">Ver detalhes</a></li>
+      <li><strong>Campanhas no WhatsApp</strong> (nos planos com WhatsApp): mande novidades e promoções para os clientes que aceitaram receber. <a href="#campanhas">Ver como funciona</a></li>
       <li><strong>Pacotes de sessões</strong>: venda pacotes como "5 escovas por R$ 200". O cliente paga uma vez e cada atendimento desconta uma sessão, com aviso por e-mail do que sobrou. <a href="#agenda">Ver como usar</a></li>
       <li><strong>Vender no balcão</strong>: um caixa simples para as vendas da loja física (dinheiro com troco, Pix, maquininha), inclusive serviços: receber um agendamento pela Agenda ou vender para quem chegou sem horário. O estoque baixa na hora, a venda entra no Resumo e você vê o caixa do dia. <a href="#vender">Ver como usar</a></li>
       <li><strong>Cartão fidelidade digital</strong>: "a cada 10 atendimentos ou compras, ganhe 1 corte grátis". Os carimbos são automáticos, o cliente acompanha nos e-mails e é avisado quando ganha o prêmio. <a href="#clientes">Ver como ligar</a></li>
@@ -464,6 +469,13 @@ footer { color: var(--muted); font-size: 14px; border-top: 1px solid var(--line)
 
   <section id="divulgar">
     <h2>Divulgar a loja</h2>
+    <h3>Link para a bio do Instagram</h3>
+    <p><span class="where">Painel → Divulgar</span> A sua loja tem uma página feita para o link da bio: <strong>seudominio.com.br/links</strong>. Ela mostra o logo, os botões da loja em tamanho grande (ver produtos, agendar horário, pacotes e falar no WhatsApp, conforme o que a loja usa), os seus links extras e até 6 produtos em destaque. Copie o endereço e cole no campo "Site" do Instagram, do TikTok ou do perfil no Google.</p>
+    <ul>
+      <li><strong>Frase de apresentação</strong>: uma linha logo abaixo do nome (até 160 caracteres), como "Moda feminina com entrega para todo o Brasil".</li>
+      <li><strong>Links extras</strong>: até 6 botões com o nome e o endereço que você quiser: o endereço no Google Maps, o iFood, um catálogo, uma categoria da loja (como /c/promocoes). Linha vazia é ignorada.</li>
+    </ul>
+    <p>Os botões da loja e os produtos entram sozinhos: produto novo ou agenda ligada aparecem na página sem você mexer em nada.</p>
     <h3>QR Code para imprimir</h3>
     <p><span class="where">Painel → Divulgar</span> QR Codes prontos da sua <strong>loja</strong> e, com a agenda ligada, da página de <strong>agendar</strong>. O cliente aponta a câmera do celular e cai direto no lugar certo.</p>
     <ul>
@@ -474,6 +486,38 @@ footer { color: var(--muted); font-size: 14px; border-top: 1px solid var(--line)
     <p>Cada <a href="#links">link de pagamento</a> aberto também tem o botão <strong>QR Code</strong>, que imprime um cartaz com a descrição e o valor: o cliente paga no balcão, pelo celular, por Pix ou cartão.</p>
     <h3>Resumo do mês por e-mail</h3>
     <p>Todo <strong>dia 1</strong>, de manhã, chega no e-mail da sua conta o resumo do mês que passou: total vendido (e quanto subiu ou caiu em relação ao mês anterior), pedidos, ticket médio, quanto você recebeu já sem as taxas do Mercado Pago, o melhor dia, os 3 mais vendidos, os atendimentos, faltas e cancelamentos da agenda, os clientes novos e quantos clientes não voltam há mais de 60 dias, com um botão para chamar de volta. Mês sem nenhuma venda ou atendimento não gera e-mail.</p>
+  </section>
+
+  <section id="cupons">
+    <h2>Cupons de desconto</h2>
+    <p><span class="where">Painel → Cupons</span> Crie códigos de desconto para a loja virtual, como BEMVINDO10 ou NATAL20.</p>
+    <ul>
+      <li><strong>Desconto</strong>: percentual (de 1% a 90%) ou valor fixo em reais. Vale só para os produtos: o frete não tem desconto.</li>
+      <li><strong>Compra mínima</strong> (opcional): o cupom só vale a partir de um valor em produtos.</li>
+      <li><strong>Vale a partir de / até</strong> (opcional): o cupom vale do começo do primeiro dia até o fim do último (horário de Brasília).</li>
+      <li><strong>Limite de usos</strong> (opcional): depois de tantos pedidos, o cupom esgota.</li>
+      <li><strong>Uma vez por cliente</strong>: cada CPF usa o cupom uma vez só. Bom para cupom de primeira compra.</li>
+    </ul>
+    <p>O cliente digita o código no checkout, em "Tem um cupom?". Ou você divulga o <strong>link do cupom</strong> (botão "Copiar link" ao lado de cada cupom): quem entra na loja por ele já encontra o desconto aplicado no checkout. Funciona em posts, stories, WhatsApp e campanhas.</p>
+    <div class="tip info"><strong>Cupom e desconto do Pix somam</strong>Se a loja dá desconto no Pix, ele vale por cima do cupom, calculado sobre o valor dos produtos já com o cupom. Exemplo: R$ 100 em produtos, cupom de 10% e 5% no Pix: R$ 90 no cartão e R$ 85,50 no Pix (mais o frete).</div>
+    <p>Na lista de cupons você vê quantas vezes cada um foi usado: contam os pedidos pagos e os que ainda estão aguardando pagamento (pedido que expira sem pagar devolve o uso). No pedido, no e-mail do cliente e na impressão aparece a linha "Cupom CÓDIGO". <strong>Desativar</strong> tira o cupom do ar na hora. <strong>Excluir</strong> apaga o cupom; se ele já foi usado, só desativa, para os pedidos guardarem o código.</p>
+  </section>
+
+  <section id="campanhas">
+    <h2>Campanhas no WhatsApp</h2>
+    <p><span class="where">Painel → Campanhas</span> Nos planos com WhatsApp, você manda novidades e promoções pelo <strong>WhatsApp oficial da PMS app</strong> para os clientes que <strong>aceitaram receber</strong>. O menu aparece quando o recurso está no seu plano.</p>
+    <ol class="steps">
+      <li><div>No checkout e no agendamento, o cliente vê a caixa "Quero receber novidades e promoções pelo WhatsApp", sempre desmarcada. Quem marca entra na lista "Quem aceitou receber".</div></li>
+      <li><div>Em Campanhas, escreva a mensagem (uma ou duas frases), escolha para onde o link leva (a loja, a agenda, os pacotes ou a página de links) e, se quiser, um <a href="#cupons">cupom</a>: o link já aplica o desconto. Confira a prévia.</div></li>
+      <li><div>Clique em <strong>Enviar</strong>. As mensagens saem aos poucos, das 9h às 21h, e você acompanha quantas foram enviadas.</div></li>
+    </ol>
+    <ul>
+      <li>O nome do cliente e o da loja entram sozinhos na mensagem, que termina com um link para a pessoa <strong>sair da lista</strong> quando quiser. Os avisos de pedido e de agendamento continuam chegando para ela.</li>
+      <li>O plano tem uma <strong>quantidade de mensagens por mês</strong> (aparece no topo da tela e renova no dia 1). Se a lista for maior que o que sobra no mês, a campanha vai para os aceites mais recentes.</li>
+      <li>Uma campanha por dia, no máximo: mensagem demais faz o WhatsApp marcar o número como spam.</li>
+      <li>Mudou de ideia? <strong>Cancelar o que falta</strong> para a campanha; o que já saiu não volta.</li>
+    </ul>
+    <div class="tip info"><strong>Só para quem aceitou</strong>Mandar propaganda para quem não pediu é proibido pelo WhatsApp e pela LGPD. Por isso só entra na lista quem marca a caixa, e não dá para incluir números à mão.</div>
   </section>
 
   <section id="entrega">

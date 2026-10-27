@@ -5,6 +5,9 @@ import { formatCPF, formatDateTime, formatPhone } from "@/lib/format";
 import { isUuid } from "@/lib/validation";
 import { statusLabel, type OrderStatus } from "@/lib/order-status";
 import { PrintButton } from "./print-button";
+import { COUNTER_METHOD } from "@/lib/counter";
+import { discountLines } from "@/lib/coupons";
+import { orderCoupon } from "@/lib/coupons-server";
 
 export const metadata = { title: "Imprimir pedido", robots: { index: false } };
 
@@ -42,6 +45,7 @@ export default async function PrintOrderPage({ params }: { params: Promise<{ id:
     .maybeSingle();
   if (!data) notFound();
   const order = data as Order;
+  const coupon = order.discount_cents > 0 ? await orderCoupon(supabase, id) : null;
   const a = order.shipping_address;
   const isPickup = order.shipping_method === "pickup";
   const units = order.order_items.reduce((sum, i) => sum + i.quantity, 0);
@@ -127,9 +131,9 @@ export default async function PrintOrderPage({ params }: { params: Promise<{ id:
           <div className="ml-auto mt-3 w-64 space-y-0.5">
             <p className="flex justify-between"><span>Subtotal</span><span>{formatBRL(order.subtotal_cents)}</span></p>
             <p className="flex justify-between"><span>Frete</span><span>{formatBRL(order.shipping_cents)}</span></p>
-            {order.discount_cents > 0 && (
-              <p className="flex justify-between"><span>Desconto Pix</span><span>−{formatBRL(order.discount_cents)}</span></p>
-            )}
+            {discountLines(order.discount_cents, coupon, order.shipping_method === COUNTER_METHOD ? "Desconto" : "Desconto Pix").map((d) => (
+              <p key={d.label} className="flex justify-between"><span>{d.label}</span><span>−{formatBRL(d.cents)}</span></p>
+            ))}
             <p className="flex justify-between border-t border-black pt-1 font-bold"><span>Total</span><span>{formatBRL(order.total_cents)}</span></p>
           </div>
         </section>

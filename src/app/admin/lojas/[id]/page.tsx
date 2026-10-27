@@ -9,9 +9,9 @@ import { formatDateTime } from "@/lib/format";
 import { daysLate, dueDateOptions, formatDay, invoiceTitle, todayBR } from "@/lib/billing";
 import { INVOICE_FIELDS, type InvoiceRow } from "@/lib/billing-server";
 import { isTestToken, testAccessUrl } from "@/lib/test-mode";
-import { cancelInvoice, markInvoicePaid, removeDomain, removeMember, setPrimaryDomain, setStoreStatus, setWhatsappEvents, setWhatsappReminders } from "../../actions";
+import { cancelInvoice, markInvoicePaid, removeDomain, removeMember, setPrimaryDomain, setStoreStatus, setWhatsappCampaignQuota, setWhatsappEvents, setWhatsappReminders } from "../../actions";
 import { whatsappConnected } from "@/lib/whatsapp";
-import { WA_EVENTS, WA_EVENT_KEYS } from "@/lib/whatsapp-events";
+import { WA_AUTO_EVENTS, WA_EVENTS } from "@/lib/whatsapp-events";
 import { AddDomainForm, AddMemberForm, BillingForm, BrandingForm, SecretsForm } from "../../forms";
 
 export default async function AdminStorePage({ params }: { params: Promise<{ id: string }> }) {
@@ -34,9 +34,11 @@ export default async function AdminStorePage({ params }: { params: Promise<{ id:
   // WhatsApp: coluna e registro do SQL 20261118000000 (sem eles, a seção não aparece).
   const monthStart = new Date(`${todayBR().slice(0, 7)}-01T00:00:00-03:00`).toISOString();
   // whatsapp_events (SQL 20261119000000) à parte: sem ela, a escolha de eventos não aparece.
-  const [{ data: wa, error: waError }, { data: waEvents, error: waEventsError }, { count: waSent }, { count: waFailed }] = await Promise.all([
+  // whatsapp_campaign_quota (SQL 20261120200000) idem: sem ela, a cota de campanhas não aparece.
+  const [{ data: wa, error: waError }, { data: waEvents, error: waEventsError }, { data: waQuota, error: waQuotaError }, { count: waSent }, { count: waFailed }] = await Promise.all([
     db.from("stores").select("whatsapp_reminders").eq("id", id).maybeSingle(),
     db.from("stores").select("whatsapp_events").eq("id", id).maybeSingle(),
+    db.from("stores").select("whatsapp_campaign_quota").eq("id", id).maybeSingle(),
     db.from("whatsapp_messages").select("id", { count: "exact", head: true }).eq("store_id", id).eq("status", "sent").gte("created_at", monthStart),
     db.from("whatsapp_messages").select("id", { count: "exact", head: true }).eq("store_id", id).eq("status", "failed").gte("created_at", monthStart),
   ]);
@@ -45,6 +47,7 @@ export default async function AdminStorePage({ params }: { params: Promise<{ id:
     : {
         enabled: !!(wa as { whatsapp_reminders?: boolean } | null)?.whatsapp_reminders,
         events: waEventsError ? undefined : ((waEvents as { whatsapp_events: string[] | null } | null)?.whatsapp_events ?? null),
+        quota: waQuotaError ? undefined : ((waQuota as { whatsapp_campaign_quota: number } | null)?.whatsapp_campaign_quota ?? 0),
         sent: waSent ?? 0,
         failed: waFailed ?? 0,
         configured: whatsappConnected(),
@@ -266,7 +269,7 @@ export default async function AdminStorePage({ params }: { params: Promise<{ id:
                 <input type="hidden" name="storeId" value={store.id} />
                 <p className="font-medium">Eventos desta loja</p>
                 <div className="grid gap-1 sm:grid-cols-2">
-                  {WA_EVENT_KEYS.map((e) => (
+                  {WA_AUTO_EVENTS.map((e) => (
                     <label key={e} className="flex items-center gap-2">
                       <input type="checkbox" name="events" value={e} defaultChecked={!whatsapp.events || whatsapp.events.includes(e)} />
                       {WA_EVENTS[e].label}
@@ -274,6 +277,21 @@ export default async function AdminStorePage({ params }: { params: Promise<{ id:
                   ))}
                 </div>
                 <button type="submit" className="rounded-md border bg-white px-3 py-1.5 text-xs font-semibold hover:bg-neutral-50">Salvar eventos</button>
+              </form>
+            )}
+            {whatsapp.enabled && whatsapp.quota !== undefined && (
+              <form action={setWhatsappCampaignQuota} className="space-y-2 border-t pt-3 text-sm">
+                <input type="hidden" name="storeId" value={store.id} />
+                <p className="font-medium">Campanhas (marketing)</p>
+                <p className="text-xs text-neutral-500">
+                  Mensagens de campanha por mês que o lojista pode mandar em Painel → Campanhas, só para quem aceitou receber (cerca de R$ 0,35 cada, pagos pela
+                  plataforma). 0 = sem campanhas (nem a caixa de aceite aparece na loja).
+                </p>
+                <div className="flex items-center gap-2">
+                  <input name="quota" type="number" min={0} max={100000} defaultValue={whatsapp.quota} className="w-28 rounded-md border px-3 py-1.5" aria-label="Cota mensal de campanhas" />
+                  <span className="text-neutral-600">mensagens por mês</span>
+                  <button type="submit" className="rounded-md border bg-white px-3 py-1.5 text-xs font-semibold hover:bg-neutral-50">Salvar cota</button>
+                </div>
               </form>
             )}
           </section>

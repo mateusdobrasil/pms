@@ -16,12 +16,22 @@ type OrderRef = {
   subtotal_cents: number;
   shipping_cents: number;
   pix_discount_cents: number;
+  coupon_discount_cents?: number; // SQL 20261120100000 (sem ele, 0)
 };
+
+// Pedido para pagamento: com o desconto do cupom; sem a coluna (SQL 20261120100000 não rodado), lê sem ela.
+// build recebe os campos e monta a consulta (com os filtros e campos extras de cada rota).
+export async function selectPaymentOrder<T = object>(build: (fields: string) => PromiseLike<{ data: unknown; error: { code?: string } | null }>) {
+  const first = await build(`${ORDER_PAYMENT_FIELDS}, coupon_discount_cents`);
+  const result = first.error?.code === "42703" ? await build(ORDER_PAYMENT_FIELDS) : first;
+  return result.data as (OrderRef & T) | null;
+}
 
 // Valor que cada forma de pagamento cobra. Calculado de campos que não mudam depois da criação
 // (total_cents muda quando um Pix com desconto é aprovado), para continuar idempotente.
+// O cupom sai dos dois; o desconto do Pix (já calculado sobre os produtos com cupom) só do Pix.
 export function amountFor(order: OrderRef, method: "pix" | "card") {
-  const full = order.subtotal_cents + order.shipping_cents;
+  const full = order.subtotal_cents + order.shipping_cents - (order.coupon_discount_cents ?? 0);
   return method === "pix" ? full - order.pix_discount_cents : full;
 }
 
@@ -71,11 +81,12 @@ export async function recordPayment(db: SupabaseClient, order: OrderRef, payment
     // confirmou o pedido (num pagamento em dobro, o pedido já estava pago e fica como está).
     const confirmedNow = order.status === "pending_payment" || order.status === "expired";
     if (payment.method === "pix" && order.pix_discount_cents > 0 && confirmedNow) {
+      const coupon = order.coupon_discount_cents ?? 0; // discount_cents já tem o cupom desde a criação
       const { error: discErr } = await db
         .from("orders")
-        .update({ total_cents: expected, discount_cents: order.pix_discount_cents })
+        .update({ total_cents: expected, discount_cents: coupon + order.pix_discount_cents })
         .eq("id", order.id)
-        .eq("discount_cents", 0);
+        .eq("discount_cents", coupon);
       if (discErr) throw discErr;
     }
     // E-mails depois da resposta (não atrasam o webhook). A trava em notified_paid_at evita duplicados.

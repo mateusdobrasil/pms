@@ -3,7 +3,7 @@ import { notifyPlatformError } from "@/lib/email";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getStoreFromRequest } from "@/lib/request-store";
 import { isUuid } from "@/lib/validation";
-import { ORDER_PAYMENT_FIELDS, recordPayment } from "@/lib/payments/record";
+import { recordPayment, selectPaymentOrder } from "@/lib/payments/record";
 import { getPayment } from "@/lib/payments/mercadopago";
 
 // Polling da página do pedido. Se ainda está aguardando, consulta o gateway direto:
@@ -16,12 +16,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ token: s
   if (!store) return NextResponse.json({ error: "Loja não encontrada" }, { status: 404 });
 
   const db = createAdminClient();
-  const { data: order } = await db
-    .from("orders")
-    .select(ORDER_PAYMENT_FIELDS)
-    .eq("store_id", store.id)
-    .eq("public_token", token)
-    .maybeSingle();
+  const order = await selectPaymentOrder((fields) => db.from("orders").select(fields).eq("store_id", store.id).eq("public_token", token).maybeSingle());
   if (!order) return NextResponse.json({ error: "Pedido não encontrado" }, { status: 404 });
 
   if (order.status === "pending_payment") {

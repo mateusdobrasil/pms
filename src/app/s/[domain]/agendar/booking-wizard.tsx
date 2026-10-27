@@ -54,6 +54,7 @@ export function BookingWizard({
   initialServiceId = null,
   initialDate = null,
   packageServiceIds = [],
+  whatsappOptIn = false,
 }: {
   services: Service[];
   professionals: Professional[];
@@ -63,6 +64,7 @@ export function BookingWizard({
   initialServiceId?: string | null; // vindo de um cartão de serviço da home (?servico=)
   initialDate?: string | null; // vindo do e-mail da lista de espera (?data=)
   packageServiceIds?: string[]; // serviços com pacote à venda (quem tem pacote agenda sem sinal)
+  whatsappOptIn?: boolean; // a loja oferece novidades pelo WhatsApp (caixa de aceite, desmarcada)
 }) {
   const router = useRouter();
   const [serviceId, setServiceId] = useState<string | null>(reschedule?.serviceId ?? initialServiceId ?? (services.length === 1 ? services[0].id : null));
@@ -163,6 +165,7 @@ export function BookingWizard({
         phone: f.get("phone"),
         cpf: f.get("cpf") ?? "",
         notes: f.get("notes") ?? "",
+        whatsappOptIn: f.get("whatsapp_optin") === "on",
       }),
     }).catch(() => null);
     const data = (await res?.json().catch(() => null)) as { token?: string; error?: string } | null;
@@ -291,6 +294,12 @@ export function BookingWizard({
               <p className="text-xs text-neutral-600">Tem pacote deste serviço? Use o <strong>mesmo celular do pacote</strong>: o sinal não é cobrado e a sessão é descontada no atendimento.</p>
             )}
             <textarea name="notes" rows={2} maxLength={500} placeholder="Observação para o salão (opcional)" className={input} />
+            {whatsappOptIn && (
+              <label className="flex items-start gap-2 text-sm text-neutral-700">
+                <input type="checkbox" name="whatsapp_optin" className="mt-0.5" />
+                <span>Quero receber novidades e promoções pelo WhatsApp (dá para sair quando quiser).</span>
+              </label>
+            )}
             <div className="rounded-xl bg-neutral-50 p-4 text-sm">
               <p className="font-semibold">{service.name} · {formatDuration(service.duration_minutes)}</p>
               <p className="text-neutral-600">

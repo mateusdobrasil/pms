@@ -12,6 +12,8 @@ import { RedoOrder } from "./redo-order";
 import { availableOrderItems } from "@/lib/order-recovery";
 import { isPaymentLink, linkState } from "@/lib/payment-links";
 import { isPackagePurchase } from "@/lib/packages";
+import { discountLines } from "@/lib/coupons";
+import { orderCoupon } from "@/lib/coupons-server";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Seu pedido", robots: { index: false } };
@@ -42,6 +44,7 @@ export default async function OrderPage({
     .eq("public_token", token)
     .maybeSingle();
   if (!order) notFound();
+  const coupon = order.discount_cents > 0 ? await orderCoupon(db, order.id) : null;
 
   const expired =
     order.status === "expired" ||
@@ -142,8 +145,8 @@ export default async function OrderPage({
       {awaitingPayment && (
         <PaymentPanel
           token={token}
-          totalCents={order.subtotal_cents + order.shipping_cents}
-          pixTotalCents={order.subtotal_cents + order.shipping_cents - order.pix_discount_cents}
+          totalCents={order.total_cents}
+          pixTotalCents={order.total_cents - order.pix_discount_cents}
           publicKey={publicKey}
           payerEmail={order.customer_email}
         />
@@ -170,9 +173,9 @@ export default async function OrderPage({
               <span>{formatBRL(order.shipping_cents)}</span>
             </p>
           )}
-          {order.discount_cents > 0 && (
-            <p className="flex justify-between text-emerald-700"><span>Desconto Pix</span><span>−{formatBRL(order.discount_cents)}</span></p>
-          )}
+          {discountLines(order.discount_cents, coupon).map((d) => (
+            <p key={d.label} className="flex justify-between text-emerald-700"><span>{d.label}</span><span>−{formatBRL(d.cents)}</span></p>
+          ))}
           <p className="flex justify-between text-base font-semibold"><span>Total</span><span>{formatBRL(order.total_cents)}</span></p>
           {awaitingPayment && order.pix_discount_cents > 0 && (
             <p className="flex justify-between font-medium text-emerald-700">

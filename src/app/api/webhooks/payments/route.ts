@@ -2,7 +2,7 @@ import { NextResponse, after } from "next/server";
 import { notifyPlatformError } from "@/lib/email";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isUuid } from "@/lib/validation";
-import { ORDER_PAYMENT_FIELDS, recordPayment } from "@/lib/payments/record";
+import { recordPayment, selectPaymentOrder } from "@/lib/payments/record";
 import { PROVIDER, getPayment, verifyWebhookSignature } from "@/lib/payments/mercadopago";
 import { BOOKING_PAYMENT_FIELDS, recordBookingPayment } from "@/lib/booking-server";
 
@@ -84,12 +84,8 @@ export async function POST(req: Request) {
     }
 
     if (payment.orderId && isUuid(payment.orderId)) {
-      const { data: order } = await db
-        .from("orders")
-        .select(ORDER_PAYMENT_FIELDS)
-        .eq("id", payment.orderId)
-        .eq("store_id", storeId)
-        .maybeSingle();
+      const orderId = payment.orderId;
+      const order = await selectPaymentOrder((fields) => db.from("orders").select(fields).eq("id", orderId).eq("store_id", storeId).maybeSingle());
       if (order) await recordPayment(db, order, payment);
     }
   } catch (err) {

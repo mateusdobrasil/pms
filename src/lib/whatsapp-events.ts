@@ -20,7 +20,10 @@ export type WaField =
   | "valid_until"
   | "free_times"
   | "reward"
-  | "customer_phone";
+  | "customer_phone"
+  | "campaign_text"
+  | "coupon_code"
+  | "optout_link";
 
 export const WA_FIELDS: Record<WaField, { label: string; sample: string }> = {
   first_name: { label: "Primeiro nome do cliente", sample: "Ana" },
@@ -42,6 +45,9 @@ export const WA_FIELDS: Record<WaField, { label: string; sample: string }> = {
   free_times: { label: "Horários livres", sample: "10:00, 14:30" },
   reward: { label: "Prêmio do cartão fidelidade", sample: "1 corte grátis" },
   customer_phone: { label: "Celular do cliente", sample: "(11) 98765-4321" },
+  campaign_text: { label: "Texto da campanha (escrito pelo lojista)", sample: "Coleção de verão com 20% de desconto até domingo." },
+  coupon_code: { label: "Cupom da campanha", sample: "VERAO20" },
+  optout_link: { label: "Link para não receber mais", sample: "https://www.pmsapp.dev/whatsapp/sair/abc" },
 };
 
 export type WaEvent =
@@ -55,9 +61,11 @@ export type WaEvent =
   | "waitlist_opening"
   | "loyalty_reward"
   | "store_new_sale"
-  | "store_new_booking";
+  | "store_new_booking"
+  | "campaign";
 
-type EventDef = { label: string; description: string; audience: "customer" | "store"; fields: WaField[] };
+// optin: campanha (marketing), só para quem aceitou receber; enviada pelo lojista, não por um acontecimento.
+type EventDef = { label: string; description: string; audience: "customer" | "store" | "optin"; fields: WaField[] };
 
 const BOOKING: WaField[] = ["first_name", "customer_name", "store_name", "service", "professional", "date", "time", "link"];
 const ORDER: WaField[] = ["first_name", "customer_name", "store_name", "order_code", "total", "items", "link"];
@@ -74,9 +82,17 @@ export const WA_EVENTS: Record<WaEvent, EventDef> = {
   loyalty_reward: { label: "Prêmio do cartão fidelidade", description: "Quando o cliente completa o cartão.", audience: "customer", fields: ["first_name", "customer_name", "store_name", "reward"] },
   store_new_sale: { label: "Nova venda (para o lojista)", description: "Para o WhatsApp da loja, a cada venda paga.", audience: "store", fields: ["store_name", "customer_name", "customer_phone", "order_code", "total", "items", "link"] },
   store_new_booking: { label: "Novo agendamento (para o lojista)", description: "Para o WhatsApp da loja, a cada agendamento novo.", audience: "store", fields: ["store_name", "customer_name", "customer_phone", "service", "professional", "date", "time", "link"] },
+  campaign: {
+    label: "Campanha (novidades e promoções)",
+    description: "Enviada pelo lojista em Painel → Campanhas, só para quem aceitou receber. Categoria Marketing na Meta.",
+    audience: "optin",
+    fields: ["first_name", "customer_name", "store_name", "campaign_text", "link", "coupon_code", "optout_link"],
+  },
 };
 
 export const WA_EVENT_KEYS = Object.keys(WA_EVENTS) as WaEvent[];
+// Eventos automáticos (a loja escolhe quais usa); a campanha é controlada pela cota.
+export const WA_AUTO_EVENTS = WA_EVENT_KEYS.filter((e) => WA_EVENTS[e].audience !== "optin");
 export const isWaEvent = (v: unknown): v is WaEvent => typeof v === "string" && v in WA_EVENTS;
 export const isWaField = (v: unknown): v is WaField => typeof v === "string" && v in WA_FIELDS;
 
@@ -90,11 +106,11 @@ export function buildParams(mapping: WaField[], data: Partial<Record<WaField, st
   return mapping.map((f) => (data[f] ?? "").replace(/[\n\t]+/g, " ").replace(/ {5,}/g, "    ").trim() || "-");
 }
 
-// Prévia: o corpo com os exemplos de cada dado no lugar das variáveis.
-export function previewText(body: string, mapping: WaField[]) {
+// Prévia: o corpo com os exemplos de cada dado no lugar das variáveis (ou com os dados informados).
+export function previewText(body: string, mapping: WaField[], data: Partial<Record<WaField, string>> = {}) {
   return body.replace(/\{\{(\d+)\}\}/g, (all, n) => {
     const f = mapping[Number(n) - 1];
-    return f ? WA_FIELDS[f].sample : all;
+    return f ? (data[f] ?? WA_FIELDS[f].sample) : all;
   });
 }
 
@@ -158,6 +174,11 @@ export const WA_SUGGESTIONS: Record<WaEvent, { name: string; body: string; param
     name: "novo_agendamento_loja",
     body: "Novo agendamento na {{1}}: {{2}} com {{3}}, {{4}} às {{5}}. Cliente: {{6}} ({{7}}). Veja no painel.",
     params: ["store_name", "service", "professional", "date", "time", "customer_name", "customer_phone"],
+  },
+  campaign: {
+    name: "campanha_loja",
+    body: "Olá, {{1}}! Novidade da {{2}}: {{3}} Confira em {{4}} . Para não receber mais estas mensagens, acesse {{5}} e confirme.",
+    params: ["first_name", "store_name", "campaign_text", "link", "optout_link"],
   },
 };
 

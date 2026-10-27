@@ -1,6 +1,9 @@
 import Link from "next/link";
 import { requireStore } from "@/lib/panel";
 import { qrSvg, storeQrTargets } from "@/lib/qr";
+import { readBioLinks } from "@/lib/bio-links";
+import { LinkShare } from "../links/link-share";
+import { BioForm } from "./bio-form";
 
 export const metadata = { title: "Divulgar · PMS app" };
 
@@ -11,6 +14,10 @@ export default async function PromotePage() {
   const { supabase, store } = await requireStore();
   const targets = await storeQrTargets(supabase, store.id);
   const svgs = await Promise.all(targets.map((t) => qrSvg(t.url)));
+  // Página de links da bio: colunas do SQL 20261120000000 (sem elas, a seção avisa).
+  const { data: bio, error: bioError } = await supabase.from("stores").select("bio_text, bio_links").eq("id", store.id).maybeSingle();
+  const base = targets.find((t) => t.kind === "loja")?.url;
+  const bioUrl = base ? `${base}/links` : null;
 
   return (
     <div className="space-y-6">
@@ -41,6 +48,29 @@ export default async function PromotePage() {
             </section>
           ))}
         </div>
+      )}
+
+      {bioUrl && (
+        <section className="space-y-4 rounded-xl border bg-white p-5 shadow-sm">
+          <div>
+            <h2 className="font-medium">Link para a bio do Instagram</h2>
+            <p className="mt-1 text-sm text-neutral-600">
+              Uma página com os caminhos da sua loja em botões grandes (comprar, agendar, pacotes, WhatsApp), os seus links extras e alguns produtos em
+              destaque. Cole no campo &quot;Site&quot; do perfil do Instagram, do TikTok ou do Google.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <a href={bioUrl} target="_blank" rel="noopener noreferrer" className="break-all font-mono text-sm font-medium text-primary-700 hover:underline">
+              {bioUrl.replace(/^https?:\/\//, "")}
+            </a>
+            <LinkShare url={bioUrl} whatsappText={`Conheça a ${store.name}: ${bioUrl}`} compact />
+          </div>
+          {bioError ? (
+            <p className="text-sm text-amber-700">A página já funciona. Para escrever uma frase e incluir links extras, rode o SQL 20261120000000_pagina_de_links.sql.</p>
+          ) : (
+            <BioForm text={bio?.bio_text ?? ""} links={readBioLinks(bio?.bio_links)} />
+          )}
+        </section>
       )}
 
       <section className="rounded-xl border bg-white p-5 text-sm text-neutral-600 shadow-sm">

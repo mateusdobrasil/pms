@@ -104,6 +104,20 @@ describe("recordPayment", () => {
     expect(calls.map((c) => `${c.table}:${c.op}`)).toEqual(["payments:upsert", "confirm_order_payment:rpc"]);
   });
 
+  it("com cupom: os dois valores já saem com o cupom; no Pix, o desconto total soma cupom e Pix", async () => {
+    // Produtos 79,90 − cupom 10,00 = 69,90; Pix 10% sobre 69,90 = 6,99; frete 10,00.
+    const withCoupon = { ...order, coupon_discount_cents: 1000, pix_discount_cents: 699 };
+    expect(amountFor(withCoupon, "card")).toBe(7990 + 1000 - 1000);
+    expect(amountFor(withCoupon, "pix")).toBe(7990 + 1000 - 1000 - 699);
+    const { db, calls } = fakeDb();
+    expect(await recordPayment(db, withCoupon, payment({ amountCents: 7291 }))).toBe(true);
+    const update = calls.find((c) => c.table === "orders")!;
+    expect(update.values).toEqual({ total_cents: 7291, discount_cents: 1699 });
+    expect(update.filters).toContainEqual(["discount_cents", 1000]); // só se ainda tinha só o cupom
+    // Cartão pelo valor sem cupom é recusado.
+    expect(await recordPayment(fakeDb().db, withCoupon, payment({ method: "card", amountCents: 8990 }))).toBe(false);
+  });
+
   it("pagamento pendente: só registra, não confirma", async () => {
     const { db, calls } = fakeDb();
     await recordPayment(db, order, payment({ status: "pending" }));

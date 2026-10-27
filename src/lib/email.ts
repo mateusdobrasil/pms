@@ -13,6 +13,8 @@ import type { Report } from "@/lib/monthly-report";
 import { progressText } from "@/lib/loyalty";
 import { customerStamps, getLoyaltyConfig } from "@/lib/loyalty-data";
 import { bookingFields, orderFields } from "@/lib/whatsapp-events";
+import { type OrderCoupon, discountLines } from "@/lib/coupons";
+import { orderCoupon } from "@/lib/coupons-server";
 import { sendWhatsappEvent } from "@/lib/whatsapp-send";
 
 // E-mails transacionais via API do Resend. Sem RESEND_API_KEY, só registra no log (dev).
@@ -99,6 +101,7 @@ type OrderForEmail = {
   stock_issue: boolean;
   stores: { name: string; email: string | null; whatsapp: string | null; primary_color: string; store_domains: { domain: string; is_primary: boolean }[] };
   order_items: { product_name: string; variant_name: string; unit_price_cents: number; quantity: number }[];
+  coupon?: OrderCoupon;
 };
 
 async function loadOrder(orderId: string) {
@@ -109,7 +112,9 @@ async function loadOrder(orderId: string) {
     )
     .eq("id", orderId)
     .single();
-  return data as unknown as OrderForEmail | null;
+  const o = data as unknown as OrderForEmail | null;
+  if (o?.discount_cents) o.coupon = await orderCoupon(createAdminClient(), o.id);
+  return o;
 }
 
 function orderUrl(o: OrderForEmail) {
@@ -983,10 +988,10 @@ function itemsTable(o: OrderForEmail) {
   const shippingLabel = o.shipping_method === "pickup" ? "Retirada na loja" : esc(o.shipping_method);
   return `<table style="width:100%;border-collapse:collapse;font-size:14px">${rows}
     <tr><td style="padding:8px 0;color:#525252">Subtotal</td><td style="padding:8px 0;text-align:right">${formatBRL(o.subtotal_cents)}</td></tr>
-    ${isPaymentLink(o.shipping_method) || isPackagePurchase(o.shipping_method) ? "" : `<tr><td style="padding:0 0 8px;color:#525252">${shippingLabel}</td><td style="padding:0 0 8px;text-align:right">${o.shipping_cents ? formatBRL(o.shipping_cents) : "Grátis"}</td></tr>`}${
-      o.discount_cents ? `
-    <tr><td style="padding:0 0 8px;color:#047857">Desconto Pix</td><td style="padding:0 0 8px;text-align:right;color:#047857">−${formatBRL(o.discount_cents)}</td></tr>` : ""
-    }
+    ${isPaymentLink(o.shipping_method) || isPackagePurchase(o.shipping_method) ? "" : `<tr><td style="padding:0 0 8px;color:#525252">${shippingLabel}</td><td style="padding:0 0 8px;text-align:right">${o.shipping_cents ? formatBRL(o.shipping_cents) : "Grátis"}</td></tr>`}${discountLines(o.discount_cents, o.coupon ?? null)
+      .map((d) => `
+    <tr><td style="padding:0 0 8px;color:#047857">${esc(d.label)}</td><td style="padding:0 0 8px;text-align:right;color:#047857">−${formatBRL(d.cents)}</td></tr>`)
+      .join("")}
     <tr><td style="padding:8px 0;border-top:2px solid #171717;font-weight:bold">Total</td><td style="padding:8px 0;border-top:2px solid #171717;text-align:right;font-weight:bold">${formatBRL(o.total_cents)}</td></tr>
   </table>`;
 }

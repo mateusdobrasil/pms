@@ -7,6 +7,7 @@ import { clearCart, readCart } from "@/lib/cart";
 import { formatBRL } from "@/lib/money";
 import { trackBeginCheckout } from "@/lib/tracking";
 import { type CheckoutPrefill, takePrefill } from "@/lib/checkout-prefill";
+import { forgetCoupon, savedCoupon } from "@/lib/coupon-link";
 
 type Option = {
   id: string;
@@ -25,6 +26,9 @@ type Quote = {
   problems: string[];
   pixDiscountPercent?: number;
   freeShippingMinCents?: number | null;
+  coupon?: { code: string; label: string; discountCents: number };
+  couponError?: string;
+  whatsappOptIn?: boolean; // a loja oferece novidades pelo WhatsApp
 };
 type Address = { street: string; number: string; complement: string; district: string; city: string; state: string };
 
@@ -32,13 +36,15 @@ const EMPTY_ADDRESS: Address = { street: "", number: "", complement: "", distric
 const inputClass = "w-full rounded-lg border px-3 py-2.5 text-sm";
 const digits = (s: string) => s.replace(/\D/g, "");
 
-async function fetchQuote(zip: string | null): Promise<Quote> {
+async function fetchQuote(zip: string | null, coupon: string | null): Promise<Quote> {
   const res = await fetch("/api/cart/quote", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ items: readCart(), zip }),
+    body: JSON.stringify({ items: readCart(), zip, coupon }),
   });
-  return res.json();
+  const data = await res.json();
+  if (!res.ok) throw new Error(data?.error ?? "Não foi possível atualizar o resumo.");
+  return data;
 }
 
 export function CheckoutForm() {
@@ -53,16 +59,47 @@ export function CheckoutForm() {
   const [submitting, setSubmitting] = useState(false);
   const [prefill, setPrefill] = useState<CheckoutPrefill | null>(null); // "Refazer pedido" de um pedido expirado
   const requestId = useRef(0); // ignora respostas de CEPs antigos
+  // Cupom: o código conferido pelo servidor (ref: as cotações de CEP usam sempre o atual).
+  const couponRef = useRef<string | null>(null);
+  const [couponInput, setCouponInput] = useState("");
+  const [couponError, setCouponError] = useState<string | null>(null);
+  const [couponLoading, setCouponLoading] = useState(false);
 
   function applyQuote(q: Quote) {
     setQuote(q);
     if (q.lines.length === 0) setEmpty(true);
     // Mantém a opção escolhida se ela ainda existir; senão, a primeira (a mais barata).
     setShippingId((current) => (q.shippingOptions.some((o) => o.id === current) ? current : (q.shippingOptions[0]?.id ?? "")));
+    // Cupom que deixou de valer (ex.: o carrinho ficou abaixo do mínimo): sai do pedido, com o motivo.
+    if (q.couponError) {
+      couponRef.current = null;
+      setCouponError(q.couponError);
+      forgetCoupon();
+    }
+  }
+
+  async function applyCoupon(code: string | null) {
+    setCouponLoading(true);
+    setCouponError(null);
+    couponRef.current = code;
+    const zip = digits(cep);
+    const q = await fetchQuote(zip.length === 8 ? zip : null, code).catch((err: Error) => {
+      setCouponError(err.message);
+      couponRef.current = null;
+      return null;
+    });
+    if (q) {
+      applyQuote(q);
+      if (q.coupon) setCouponInput("");
+      if (!code || !q.coupon) forgetCoupon();
+    }
+    setCouponLoading(false);
   }
 
   useEffect(() => {
-    fetchQuote(null)
+    // Cupom vindo de um link da loja (?cupom=): já entra na primeira cotação.
+    couponRef.current = savedCoupon();
+    fetchQuote(null, couponRef.current)
       .then((q) => {
         applyQuote(q);
         if (q.lines.length) {
@@ -96,7 +133,7 @@ export function CheckoutForm() {
       fetch(`https://viacep.com.br/ws/${zip}/json/`)
         .then((r) => r.json())
         .catch(() => null),
-      fetchQuote(zip).catch(() => null),
+      fetchQuote(zip, couponRef.current).catch(() => null),
     ]);
     if (id !== requestId.current) return;
 
@@ -133,6 +170,7 @@ export function CheckoutForm() {
       body: JSON.stringify({
         items: readCart(),
         shippingOptionId: shippingId,
+        coupon: quote?.coupon?.code ?? null,
         address: option?.requiresAddress ? { ...address, cep: digits(cep) } : null,
         customer: {
           name: form.get("name"),
@@ -140,6 +178,7 @@ export function CheckoutForm() {
           cpf: form.get("cpf"),
           phone: form.get("phone"),
         },
+        whatsappOptIn: form.get("whatsapp_optin") === "on",
       }),
     }).catch(() => null);
     const data = await res?.json().catch(() => null);
@@ -150,6 +189,7 @@ export function CheckoutForm() {
       return;
     }
     clearCart();
+    forgetCoupon();
     router.push(`/pedido/${data.token}`);
   }
 
@@ -163,10 +203,12 @@ export function CheckoutForm() {
   if (!quote) return <p className="text-neutral-600">{errors[0] ?? "Carregando…"}</p>;
 
   const shipping = quote.shippingOptions.find((o) => o.id === shippingId);
-  const total = quote.subtotalCents + (shipping?.priceCents ?? 0);
+  const couponCents = quote.coupon?.discountCents ?? 0;
+  const total = quote.subtotalCents - couponCents + (shipping?.priceCents ?? 0);
   const blocked = quote.problems.length > 0;
-  // Mesmas contas do servidor (lib/promotions): só exibição; o pedido é recalculado lá.
-  const pixDiscount = quote.pixDiscountPercent ? Math.floor((quote.subtotalCents * quote.pixDiscountPercent) / 100) : 0;
+  // Mesmas contas do servidor (lib/promotions e lib/orders): só exibição; o pedido é recalculado lá.
+  // O Pix desconta sobre os produtos já com o cupom.
+  const pixDiscount = quote.pixDiscountPercent ? Math.floor(((quote.subtotalCents - couponCents) * quote.pixDiscountPercent) / 100) : 0;
   const pickupOnly = quote.shippingNeedsZip === false;
   const missingForFreeShipping =
     quote.freeShippingMinCents && !pickupOnly ? Math.max(0, quote.freeShippingMinCents - quote.subtotalCents) : 0;
@@ -209,6 +251,12 @@ export function CheckoutForm() {
           <input name="cpf" required inputMode="numeric" placeholder="CPF" autoFocus={!!prefill} className={inputClass} />
           <input name="phone" type="tel" required autoComplete="tel" placeholder="Celular com DDD" defaultValue={prefill?.phone} className={inputClass} />
         </div>
+        {quote.whatsappOptIn && (
+          <label className="flex items-start gap-2 text-sm text-neutral-700">
+            <input type="checkbox" name="whatsapp_optin" className="mt-0.5" />
+            <span>Quero receber novidades e promoções da loja pelo WhatsApp (dá para sair quando quiser).</span>
+          </label>
+        )}
       </section>
 
       <section className="space-y-3">
@@ -283,8 +331,51 @@ export function CheckoutForm() {
         )}
       </section>
 
+      <section className="space-y-2 text-sm">
+        <h2 className="font-semibold">Cupom de desconto</h2>
+        {quote.coupon ? (
+          <p className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-emerald-50 px-4 py-3 text-emerald-900">
+            <span>
+              <strong>{quote.coupon.code}</strong> · {quote.coupon.label}
+            </span>
+            <button type="button" onClick={() => applyCoupon(null)} disabled={couponLoading} className="text-xs font-medium underline">
+              Remover
+            </button>
+          </p>
+        ) : (
+          <div className="flex gap-2">
+            <input
+              value={couponInput}
+              onChange={(e) => setCouponInput(e.target.value.toUpperCase())}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  if (couponInput.trim()) applyCoupon(couponInput.trim());
+                }
+              }}
+              placeholder="Tem um cupom?"
+              aria-label="Cupom de desconto"
+              autoCapitalize="characters"
+              className="w-full max-w-xs rounded-lg border px-3 py-2.5 text-sm uppercase"
+            />
+            <button
+              type="button"
+              onClick={() => applyCoupon(couponInput.trim())}
+              disabled={!couponInput.trim() || couponLoading}
+              className="rounded-lg border px-4 py-2.5 text-sm font-medium transition hover:border-neutral-400 disabled:opacity-50"
+            >
+              {couponLoading ? "Conferindo…" : "Aplicar"}
+            </button>
+          </div>
+        )}
+        {couponError && <p className="text-red-700">{couponError}</p>}
+      </section>
+
       <section className="space-y-1 border-t pt-4 text-sm">
         <p className="flex justify-between"><span>Subtotal</span><span>{formatBRL(quote.subtotalCents)}</span></p>
+        {couponCents > 0 && (
+          <p className="flex justify-between text-emerald-700"><span>Cupom {quote.coupon?.code}</span><span>−{formatBRL(couponCents)}</span></p>
+        )}
         <p className="flex justify-between"><span>Entrega</span><span>{shipping?.priceCents ? formatBRL(shipping.priceCents) : "Grátis"}</span></p>
         <p className="flex justify-between text-base font-semibold"><span>Total</span><span>{formatBRL(total)}</span></p>
         {pixDiscount > 0 && (

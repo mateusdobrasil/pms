@@ -9,6 +9,7 @@ import { canSelfManage, formatTime, onlineCents, parseTime, type PaymentMode } f
 import { toWhatsappNumber, whatsappConnected } from "@/lib/whatsapp";
 import { bookingFields } from "@/lib/whatsapp-events";
 import { eventTemplate, sendWhatsappEvent } from "@/lib/whatsapp-send";
+import { recordOptIn } from "@/lib/whatsapp-campaigns-server";
 import { storeBaseUrl } from "@/lib/urls";
 import { type Interval, bookingDays, dayStartMs, daySlots, instantOf, mergeSlots, weekdayOf } from "@/lib/booking-slots";
 import { addDays, todayBR } from "@/lib/billing";
@@ -157,6 +158,7 @@ export type BookingInput = {
   phone: string;
   cpf: string;
   notes: string;
+  whatsappOptIn?: boolean; // marcou "quero receber novidades pelo WhatsApp"
 };
 
 // Cria a reserva. Sem pagamento online, já fica confirmada; com pagamento, segura o horário por 30 min.
@@ -244,6 +246,7 @@ export async function createBooking(db: Db, storeId: string, input: BookingInput
       await leaveWaitlist(db, data.id);
     });
   }
+  if (input.whatsappOptIn) await recordOptIn(db, storeId, { phone, name, source: "agenda" });
   return { token: data.public_token };
 }
 

@@ -3,6 +3,8 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Store } from "@/lib/store";
 import { getShippingOptions } from "@/lib/shipping";
 import { getPromotions, pixDiscountCents } from "@/lib/promotions";
+import { type AppliedCoupon, applyCoupon } from "@/lib/coupons-server";
+import { recordOptIn } from "@/lib/whatsapp-campaigns-server";
 import { isEmail, isUuid, isValidCPF, onlyDigits } from "@/lib/validation";
 
 export type CartItemInput = { variantId: string; quantity: number };
@@ -182,8 +184,18 @@ export async function createOrder(db: SupabaseClient, store: Store, body: unknow
   const shipping = options.find((o) => o.id === b.shippingOptionId);
   if (!shipping) return { ok: false, errors: ["A forma de entrega escolhida não está mais disponível. Recalcule o frete."] };
 
+  // Cupom: conferido de novo aqui (validade, mínimo, limite e 1 uso por CPF); o desconto vale só para os produtos.
+  let coupon: AppliedCoupon | null = null;
+  if (b.coupon) {
+    const applied = await applyCoupon(db, store.id, b.coupon, subtotalCents, customer.cpf);
+    if (!applied.ok) return { ok: false, errors: [`Cupom: ${applied.error} Remova o cupom para continuar sem ele.`] };
+    coupon = applied.coupon;
+  }
+  const couponCents = coupon?.discountCents ?? 0;
+
   // Desconto do Pix fica gravado no pedido: o valor do Pix não muda se a loja alterar o percentual depois.
-  const pixDiscount = pixDiscountCents(subtotalCents, (await getPromotions(store.id)).pixDiscountPercent);
+  // Com cupom, o Pix desconta sobre os produtos já com o cupom.
+  const pixDiscount = pixDiscountCents(subtotalCents - couponCents, (await getPromotions(store.id)).pixDiscountPercent);
 
   const { data: order, error } = await db
     .from("orders")
@@ -198,8 +210,9 @@ export async function createOrder(db: SupabaseClient, store: Store, body: unknow
       shipping_service_id: shipping.id.startsWith("me:") ? shipping.id.slice(3) : null, // retirada e entrega própria: sem serviço
       subtotal_cents: subtotalCents,
       shipping_cents: shipping.priceCents,
-      total_cents: subtotalCents + shipping.priceCents,
+      total_cents: subtotalCents + shipping.priceCents - couponCents,
       ...(pixDiscount > 0 ? { pix_discount_cents: pixDiscount } : {}),
+      ...(coupon ? { coupon_id: coupon.id, coupon_code: coupon.code, coupon_discount_cents: couponCents, discount_cents: couponCents } : {}),
       expires_at: new Date(Date.now() + ORDER_TTL_MINUTES * 60_000).toISOString(),
     })
     .select("id, public_token")
@@ -221,6 +234,9 @@ export async function createOrder(db: SupabaseClient, store: Store, body: unknow
     await db.from("orders").delete().eq("id", order.id);
     throw itemsErr;
   }
+
+  // Marcou "quero receber novidades pelo WhatsApp": vale como aceite mesmo que não pague.
+  if (b.whatsappOptIn === true) await recordOptIn(db, store.id, { phone: customer.phone, name: customer.name, source: "checkout" });
 
   return { ok: true, token: order.public_token };
 }

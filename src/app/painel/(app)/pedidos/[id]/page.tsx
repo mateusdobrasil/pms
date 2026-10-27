@@ -10,6 +10,8 @@ import { FEE_FIELDS, feePercent, paymentFees } from "@/lib/payments/fees";
 import { isPaymentLink } from "@/lib/payment-links";
 import { COUNTER_PAYMENTS, type CounterPayment, isCounterSale } from "@/lib/counter";
 import { isPackagePurchase } from "@/lib/packages";
+import { discountLines } from "@/lib/coupons";
+import { orderCoupon } from "@/lib/coupons-server";
 import { CancelSale } from "../../vender/cancel-sale";
 import { emailStatusLabel, isProblem } from "@/lib/resend-webhook";
 
@@ -58,6 +60,7 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
     .maybeSingle();
   if (!data) notFound();
   const order = data as Order;
+  const coupon = order.discount_cents > 0 ? await orderCoupon(supabase, order.id) : null;
   const isPickup = order.shipping_method === "pickup";
   const fromLink = isPaymentLink(order.shipping_method);
   // Venda no balcão: forma de pagamento lida à parte (coluna do SQL 20261114000000).
@@ -153,9 +156,9 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
                   <span>{formatBRL(order.shipping_cents)}</span>
                 </p>
               )}
-              {order.discount_cents > 0 && (
-                <p className="flex justify-between text-emerald-700"><span>{counter ? "Desconto" : "Desconto Pix"}</span><span>−{formatBRL(order.discount_cents)}</span></p>
-              )}
+              {discountLines(order.discount_cents, coupon, counter ? "Desconto" : "Desconto Pix").map((d) => (
+                <p key={d.label} className="flex justify-between text-emerald-700"><span>{d.label}</span><span>−{formatBRL(d.cents)}</span></p>
+              ))}
               <p className="flex justify-between font-semibold"><span>Total</span><span>{formatBRL(order.total_cents)}</span></p>
             </div>
             {fees && (

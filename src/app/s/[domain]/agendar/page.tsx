@@ -9,6 +9,7 @@ import { todayBR } from "@/lib/billing";
 import { isUuid } from "@/lib/validation";
 import { BookingWizard } from "./booking-wizard";
 import { packagesForSale } from "@/lib/packages-server";
+import { campaignsOffered } from "@/lib/whatsapp-campaigns-server";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Agendar horário" };
@@ -58,6 +59,7 @@ export default async function BookPage({ params, searchParams }: { params: Promi
           days={bookingDays(todayBR(), settings.maxDays)}
           whatsapp={store.whatsapp}
           packageServiceIds={[...new Set(forSale.map((p) => p.service_id))]}
+          whatsappOptIn={await campaignsOffered(db, store.id)}
         />
       )}
     </div>

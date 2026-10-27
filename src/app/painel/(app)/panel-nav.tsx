@@ -10,6 +10,7 @@ const LINKS = [
   { href: "/painel/links", label: "Links de pagamento" },
   { href: "/painel/clientes", label: "Clientes" },
   { href: "/painel/divulgar", label: "Divulgar" },
+  { href: "/painel/cupons", label: "Cupons" },
   { href: "/painel/produtos", label: "Produtos" },
   { href: "/painel/categorias", label: "Categorias" },
   { href: "/painel/configuracoes", label: "Configurações" },
@@ -17,10 +18,15 @@ const LINKS = [
   { href: "/painel/ajuda", label: "Ajuda" },
 ];
 
-// "Agenda" aparece para quem usa agendamentos (ou já está montando a agenda).
-export function PanelNav({ agenda = false }: { agenda?: boolean }) {
+// "Agenda" aparece para quem usa agendamentos (ou já está montando a agenda); "Campanhas", para loja com cota de
+// campanhas no WhatsApp (depois de "Cupons").
+export function PanelNav({ agenda = false, campaigns = false }: { agenda?: boolean; campaigns?: boolean }) {
   const pathname = usePathname();
-  const links = agenda || pathname.startsWith("/painel/agenda") ? [...LINKS.slice(0, 3), { href: "/painel/agenda", label: "Agenda" }, ...LINKS.slice(3)] : LINKS;
+  let links = agenda || pathname.startsWith("/painel/agenda") ? [...LINKS.slice(0, 3), { href: "/painel/agenda", label: "Agenda" }, ...LINKS.slice(3)] : LINKS;
+  if (campaigns || pathname.startsWith("/painel/campanhas")) {
+    const at = links.findIndex((l) => l.href === "/painel/cupons") + 1;
+    links = [...links.slice(0, at), { href: "/painel/campanhas", label: "Campanhas" }, ...links.slice(at)];
+  }
   return (
     <nav className="flex gap-1 overflow-x-auto text-sm">
       {links.map((l) => {

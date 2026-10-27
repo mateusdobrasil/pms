@@ -116,14 +116,16 @@ export default async function WhatsappAdminPage() {
         <div>
           <h2 className="text-lg font-semibold">Modelos</h2>
           <p className="text-sm text-neutral-600">
-            Para cada evento: cadastre o template no WhatsApp Manager → Modelos de mensagem (categoria <strong>Utilidade</strong>, Português (BR); há um texto sugerido em
-            cada um), espere a aprovação e escolha aqui, ligando cada variável a um dado. Evento sem modelo não envia nada.
+            Para cada evento: cadastre o template no WhatsApp Manager → Modelos de mensagem (categoria <strong>Utilidade</strong>; a campanha, <strong>Marketing</strong>;
+            Português (BR); há um texto sugerido em cada um), espere a aprovação e escolha aqui, ligando cada variável a um dado. Evento sem modelo não envia nada.
           </p>
           {cfgError && <p className="mt-2 text-sm text-amber-700">Rode o SQL <code>20261119000000_whatsapp_eventos.sql</code> para salvar modelos.</p>}
         </div>
-        {(["customer", "store"] as const).map((audience) => (
+        {(["customer", "store", "optin"] as const).map((audience) => (
           <div key={audience} className="space-y-2">
-            <h3 className="text-sm font-semibold uppercase tracking-wide text-neutral-500">{audience === "customer" ? "Para o cliente" : "Para o lojista (WhatsApp da loja)"}</h3>
+            <h3 className="text-sm font-semibold uppercase tracking-wide text-neutral-500">
+              {{ customer: "Para o cliente", store: "Para o lojista (WhatsApp da loja)", optin: "Campanhas (marketing, só para quem aceitou receber)" }[audience]}
+            </h3>
             {WA_EVENT_KEYS.filter((e) => WA_EVENTS[e].audience === audience).map((e) => {
               const cfg = configs.get(e) ?? null;
               const legacy = !cfg && e === "booking_reminder" && legacyReminder ? legacyReminder : null;
