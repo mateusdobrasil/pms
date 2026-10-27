@@ -10,6 +10,7 @@ import { toWhatsappNumber, whatsappConnected } from "@/lib/whatsapp";
 import { bookingFields } from "@/lib/whatsapp-events";
 import { eventTemplate, sendWhatsappEvent } from "@/lib/whatsapp-send";
 import { recordOptIn } from "@/lib/whatsapp-campaigns-server";
+import { recordBirthday } from "@/lib/birthday-server";
 import { type AppliedCoupon, applyCoupon } from "@/lib/coupons-server";
 import { storeBaseUrl } from "@/lib/urls";
 import { type Interval, bookingDays, dayStartMs, daySlots, instantOf, mergeSlots, weekdayOf } from "@/lib/booking-slots";
@@ -161,6 +162,7 @@ export type BookingInput = {
   notes: string;
   whatsappOptIn?: boolean; // marcou "quero receber novidades pelo WhatsApp"
   coupon?: string | null;
+  birthday?: string | null; // dd/mm, opcional (cupom de aniversário)
 };
 
 // Cria a reserva. Sem pagamento online, já fica confirmada; com pagamento, segura o horário por 30 min.
@@ -259,6 +261,7 @@ export async function createBooking(db: Db, storeId: string, input: BookingInput
     });
   }
   if (input.whatsappOptIn) await recordOptIn(db, storeId, { phone, name, source: "agenda" });
+  if (input.birthday) await recordBirthday(db, storeId, { name, email, phone, birthday: input.birthday });
   return { token: data.public_token };
 }
 

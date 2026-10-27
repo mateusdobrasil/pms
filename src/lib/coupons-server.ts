@@ -6,6 +6,9 @@ export const COUPON_FIELDS = "id, code, kind, value, min_subtotal_cents, starts_
 
 // Cupons com a coluna applies_to (SQL 20261121000000); sem ela, lê sem (o cupom vale em tudo).
 export async function selectCoupons(build: (fields: string) => PromiseLike<{ data: unknown; error: { code?: string } | null }>) {
+  // origin (SQL 20261122000000): cupons pessoais de aniversário, fora da lista principal do painel.
+  const full = await build(`${COUPON_FIELDS}, applies_to, origin`);
+  if (full.error?.code !== "42703") return full;
   const first = await build(`${COUPON_FIELDS}, applies_to`);
   return first.error?.code === "42703" ? build(COUPON_FIELDS) : first;
 }

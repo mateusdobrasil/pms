@@ -23,6 +23,7 @@ export type WaField =
   | "customer_phone"
   | "campaign_text"
   | "coupon_code"
+  | "gift"
   | "optout_link";
 
 export const WA_FIELDS: Record<WaField, { label: string; sample: string }> = {
@@ -41,12 +42,13 @@ export const WA_FIELDS: Record<WaField, { label: string; sample: string }> = {
   shipping: { label: "Forma de entrega", sample: "Correios SEDEX" },
   package_name: { label: "Nome do pacote", sample: "5 × Escova" },
   sessions_left: { label: "Sessões restantes", sample: "3" },
-  valid_until: { label: "Validade do pacote", sample: "31/01/2027" },
+  valid_until: { label: "Validade (do pacote ou do cupom)", sample: "31/01/2027" },
   free_times: { label: "Horários livres", sample: "10:00, 14:30" },
   reward: { label: "Prêmio do cartão fidelidade", sample: "1 corte grátis" },
   customer_phone: { label: "Celular do cliente", sample: "(11) 98765-4321" },
   campaign_text: { label: "Texto da campanha (escrito pelo lojista)", sample: "Coleção de verão com 20% de desconto até domingo." },
-  coupon_code: { label: "Cupom da campanha", sample: "VERAO20" },
+  coupon_code: { label: "Código do cupom", sample: "VERAO20" },
+  gift: { label: "Presente (15% de desconto)", sample: "15% de desconto" },
   optout_link: { label: "Link para não receber mais", sample: "https://www.pmsapp.dev/whatsapp/sair/abc" },
 };
 
@@ -62,7 +64,8 @@ export type WaEvent =
   | "loyalty_reward"
   | "store_new_sale"
   | "store_new_booking"
-  | "campaign";
+  | "campaign"
+  | "birthday";
 
 // optin: campanha (marketing), só para quem aceitou receber; enviada pelo lojista, não por um acontecimento.
 type EventDef = { label: string; description: string; audience: "customer" | "store" | "optin"; fields: WaField[] };
@@ -87,6 +90,12 @@ export const WA_EVENTS: Record<WaEvent, EventDef> = {
     description: "Enviada pelo lojista em Painel → Divulgar → Campanhas, só para quem aceitou receber. Categoria Marketing na Meta.",
     audience: "optin",
     fields: ["first_name", "customer_name", "store_name", "campaign_text", "link", "coupon_code", "optout_link"],
+  },
+  birthday: {
+    label: "Cupom de aniversário",
+    description: "No dia do aniversário, para quem informou a data e aceitou novidades. Conta na cota de campanhas. Categoria Marketing.",
+    audience: "optin",
+    fields: ["first_name", "customer_name", "store_name", "gift", "coupon_code", "valid_until", "link", "optout_link"],
   },
 };
 
@@ -179,6 +188,11 @@ export const WA_SUGGESTIONS: Record<WaEvent, { name: string; body: string; param
     name: "campanha_loja",
     body: "Olá, {{1}}! Novidade da {{2}}: {{3}} Confira em {{4}} . Para não receber mais estas mensagens, acesse {{5}} e confirme.",
     params: ["first_name", "store_name", "campaign_text", "link", "optout_link"],
+  },
+  birthday: {
+    name: "cupom_aniversario",
+    body: "Feliz aniversário, {{1}}! 🎉 A {{2}} preparou um presente: {{3}} com o cupom {{4}}, válido até {{5}}. Aproveite em {{6}} . Para não receber mais, acesse {{7}} e confirme.",
+    params: ["first_name", "store_name", "gift", "coupon_code", "valid_until", "link", "optout_link"],
   },
 };
 

@@ -55,7 +55,8 @@ export async function campaignState(db: SupabaseClient, storeId: string): Promis
   const s = store as { whatsapp_reminders: boolean; whatsapp_campaign_quota: number };
   const [cfg, { count: sent }, { count: queued }, { count: audience }, { data: last }] = await Promise.all([
     eventTemplate(db, "campaign"),
-    db.from("whatsapp_messages").select("id", { count: "exact", head: true }).eq("store_id", storeId).not("campaign_id", "is", null).eq("status", "sent").gte("created_at", monthStart()),
+    // Enviadas no mês: campanhas e cupons de aniversário (os dois são marketing e usam a mesma cota).
+    db.from("whatsapp_messages").select("id", { count: "exact", head: true }).eq("store_id", storeId).or("campaign_id.not.is.null,event.eq.birthday").eq("status", "sent").gte("created_at", monthStart()),
     db.from("whatsapp_campaign_recipients").select("id", { count: "exact", head: true }).eq("store_id", storeId).in("status", ["pending", "sending"]),
     db.from("whatsapp_optins").select("id", { count: "exact", head: true }).eq("store_id", storeId).is("opted_out_at", null),
     db.from("whatsapp_campaigns").select("created_at").eq("store_id", storeId).neq("status", "canceled").order("created_at", { ascending: false }).limit(1),

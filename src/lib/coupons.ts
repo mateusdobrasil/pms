@@ -19,6 +19,7 @@ export type Coupon = {
   once_per_customer: boolean;
   active: boolean;
   applies_to?: CouponScope; // SQL 20261121000000 (sem ele, "all")
+  origin?: "manual" | "birthday"; // SQL 20261122000000: cupom pessoal de aniversário
 };
 
 // "  bemvindo10 " → "BEMVINDO10". Inválido → null.

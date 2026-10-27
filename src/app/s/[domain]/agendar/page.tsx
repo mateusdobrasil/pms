@@ -11,6 +11,8 @@ import { BookingWizard } from "./booking-wizard";
 import { packagesForSale } from "@/lib/packages-server";
 import { campaignsOffered } from "@/lib/whatsapp-campaigns-server";
 import { hasActiveCoupons } from "@/lib/coupons-server";
+import { getBirthdayConfig } from "@/lib/birthday-server";
+import { birthdayGift } from "@/lib/birthday";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Agendar horário" };
@@ -62,6 +64,7 @@ export default async function BookPage({ params, searchParams }: { params: Promi
           packageServiceIds={[...new Set(forSale.map((p) => p.service_id))]}
           whatsappOptIn={await campaignsOffered(db, store.id)}
           withCoupon={!reschedule && (await hasActiveCoupons(db, store.id, "services"))}
+          birthdayGift={await getBirthdayConfig(db, store.id).then((c) => (c?.enabled ? birthdayGift(c) : null))}
         />
       )}
     </div>

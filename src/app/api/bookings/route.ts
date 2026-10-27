@@ -41,6 +41,7 @@ export async function POST(req: Request) {
     notes: String(b.notes ?? ""),
     whatsappOptIn: b.whatsappOptIn === true,
     coupon: typeof b.coupon === "string" && b.coupon.trim() ? b.coupon : null,
+    birthday: typeof b.birthday === "string" ? b.birthday : null,
   });
   if ("error" in result) return NextResponse.json({ error: result.error }, { status: 409 });
   return NextResponse.json({ token: result.token }, { status: 201 });

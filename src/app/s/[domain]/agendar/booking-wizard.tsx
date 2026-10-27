@@ -65,6 +65,7 @@ export function BookingWizard({
   packageServiceIds = [],
   whatsappOptIn = false,
   withCoupon = false,
+  birthdayGift = null,
 }: {
   services: Service[];
   professionals: Professional[];
@@ -76,6 +77,7 @@ export function BookingWizard({
   packageServiceIds?: string[]; // serviços com pacote à venda (quem tem pacote agenda sem sinal)
   whatsappOptIn?: boolean; // a loja oferece novidades pelo WhatsApp (caixa de aceite, desmarcada)
   withCoupon?: boolean; // a loja tem cupom que vale na agenda (campo opcional, conferido no servidor)
+  birthdayGift?: string | null; // a loja dá presente de aniversário ("15% de desconto")
 }) {
   const router = useRouter();
   const [serviceId, setServiceId] = useState<string | null>(reschedule?.serviceId ?? initialServiceId ?? (services.length === 1 ? services[0].id : null));
@@ -178,6 +180,7 @@ export function BookingWizard({
         notes: f.get("notes") ?? "",
         whatsappOptIn: f.get("whatsapp_optin") === "on",
         coupon: String(f.get("coupon") ?? "").trim() || null,
+        birthday: String(f.get("birthday") ?? "").trim() || null,
       }),
     }).catch(() => null);
     const data = (await res?.json().catch(() => null)) as { token?: string; error?: string } | null;
@@ -307,6 +310,19 @@ export function BookingWizard({
               <p className="text-xs text-neutral-600">Tem pacote deste serviço? Use o <strong>mesmo celular do pacote</strong>: o sinal não é cobrado e a sessão é descontada no atendimento.</p>
             )}
             <textarea name="notes" rows={2} maxLength={500} placeholder="Observação para o salão (opcional)" className={input} />
+            {birthdayGift && (
+              <label className="block space-y-1 text-sm">
+                <input
+                  name="birthday"
+                  inputMode="numeric"
+                  maxLength={5}
+                  placeholder="Seu aniversário (dd/mm, opcional)"
+                  onChange={(e) => (e.target.value = e.target.value.replace(/\D/g, "").slice(0, 4).replace(/^(\d{2})(\d)/, "$1/$2"))}
+                  className={input}
+                />
+                <span className="block text-xs text-neutral-500">🎁 No dia do seu aniversário, você ganha {birthdayGift}.</span>
+              </label>
+            )}
             {withCoupon && (
               <input ref={fillSavedCoupon} name="coupon" placeholder="Cupom de desconto (opcional)" aria-label="Cupom de desconto" autoCapitalize="characters" className={`${input} uppercase`} />
             )}

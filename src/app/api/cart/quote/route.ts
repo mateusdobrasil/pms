@@ -8,6 +8,8 @@ import { getPromotions } from "@/lib/promotions";
 import { applyCoupon } from "@/lib/coupons-server";
 import { rateLimit } from "@/lib/rate-limit";
 import { campaignsOffered } from "@/lib/whatsapp-campaigns-server";
+import { getBirthdayConfig } from "@/lib/birthday-server";
+import { birthdayGift } from "@/lib/birthday";
 
 // Recalcula o carrinho (preços atuais, estoque) e, com CEP, cota o frete.
 export async function POST(req: Request) {
@@ -25,13 +27,14 @@ export async function POST(req: Request) {
     const limited = await rateLimit(req, store.id, "coupon");
     if (limited) return limited;
   }
-  const [shipping, promotions, coupon, whatsappOptIn] = await Promise.all([
+  const [shipping, promotions, coupon, whatsappOptIn, birthday] = await Promise.all([
     lines.length
       ? getShippingOptions(store, lines, zip)
       : getShippingSettings(store.id).then((s) => ({ options: [], error: null, needsZip: shippingNeedsZip(s) })),
     getPromotions(store.id),
     body?.coupon && lines.length ? applyCoupon(createAdminClient(), store.id, body.coupon, subtotalCents) : null,
     campaignsOffered(createAdminClient(), store.id), // caixa "quero receber novidades no WhatsApp"
+    getBirthdayConfig(createAdminClient(), store.id), // campo do aniversário (cupom de presente)
   ]);
 
   return NextResponse.json({
@@ -44,6 +47,7 @@ export async function POST(req: Request) {
     pixDiscountPercent: promotions.pixDiscountPercent,
     freeShippingMinCents: promotions.freeShippingMinCents,
     whatsappOptIn,
+    birthdayGift: birthday?.enabled ? birthdayGift(birthday) : null,
     ...(coupon ? (coupon.ok ? { coupon: { code: coupon.coupon.code, label: coupon.coupon.label, discountCents: coupon.coupon.discountCents } } : { couponError: coupon.error }) : {}),
   });
 }

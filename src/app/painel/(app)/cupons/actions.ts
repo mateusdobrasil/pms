@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireStore } from "@/lib/panel";
 import { parseBRL } from "@/lib/money";
 import { parseCouponForm } from "@/lib/coupons";
+import { parseBirthdayForm } from "@/lib/birthday";
 import { isUuid } from "@/lib/validation";
 
 export type CouponState = { ok?: string; error?: string } | null;
@@ -42,4 +43,20 @@ export async function deleteCoupon(form: FormData) {
   if (count) await supabase.from("coupons").update({ active: false }).eq("id", id).eq("store_id", store.id);
   else await supabase.from("coupons").delete().eq("id", id).eq("store_id", store.id);
   revalidatePath("/painel/cupons");
+}
+
+// Cupom de aniversário (o lojista só altera estas colunas, pelo grant do SQL 20261122000000).
+export async function saveBirthdayCoupon(_prev: CouponState, form: FormData): Promise<CouponState> {
+  const { supabase, store } = await requireStore();
+  const s = (k: string) => String(form.get(k) ?? "").trim();
+  const parsed = parseBirthdayForm({ enabled: form.get("enabled") === "on", kind: s("kind"), value: s("value"), validDays: s("valid_days"), scope: s("scope") || "all" }, parseBRL);
+  if ("error" in parsed) return { error: parsed.error };
+  const c = parsed.config;
+  const { error } = await supabase
+    .from("stores")
+    .update({ birthday_enabled: c.enabled, birthday_kind: c.kind, birthday_value: c.value, birthday_valid_days: c.validDays, birthday_applies_to: c.appliesTo })
+    .eq("id", store.id);
+  if (error) return { error: "Não foi possível salvar agora." };
+  revalidatePath("/painel/cupons");
+  return { ok: c.enabled ? "Cupom de aniversário ligado." : "Cupom de aniversário desligado." };
 }

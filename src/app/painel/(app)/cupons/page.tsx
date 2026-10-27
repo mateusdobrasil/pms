@@ -6,6 +6,10 @@ import { formatBRL } from "@/lib/money";
 import { LinkShare } from "../links/link-share";
 import { deleteCoupon, setCouponActive } from "./actions";
 import { CouponForm } from "./coupon-form";
+import { BirthdayForm } from "./birthday-form";
+import { getBirthdayConfig } from "@/lib/birthday-server";
+import { formatBirthday, upcomingBirthdays } from "@/lib/birthday";
+import { todayBR } from "@/lib/billing";
 
 export const metadata = { title: "Cupons · PMS app" };
 
@@ -29,10 +33,26 @@ export default async function CouponsPage() {
       </div>
     );
   }
-  const coupons = (rows ?? []) as Coupon[];
+  const all = (rows ?? []) as Coupon[];
+  // Os cupons pessoais de aniversário ficam no resumo próprio, abaixo.
+  const coupons = all.filter((c) => c.origin !== "birthday");
+  const birthdayCoupons = all.filter((c) => c.origin === "birthday");
   const hasScope = coupons.length === 0 || coupons[0].applies_to !== undefined; // SQL 20261121000000
-  const [uses, results] = coupons.length ? await Promise.all([couponUseCounts(supabase, store.id), couponResults(supabase, store.id)]) : [new Map<string, number>(), new Map()];
+  const [uses, results] = all.length ? await Promise.all([couponUseCounts(supabase, store.id), couponResults(supabase, store.id)]) : [new Map<string, number>(), new Map()];
   const now = new Date();
+  // Cupom de aniversário (SQL 20261122000000; sem ele, a seção avisa).
+  const today = todayBR();
+  const [birthdayCfg, { data: birthdayRows }] = await Promise.all([
+    getBirthdayConfig(supabase, store.id),
+    supabase.from("customer_birthdays").select("name, birthday").eq("store_id", store.id).limit(10000),
+  ]);
+  const people = (birthdayRows ?? []) as { name: string; birthday: string }[];
+  const upcoming = upcomingBirthdays(people, today, 30);
+  const sentThisYear = birthdayCoupons.filter((c) => c.ends_at && c.ends_at.slice(0, 4) >= today.slice(0, 4));
+  const birthdaySales = birthdayCoupons.reduce((acc, c) => {
+    const r = results.get(c.code);
+    return r ? { uses: acc.uses + r.uses, sales: acc.sales + r.salesCents } : acc;
+  }, { uses: 0, sales: 0 });
 
   return (
     <div className="space-y-6">
@@ -45,6 +65,45 @@ export default async function CouponsPage() {
       </div>
 
       <CouponForm withScope={hasScope} />
+
+      <section className="space-y-4 rounded-xl border bg-white p-5 shadow-sm">
+        <h2 className="font-medium">🎁 Cupom de aniversário</h2>
+        {!birthdayCfg ? (
+          <p className="text-sm text-neutral-600">Este recurso está sendo instalado. Volte em alguns minutos.</p>
+        ) : (
+          <>
+            <BirthdayForm config={birthdayCfg} />
+            <div className="grid gap-3 border-t pt-4 text-sm sm:grid-cols-3">
+              <p>
+                <span className="block text-neutral-500">Clientes com aniversário</span>
+                <span className="text-xl font-semibold">{people.length}</span>
+              </p>
+              <p>
+                <span className="block text-neutral-500">Cupons enviados</span>
+                <span className="text-xl font-semibold">{sentThisYear.length}</span>
+              </p>
+              <p>
+                <span className="block text-neutral-500">Usados</span>
+                <span className="text-xl font-semibold">{birthdaySales.uses}</span>
+                {birthdaySales.sales > 0 && <span className="text-neutral-500"> · vendeu {formatBRL(birthdaySales.sales)}</span>}
+              </p>
+            </div>
+            {upcoming.length > 0 && (
+              <div className="text-sm">
+                <p className="font-medium">Próximos 30 dias</p>
+                <ul className="mt-1 flex flex-wrap gap-2">
+                  {upcoming.slice(0, 20).map((u, i) => (
+                    <li key={i} className="rounded-full bg-neutral-100 px-3 py-1">
+                      {u.name.split(" ")[0]} · {u.inDays === 0 ? "hoje" : formatBirthday(u.birthday)}
+                    </li>
+                  ))}
+                  {upcoming.length > 20 && <li className="px-2 py-1 text-neutral-500">e mais {upcoming.length - 20}</li>}
+                </ul>
+              </div>
+            )}
+          </>
+        )}
+      </section>
 
       <section className="rounded-xl border bg-white shadow-sm">
         <h2 className="border-b px-4 py-3 font-medium">Seus cupons</h2>

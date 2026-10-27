@@ -29,12 +29,17 @@ type Quote = {
   coupon?: { code: string; label: string; discountCents: number };
   couponError?: string;
   whatsappOptIn?: boolean; // a loja oferece novidades pelo WhatsApp
+  birthdayGift?: string | null; // a loja dá presente de aniversário ("15% de desconto")
 };
 type Address = { street: string; number: string; complement: string; district: string; city: string; state: string };
 
 const EMPTY_ADDRESS: Address = { street: "", number: "", complement: "", district: "", city: "", state: "" };
 const inputClass = "w-full rounded-lg border px-3 py-2.5 text-sm";
 const digits = (s: string) => s.replace(/\D/g, "");
+// "1503" → "15/03" enquanto digita.
+const maskBirthday = (e: { target: HTMLInputElement }) => {
+  e.target.value = e.target.value.replace(/\D/g, "").slice(0, 4).replace(/^(\d{2})(\d)/, "$1/$2");
+};
 
 async function fetchQuote(zip: string | null, coupon: string | null): Promise<Quote> {
   const res = await fetch("/api/cart/quote", {
@@ -179,6 +184,7 @@ export function CheckoutForm() {
           phone: form.get("phone"),
         },
         whatsappOptIn: form.get("whatsapp_optin") === "on",
+        birthday: form.get("birthday") || null,
       }),
     }).catch(() => null);
     const data = await res?.json().catch(() => null);
@@ -251,6 +257,12 @@ export function CheckoutForm() {
           <input name="cpf" required inputMode="numeric" placeholder="CPF" autoFocus={!!prefill} className={inputClass} />
           <input name="phone" type="tel" required autoComplete="tel" placeholder="Celular com DDD" defaultValue={prefill?.phone} className={inputClass} />
         </div>
+        {quote.birthdayGift && (
+          <label className="block space-y-1 text-sm">
+            <input name="birthday" inputMode="numeric" maxLength={5} placeholder="Seu aniversário (dd/mm, opcional)" onChange={maskBirthday} className={inputClass} />
+            <span className="block text-xs text-neutral-500">🎁 No dia do seu aniversário, você ganha {quote.birthdayGift}.</span>
+          </label>
+        )}
         {quote.whatsappOptIn && (
           <label className="flex items-start gap-2 text-sm text-neutral-700">
             <input type="checkbox" name="whatsapp_optin" className="mt-0.5" />

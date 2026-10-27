@@ -211,6 +211,31 @@ export async function notifyLoyaltyReward(storeId: string, who: { name: string; 
   });
 }
 
+// Cupom de aniversário (a trava é customer_birthdays.last_sent_year). Devolve se o e-mail saiu.
+export async function notifyBirthday(
+  store: { id: string; name: string; email: string | null; primary_color: string },
+  who: { name: string; email: string },
+  coupon: { code: string; gift: string; validUntil: string; link: string },
+) {
+  return sendEmail({
+    to: who.email,
+    fromName: store.name,
+    replyTo: store.email,
+    idempotencyKey: `birthday-${store.id}-${coupon.code}`,
+    subject: `Feliz aniversário, ${firstName(who.name)}! Um presente da ${store.name} 🎉`,
+    html: layout(store, `
+      <h1 style="margin:0 0 8px;font-size:22px">Feliz aniversário! 🎉</h1>
+      <p style="margin:0 0 16px;color:#525252">Olá, ${esc(firstName(who.name))}. Para comemorar, a ${esc(store.name)} preparou um presente para você:</p>
+      <p style="margin:0;padding:16px;border-radius:10px;background:#f0fdf4;color:#166534;text-align:center">
+        <span style="display:block;font-size:20px;font-weight:bold">${esc(coupon.gift)}</span>
+        <span style="display:block;margin-top:6px">com o cupom <strong style="font-size:18px;letter-spacing:1px">${esc(coupon.code)}</strong></span>
+        <span style="display:block;margin-top:6px;font-size:13px">válido até ${esc(coupon.validUntil)} · uso único</span>
+      </p>
+      ${button(coupon.link, "Usar meu presente", store.primary_color)}
+      <p style="margin:24px 0 0;font-size:12px;color:#a3a3a3">Você recebe este e-mail porque informou a data do seu aniversário na ${esc(store.name)}.</p>`),
+  });
+}
+
 // Pacote de sessões: "ativo" (na venda) e "sessão usada" (a cada uso). Sem e-mail do cliente, não envia.
 export async function notifyPackage(customerPackageId: string, kind: "activated" | "used", left?: number) {
   try {
