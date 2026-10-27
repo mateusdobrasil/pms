@@ -38,7 +38,7 @@ export async function createReview(db: SupabaseClient, storeId: string, token: s
   const t = await reviewTarget(db, storeId, token);
   if (!t?.kind) return { error: "Avaliação não encontrada." };
   if (t.review) return { error: "Você já avaliou. Obrigado!" };
-  if (!t.reviewable) return { error: t.kind === "order" ? "Você poderá avaliar depois que a compra for confirmada." : "Você poderá avaliar depois do atendimento." };
+  if (!t.reviewable) return { error: t.kind === "order" ? "Você poderá avaliar depois de receber a compra." : "Você poderá avaliar depois do atendimento." };
   const parsed = parseReview(input);
   if ("error" in parsed) return parsed;
   const { error } = await db.from("reviews").insert({

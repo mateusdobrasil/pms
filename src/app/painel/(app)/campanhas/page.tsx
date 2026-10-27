@@ -47,7 +47,8 @@ export default async function CampaignsPage() {
     supabase.from("store_domains").select("domain, is_primary").eq("store_id", store.id),
     supabase.from("whatsapp_campaigns").select("id, text, link, coupon_code, status, total, created_at").eq("store_id", store.id).order("created_at", { ascending: false }).limit(20),
     supabase.from("whatsapp_optins").select("id, name, phone, source, opted_in_at, opted_out_at").eq("store_id", store.id).order("opted_in_at", { ascending: false }).limit(100),
-    supabase.from("coupons").select("code").eq("store_id", store.id).eq("active", true).order("code"),
+    // Cupons que ainda valem (os pessoais de aniversário ficam de fora).
+    supabase.from("coupons").select("code").eq("store_id", store.id).eq("active", true).or(`ends_at.is.null,ends_at.gt.${new Date().toISOString()}`).neq("origin", "birthday").order("code"),
     getBookingSettings(db, store.id),
     packagesForSale(db, store.id),
     eventTemplate(db, "campaign"),

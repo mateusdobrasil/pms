@@ -91,8 +91,9 @@ export async function startCampaign(
   if (!base) return { ok: false, error: "A loja ainda não tem endereço." };
   let coupon: string | null = null;
   if (input.couponCode) {
-    const { data } = await db.from("coupons").select("code, active").eq("store_id", storeId).eq("code", input.couponCode).maybeSingle();
+    const { data } = await db.from("coupons").select("code, active, ends_at").eq("store_id", storeId).eq("code", input.couponCode).maybeSingle();
     if (!data?.active) return { ok: false, error: "Cupom não encontrado ou desativado." };
+    if (data.ends_at && new Date(data.ends_at) < new Date()) return { ok: false, error: "Esse cupom já venceu: escolha outro ou mande sem cupom." };
     coupon = data.code;
   }
   const { data: optins } = await db.from("whatsapp_optins").select("id").eq("store_id", storeId).is("opted_out_at", null).order("opted_in_at", { ascending: false }).limit(state.remaining);

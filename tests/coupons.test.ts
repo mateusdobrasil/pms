@@ -25,10 +25,12 @@ describe("cupons", () => {
     expect(normalizeCouponCode("cupom!")).toBeNull();
   });
 
-  it("desconto: percentual arredonda para baixo; fixo nunca passa dos produtos", () => {
+  it("desconto: percentual arredonda para baixo; nunca zera o valor (sobra R$ 1,00 para o Mercado Pago cobrar)", () => {
     expect(couponDiscountCents({ kind: "percent", value: 10 }, 7999)).toBe(799);
     expect(couponDiscountCents({ kind: "fixed", value: 2000 }, 15000)).toBe(2000);
-    expect(couponDiscountCents({ kind: "fixed", value: 2000 }, 1500)).toBe(1500);
+    expect(couponDiscountCents({ kind: "fixed", value: 2000 }, 1500)).toBe(1400);
+    expect(couponDiscountCents({ kind: "percent", value: 90 }, 100)).toBe(0);
+    expect(couponDiscountCents({ kind: "fixed", value: 500 }, 50)).toBe(0);
   });
 
   it("regras: ativo, período, mínimo, limite e 1 por CPF", () => {

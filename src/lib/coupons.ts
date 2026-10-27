@@ -28,10 +28,14 @@ export function normalizeCouponCode(raw: unknown) {
   return /^[A-Z0-9_-]{3,30}$/.test(code) ? code : null;
 }
 
-// Desconto em centavos sobre os produtos (nunca maior que eles).
+// Valor mínimo que sobra depois do cupom: o Mercado Pago não cobra R$ 0 (um cupom fixo maior que o carrinho deixaria
+// o pedido impossível de pagar).
+export const COUPON_MIN_LEFT_CENTS = 100;
+
+// Desconto em centavos sobre os produtos (ou o serviço, ou o pacote), deixando pelo menos R$ 1,00.
 export function couponDiscountCents(c: Pick<Coupon, "kind" | "value">, subtotalCents: number) {
   const d = c.kind === "percent" ? Math.floor((subtotalCents * c.value) / 100) : c.value;
-  return Math.max(0, Math.min(d, subtotalCents));
+  return Math.max(0, Math.min(d, subtotalCents - COUPON_MIN_LEFT_CENTS));
 }
 
 // "10% de desconto" / "R$ 20,00 de desconto".

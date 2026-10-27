@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { authorName, bookingReviewDue, formatRating, orderReviewDue, parseReview, ratingSummary, starsText } from "@/lib/reviews";
+import { authorName, bookingReviewDue, formatRating, orderReviewDue, orderReviewable, parseReview, ratingSummary, starsText } from "@/lib/reviews";
 import { WA_AUTO_EVENTS, WA_EVENTS } from "@/lib/whatsapp-events";
 
 const now = new Date("2026-11-20T15:00:00Z");
@@ -36,6 +36,13 @@ describe("avaliações", () => {
     expect(orderReviewDue({ status: "shipped", paid_at: daysAgo(6), notified_shipped_at: daysAgo(5) }, now)).toBe(false); // ainda a caminho
     expect(orderReviewDue({ status: "delivered", paid_at: daysAgo(45), notified_shipped_at: null }, now)).toBe(false); // antigo demais
     expect(orderReviewDue({ status: "paid", paid_at: daysAgo(5), notified_shipped_at: null }, now)).toBe(false);
+  });
+
+  it("compra só pode ser avaliada depois de enviada ou entregue", () => {
+    expect(orderReviewable("paid")).toBe(false);
+    expect(orderReviewable("preparing")).toBe(false);
+    expect(orderReviewable("shipped")).toBe(true);
+    expect(orderReviewable("delivered")).toBe(true);
   });
 
   it("quando pedir a avaliação de um atendimento", () => {

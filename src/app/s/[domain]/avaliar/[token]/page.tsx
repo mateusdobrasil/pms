@@ -38,7 +38,7 @@ export default async function ReviewPage({ params, searchParams }: { params: Pro
         </div>
       ) : !t.reviewable ? (
         <p className="rounded-xl bg-neutral-100 p-5 text-center text-neutral-700">
-          {t.kind === "order" ? "Você poderá avaliar depois que a compra for confirmada." : "Você poderá avaliar depois do atendimento."}
+          {t.kind === "order" ? "Você poderá avaliar depois de receber a compra." : "Você poderá avaliar depois do atendimento."}
         </p>
       ) : (
         <ReviewForm token={token} initial={Number.isInteger(initial) && initial >= 1 && initial <= 5 ? initial : null} />

@@ -39,8 +39,12 @@ export async function deleteCoupon(form: FormData) {
   const { supabase, store } = await requireStore();
   const id = String(form.get("id") ?? "");
   if (!isUuid(id)) return;
-  const { count } = await supabase.from("orders").select("id", { count: "exact", head: true }).eq("store_id", store.id).eq("coupon_id", id);
-  if (count) await supabase.from("coupons").update({ active: false }).eq("id", id).eq("store_id", store.id);
+  // Usado em pedido ou agendamento: só desativa (o código fica gravado neles).
+  const [{ count: inOrders }, { count: inBookings }] = await Promise.all([
+    supabase.from("orders").select("id", { count: "exact", head: true }).eq("store_id", store.id).eq("coupon_id", id),
+    supabase.from("bookings").select("id", { count: "exact", head: true }).eq("store_id", store.id).eq("coupon_id", id),
+  ]);
+  if (inOrders || inBookings) await supabase.from("coupons").update({ active: false }).eq("id", id).eq("store_id", store.id);
   else await supabase.from("coupons").delete().eq("id", id).eq("store_id", store.id);
   revalidatePath("/painel/cupons");
 }

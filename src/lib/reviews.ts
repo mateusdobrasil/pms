@@ -51,6 +51,6 @@ export function bookingReviewDue(b: { status: string; ends_at: string }, now: Da
   return b.status === "completed" && since >= 2 * 3_600_000 && since <= REVIEW_LOOKBACK_DAYS * DAY;
 }
 
-// Pode avaliar (pelo link): pedido vendido ou atendimento feito.
-export const orderReviewable = (status: string) => ["paid", "preparing", "shipped", "delivered"].includes(status);
+// Pode avaliar (pelo link): pedido enviado ou entregue (na retirada, pronto ou retirado) ou atendimento feito.
+export const orderReviewable = (status: string) => status === "shipped" || status === "delivered";
 export const bookingReviewable = (status: string) => status === "completed";
