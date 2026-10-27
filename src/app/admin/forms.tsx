@@ -104,7 +104,12 @@ export function AddMemberForm({ storeId }: { storeId: string }) {
 const SECRET_FIELDS = [
   { name: "gateway_access_token", label: "Mercado Pago — Access Token" },
   { name: "gateway_public_key", label: "Mercado Pago — Public Key" },
-  { name: "gateway_webhook_secret", label: "Mercado Pago — assinatura secreta do webhook" },
+  {
+    name: "gateway_webhook_secret",
+    label: "Mercado Pago — assinatura secreta do webhook",
+    // Segredo de outra aplicação faz o webhook ser recusado (o pagamento só confirma pela página do pedido).
+    hint: "Precisa ser da mesma aplicação do Access Token. Ao trocar de TEST- para APP_USR-, troque este também (ou remova).",
+  },
   { name: "melhor_envio_token", label: "Melhor Envio — token" },
 ] as const;
 
@@ -141,6 +146,7 @@ export function SecretsForm({
             placeholder={configured[f.name] ? "deixe vazio para manter" : ""}
             className={input}
           />
+          {"hint" in f && <span className="block text-xs text-amber-700">{f.hint}</span>}
           {configured[f.name] && (
             <span className="flex items-center gap-2 text-xs text-neutral-500">
               <input type="checkbox" name={`clear_${f.name}`} /> remover

@@ -54,7 +54,19 @@ export async function POST(req: Request) {
       dataId: queryDataId ?? paymentId,
       secret: secret.gateway_webhook_secret,
     });
-    if (!valid) return NextResponse.json({ error: "assinatura inválida" }, { status: 401 });
+    if (!valid) {
+      // Quase sempre é o segredo de outra aplicação do Mercado Pago (ex.: trocou de TEST- para APP_USR- e manteve o
+      // segredo antigo). O pagamento ainda confirma pela página do pedido, mas sem o webhook atrasa: avisa o admin.
+      console.error("Webhook com assinatura inválida", { storeId, paymentId });
+      after(() =>
+        notifyPlatformError(`webhook:assinatura:${storeId}`, "Webhook de pagamento recusado: assinatura não confere", {
+          loja: storeId,
+          pagamento: paymentId,
+          o_que_fazer: "Em /admin → loja → Pagamento e frete, troque o segredo do webhook pelo da mesma aplicação das credenciais (Mercado Pago → Suas integrações → aplicação → Webhooks → assinatura secreta) ou remova o segredo.",
+        }),
+      );
+      return NextResponse.json({ error: "assinatura inválida" }, { status: 401 });
+    }
   }
 
   // Idempotência: registra o evento; se já foi processado, encerra.
