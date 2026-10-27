@@ -101,6 +101,33 @@ export function AddMemberForm({ storeId }: { storeId: string }) {
   );
 }
 
+// URL de notificações da loja (com o id dela) e onde cadastrar no Mercado Pago, com botão de copiar.
+function WebhookUrl({ url }: { url: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <span className="block space-y-1 rounded-md bg-neutral-50 px-3 py-2 text-xs text-neutral-600">
+      <span className="block">
+        No Mercado Pago: Suas integrações → a aplicação das credenciais acima → <strong>Webhooks</strong> → aba do modo (teste ou produção) → cole a URL
+        abaixo, marque o evento <strong>Pagamentos</strong>, salve e copie a <strong>assinatura secreta</strong> para este campo.
+      </span>
+      <span className="flex flex-wrap items-center gap-2">
+        <code className="break-all rounded bg-white px-2 py-1 font-mono text-[11px] text-neutral-800 ring-1 ring-neutral-200">{url}</code>
+        <button
+          type="button"
+          onClick={async () => {
+            await navigator.clipboard.writeText(url).catch(() => {});
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+          }}
+          className="rounded-md border bg-white px-2 py-1 font-medium text-neutral-700 hover:border-neutral-400"
+        >
+          {copied ? "Copiado!" : "Copiar URL"}
+        </button>
+      </span>
+    </span>
+  );
+}
+
 const SECRET_FIELDS = [
   { name: "gateway_access_token", label: "Mercado Pago — Access Token" },
   { name: "gateway_public_key", label: "Mercado Pago — Public Key" },
@@ -118,11 +145,13 @@ export function SecretsForm({
   configured,
   originZip,
   meSandbox,
+  webhookUrl,
 }: {
   storeId: string;
   configured: Record<string, boolean>;
   originZip: string | null;
   meSandbox: boolean;
+  webhookUrl: string; // URL de notificações desta loja, para cadastrar no Mercado Pago
 }) {
   const [state, action, pending] = useActionState<AdminState, FormData>(saveSecrets, null);
   const formRef = useResetOnOk(state);
@@ -147,6 +176,7 @@ export function SecretsForm({
             className={input}
           />
           {"hint" in f && <span className="block text-xs text-amber-700">{f.hint}</span>}
+          {f.name === "gateway_webhook_secret" && <WebhookUrl url={webhookUrl} />}
           {configured[f.name] && (
             <span className="flex items-center gap-2 text-xs text-neutral-500">
               <input type="checkbox" name={`clear_${f.name}`} /> remover

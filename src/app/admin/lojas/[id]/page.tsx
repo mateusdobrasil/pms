@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireAdmin } from "@/lib/admin";
 import { isUuid } from "@/lib/validation";
-import { storeBaseUrl } from "@/lib/urls";
+import { platformUrl, storeBaseUrl } from "@/lib/urls";
 import { STORE_BASE_DOMAIN } from "@/lib/store-domains";
 import { formatBRL } from "@/lib/money";
 import { formatDateTime } from "@/lib/format";
@@ -164,7 +164,13 @@ export default async function AdminStorePage({ params }: { params: Promise<{ id:
 
         <section className={card}>
           <h2 className="font-semibold">Pagamento e frete</h2>
-          <SecretsForm storeId={store.id} configured={configured} originZip={store.origin_zip} meSandbox={meSandbox} />
+          <SecretsForm
+            storeId={store.id}
+            configured={configured}
+            originZip={store.origin_zip}
+            meSandbox={meSandbox}
+            webhookUrl={platformUrl(`/api/webhooks/payments?store=${store.id}`)}
+          />
           {configured.gateway_access_token && (
             <p className={`rounded-lg px-3 py-2 text-xs ${mpTest ? "bg-amber-50 text-amber-900" : "bg-emerald-50 text-emerald-800"}`}>
               Mercado Pago em {mpTest ? "modo de TESTE (credenciais TEST-): nenhum dinheiro real é cobrado." : "PRODUÇÃO: cobranças reais."}
