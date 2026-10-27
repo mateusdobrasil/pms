@@ -12,11 +12,14 @@ export async function createCoupon(_prev: CouponState, form: FormData): Promise<
   const { supabase, store } = await requireStore();
   const s = (k: string) => String(form.get(k) ?? "").trim();
   const parsed = parseCouponForm(
-    { code: s("code"), kind: s("kind"), value: s("value"), min: s("min"), starts: s("starts"), ends: s("ends"), maxUses: s("max_uses"), once: form.get("once") === "on" },
+    { code: s("code"), kind: s("kind"), value: s("value"), min: s("min"), starts: s("starts"), ends: s("ends"), maxUses: s("max_uses"), once: form.get("once") === "on", scope: s("scope") || "all" },
     parseBRL,
   );
   if ("error" in parsed) return { error: parsed.error };
-  const { error } = await supabase.from("coupons").insert({ store_id: store.id, ...parsed.coupon });
+  // Sem a coluna applies_to (SQL 20261121000000), grava sem ela (o cupom vale em tudo).
+  const { applies_to, ...rest } = parsed.coupon;
+  let { error } = await supabase.from("coupons").insert({ store_id: store.id, ...rest, ...(applies_to !== "all" ? { applies_to } : {}) });
+  if (error?.code === "PGRST204") ({ error } = await supabase.from("coupons").insert({ store_id: store.id, ...rest }));
   if (error) return { error: error.code === "23505" ? `Já existe um cupom ${parsed.coupon.code}.` : "Não foi possível criar o cupom agora." };
   revalidatePath("/painel/cupons");
   return { ok: `Cupom ${parsed.coupon.code} criado.` };

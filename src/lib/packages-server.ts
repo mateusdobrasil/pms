@@ -5,6 +5,7 @@ import { loyaltyKey } from "@/lib/loyalty-data";
 import { professionalPercent } from "@/lib/commission-server";
 import { type CustomerPackageRow, PACKAGE_METHOD, expiresAt, packageState, pickPackage, remaining } from "@/lib/packages";
 import { ORDER_TTL_MINUTES, parseCustomer } from "@/lib/orders";
+import { type AppliedCoupon, applyCoupon } from "@/lib/coupons-server";
 
 export type CustomerPackage = CustomerPackageRow & {
   name: string;
@@ -160,8 +161,17 @@ export async function cancelCustomerPackage(db: SupabaseClient, storeId: string,
 export async function createPackageOrder(db: SupabaseClient, storeId: string, packageId: string, body: unknown): Promise<{ ok: true; token: string } | { ok: false; errors: string[]; status?: number }> {
   const { data: m } = await db.from("service_packages").select("id, name, price_cents, active").eq("store_id", storeId).eq("id", packageId).maybeSingle();
   if (!m?.active) return { ok: false, errors: ["Este pacote não está mais à venda."], status: 404 };
-  const { customer, errors } = parseCustomer((body as Record<string, unknown> | null)?.customer);
+  const b = (body ?? {}) as Record<string, unknown>;
+  const { customer, errors } = parseCustomer(b.customer);
   if (!customer) return { ok: false, errors };
+  // Cupom (conferido aqui, com CPF e celular): sai do preço do pacote, como na loja virtual.
+  let coupon: AppliedCoupon | null = null;
+  if (b.coupon) {
+    const applied = await applyCoupon(db, storeId, b.coupon, m.price_cents, { cpf: customer.cpf, phone: customer.phone }, "services");
+    if (!applied.ok) return { ok: false, errors: [`Cupom: ${applied.error} Apague o cupom para continuar sem ele.`] };
+    coupon = applied.coupon;
+  }
+  const couponCents = coupon?.discountCents ?? 0;
   const { data: order, error } = await db
     .from("orders")
     .insert({
@@ -174,7 +184,8 @@ export async function createPackageOrder(db: SupabaseClient, storeId: string, pa
       shipping_method: PACKAGE_METHOD,
       subtotal_cents: m.price_cents,
       shipping_cents: 0,
-      total_cents: m.price_cents,
+      total_cents: m.price_cents - couponCents,
+      ...(coupon ? { coupon_id: coupon.id, coupon_code: coupon.code, coupon_discount_cents: couponCents, discount_cents: couponCents } : {}),
       expires_at: new Date(Date.now() + ORDER_TTL_MINUTES * 60_000).toISOString(),
     })
     .select("id, public_token")

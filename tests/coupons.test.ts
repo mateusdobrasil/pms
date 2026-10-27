@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { type Coupon, couponDiscountCents, couponProblem, couponStatus, discountLines, normalizeCouponCode, parseCouponForm } from "@/lib/coupons";
+import { type Coupon, couponDiscountCents, couponProblem, couponStatus, couponSummary, discountLines, normalizeCouponCode, parseCouponForm } from "@/lib/coupons";
 import { parseBRL } from "@/lib/money";
 import { readBioLinks, parseBioLinks } from "@/lib/bio-links";
 
@@ -42,6 +42,28 @@ describe("cupons", () => {
     expect(couponProblem({ ...base, once_per_customer: true }, 5000, now, { total: 1, byCustomer: 1 })).toMatch(/já usou/);
   });
 
+  it("onde vale: loja virtual, agenda e pacotes, ou tudo (sem a coluna, tudo)", () => {
+    expect(couponProblem({ ...base, applies_to: "products" }, 5000, now, none, "services")).toMatch(/só para as compras da loja virtual/);
+    expect(couponProblem({ ...base, applies_to: "services" }, 5000, now, none, "products")).toMatch(/só para agendamentos e pacotes/);
+    expect(couponProblem({ ...base, applies_to: "services" }, 5000, now, none, "services")).toBeNull();
+    expect(couponProblem({ ...base, applies_to: "all" }, 5000, now, none, "services")).toBeNull();
+    expect(couponProblem(base, 5000, now, none, "services")).toBeNull();
+    expect(couponProblem({ ...base, min_subtotal_cents: 6000 }, 5000, now, none, "services")).toMatch(/^Este cupom vale para valores a partir de R\$\s60,00\.$/);
+  });
+
+  it("resultado por cupom: usos, vendas e desconto, do que mais vendeu", () => {
+    expect(
+      couponSummary([
+        { code: "A", salesCents: 9000, discountCents: 1000 },
+        { code: "B", salesCents: 20000, discountCents: 2000 },
+        { code: "A", salesCents: 4500, discountCents: 500 },
+      ]),
+    ).toEqual([
+      { code: "B", uses: 1, salesCents: 20000, discountCents: 2000 },
+      { code: "A", uses: 2, salesCents: 13500, discountCents: 1500 },
+    ]);
+  });
+
   it("situação no painel", () => {
     expect(couponStatus(base, now, 0).label).toBe("Ativo");
     expect(couponStatus({ ...base, max_uses: 2 }, now, 2).label).toBe("Esgotado");
@@ -60,8 +82,11 @@ describe("cupons", () => {
         ends_at: "2026-12-25T23:59:59-03:00",
         max_uses: 50,
         once_per_customer: true,
+        applies_to: "all",
       },
     });
+    expect(parseCouponForm({ ...f, scope: "services" }, parseBRL)).toMatchObject({ coupon: { applies_to: "services" } });
+    expect(parseCouponForm({ ...f, scope: "outro" }, parseBRL)).toEqual({ error: "Escolha onde o cupom vale." });
     expect(parseCouponForm({ ...f, kind: "percent", value: "95" }, parseBRL)).toEqual({ error: expect.stringMatching(/1 a 90/) });
     expect(parseCouponForm({ ...f, ends: "2026-11-30" }, parseBRL)).toEqual({ error: expect.stringMatching(/antes do começo/) });
   });

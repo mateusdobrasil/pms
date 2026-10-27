@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getStoreByDomain } from "@/lib/store";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { orderCoupon } from "@/lib/coupons-server";
 import { formatBRL } from "@/lib/money";
 import { isUuid } from "@/lib/validation";
 import { PaymentPanel } from "../../payment-panel";
@@ -61,6 +62,7 @@ export default async function BookingPage({
     publicKey = secret?.gateway_public_key ?? null;
   }
   const remaining = b.price_cents - b.paid_cents;
+  const coupon = await orderCoupon(db, b.id, "bookings"); // price_cents já vem com o desconto
   // Agendado com pacote (SQL 20261117000000): a sessão é descontada no atendimento, nada a pagar.
   const { data: pk } = await db.from("bookings").select("customer_packages(name)").eq("id", b.id).maybeSingle();
   const packageName = (pk as { customer_packages: { name: string } | null } | null)?.customer_packages?.name ?? null;
@@ -102,7 +104,15 @@ export default async function BookingPage({
         <p className="text-neutral-700">{longWhen(b.starts_at)}</p>
         <p className="text-neutral-600">com {b.professional_name}</p>
         <div className="mt-3 space-y-1 border-t pt-3 text-sm">
-          <p className="flex justify-between"><span>Valor do serviço</span><span>{formatBRL(b.price_cents)}</span></p>
+          {coupon ? (
+            <>
+              <p className="flex justify-between"><span>Valor do serviço</span><span>{formatBRL(b.price_cents + coupon.cents)}</span></p>
+              <p className="flex justify-between text-emerald-700"><span>Cupom {coupon.code}</span><span>−{formatBRL(coupon.cents)}</span></p>
+              <p className="flex justify-between font-medium"><span>Com o cupom</span><span>{formatBRL(b.price_cents)}</span></p>
+            </>
+          ) : (
+            <p className="flex justify-between"><span>Valor do serviço</span><span>{formatBRL(b.price_cents)}</span></p>
+          )}
           {b.online_cents > 0 && (
             <p className="flex justify-between">
               <span>{b.payment_mode === "deposit" ? "Sinal (online)" : "Pagamento online"}</span>

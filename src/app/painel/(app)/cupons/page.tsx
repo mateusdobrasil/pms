@@ -1,7 +1,8 @@
 import { requireStore } from "@/lib/panel";
 import { storeBaseUrl } from "@/lib/urls";
 import { type Coupon, couponConditions, couponLabel, couponStatus } from "@/lib/coupons";
-import { COUPON_FIELDS, couponUseCounts } from "@/lib/coupons-server";
+import { couponResults, couponUseCounts, selectCoupons } from "@/lib/coupons-server";
+import { formatBRL } from "@/lib/money";
 import { LinkShare } from "../links/link-share";
 import { deleteCoupon, setCouponActive } from "./actions";
 import { CouponForm } from "./coupon-form";
@@ -14,7 +15,7 @@ const TONE = { on: "bg-emerald-100 text-emerald-800", off: "bg-neutral-100 text-
 export default async function CouponsPage() {
   const { supabase, store } = await requireStore();
   const [{ data: rows, error }, { data: domains }] = await Promise.all([
-    supabase.from("coupons").select(COUPON_FIELDS).eq("store_id", store.id).order("created_at", { ascending: false }),
+    selectCoupons((fields) => supabase.from("coupons").select(fields).eq("store_id", store.id).order("created_at", { ascending: false })),
     supabase.from("store_domains").select("domain, is_primary").eq("store_id", store.id),
   ]);
   const domain = (domains ?? []).find((d) => d.is_primary)?.domain ?? domains?.[0]?.domain;
@@ -29,7 +30,8 @@ export default async function CouponsPage() {
     );
   }
   const coupons = (rows ?? []) as Coupon[];
-  const uses = coupons.length ? await couponUseCounts(supabase, store.id) : new Map<string, number>();
+  const hasScope = coupons.length === 0 || coupons[0].applies_to !== undefined; // SQL 20261121000000
+  const [uses, results] = coupons.length ? await Promise.all([couponUseCounts(supabase, store.id), couponResults(supabase, store.id)]) : [new Map<string, number>(), new Map()];
   const now = new Date();
 
   return (
@@ -37,12 +39,12 @@ export default async function CouponsPage() {
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Cupons</h1>
         <p className="mt-1 text-sm text-neutral-600">
-          Desconto nos produtos da loja virtual (o frete não tem desconto). O cliente digita o código no checkout ou chega por um link que já aplica o cupom:
-          bom para posts, stories e campanhas. Se a loja dá desconto no Pix, ele vale por cima, sobre o valor já com o cupom.
+          Desconto na loja virtual (nos produtos; o frete não tem desconto), nos agendamentos e nos pacotes. O cliente digita o código ou chega por um link
+          que já aplica o cupom: bom para posts, stories e campanhas. Se a loja dá desconto no Pix, ele vale por cima, sobre o valor já com o cupom.
         </p>
       </div>
 
-      <CouponForm />
+      <CouponForm withScope={hasScope} />
 
       <section className="rounded-xl border bg-white shadow-sm">
         <h2 className="border-b px-4 py-3 font-medium">Seus cupons</h2>
@@ -66,8 +68,13 @@ export default async function CouponsPage() {
                       </span>
                       <span className="block text-xs text-neutral-500">
                         Usado {used} {used === 1 ? "vez" : "vezes"}
-                        {c.max_uses ? ` de ${c.max_uses}` : ""} (pedidos pagos e aguardando pagamento)
+                        {c.max_uses ? ` de ${c.max_uses}` : ""} (inclui os que aguardam pagamento)
                       </span>
+                      {results.get(c.code) && (
+                        <span className="block text-xs font-medium text-emerald-800">
+                          Vendeu {formatBRL(results.get(c.code)!.salesCents)} · desconto dado {formatBRL(results.get(c.code)!.discountCents)}
+                        </span>
+                      )}
                     </span>
                     <span className="flex gap-2">
                       <form action={setCouponActive}>

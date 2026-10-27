@@ -10,6 +10,7 @@ import { toWhatsappNumber, whatsappConnected } from "@/lib/whatsapp";
 import { bookingFields } from "@/lib/whatsapp-events";
 import { eventTemplate, sendWhatsappEvent } from "@/lib/whatsapp-send";
 import { recordOptIn } from "@/lib/whatsapp-campaigns-server";
+import { type AppliedCoupon, applyCoupon } from "@/lib/coupons-server";
 import { storeBaseUrl } from "@/lib/urls";
 import { type Interval, bookingDays, dayStartMs, daySlots, instantOf, mergeSlots, weekdayOf } from "@/lib/booking-slots";
 import { addDays, todayBR } from "@/lib/billing";
@@ -159,6 +160,7 @@ export type BookingInput = {
   cpf: string;
   notes: string;
   whatsappOptIn?: boolean; // marcou "quero receber novidades pelo WhatsApp"
+  coupon?: string | null;
 };
 
 // Cria a reserva. Sem pagamento online, já fica confirmada; com pagamento, segura o horário por 30 min.
@@ -186,7 +188,16 @@ export async function createBooking(db: Db, storeId: string, input: BookingInput
   // Cliente com pacote ativo deste serviço (pelo celular) e sessão livre: não paga sinal; o horário fica ligado
   // ao pacote e o salão usa a sessão no atendimento ("Usar pacote").
   const pkg = await packageForNewBooking(db, storeId, service.id, phone).catch(() => null);
-  const online = pkg ? 0 : onlineCents(service.price_cents, service.payment_mode, service.deposit_percent);
+  // Cupom (não se aplica a horário de pacote, que já está pago): sai do preço do serviço, e o sinal é calculado
+  // sobre o preço com desconto. No pagamento no salão, o salão cobra o valor com desconto.
+  let coupon: AppliedCoupon | null = null;
+  if (input.coupon && !pkg) {
+    const applied = await applyCoupon(db, storeId, input.coupon, service.price_cents, { cpf: isValidCPF(cpf) ? cpf : null, phone }, "services");
+    if (!applied.ok) return { error: `Cupom: ${applied.error} Apague o cupom para continuar sem ele.` };
+    coupon = applied.coupon;
+  }
+  const price = service.price_cents - (coupon?.discountCents ?? 0);
+  const online = pkg ? 0 : onlineCents(price, service.payment_mode, service.deposit_percent);
   if (online > 0) {
     if (!isValidCPF(cpf)) return { error: "Informe um CPF válido: ele é exigido para o pagamento." };
     const { data: secret } = await db.from("store_secrets").select("gateway_access_token").eq("store_id", storeId).maybeSingle();
@@ -220,10 +231,11 @@ export async function createBooking(db: Db, storeId: string, input: BookingInput
     customer_phone: phone,
     customer_cpf: online > 0 ? cpf : null,
     notes: input.notes.trim().slice(0, 500) || null,
-    price_cents: service.price_cents,
+    price_cents: price,
     payment_mode: service.payment_mode,
     online_cents: online,
     ...(pkg ? { customer_package_id: pkg.id } : {}),
+    ...(coupon ? { coupon_id: coupon.id, coupon_code: coupon.code, coupon_discount_cents: coupon.discountCents } : {}),
   };
   let { data, error } = await insertBooking(row);
   // Sem a coluna (SQL 20261117000000 não rodado): agenda sem o vínculo (o "Usar pacote" continua aparecendo).

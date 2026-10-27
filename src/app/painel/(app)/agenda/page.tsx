@@ -32,6 +32,7 @@ type Booking = {
   online_cents: number;
   paid_cents: number;
   source: string;
+  coupon_code?: string | null;
 };
 type Block = { professional_id: string | null; starts_at: string; ends_at: string; reason: string | null };
 
@@ -42,7 +43,11 @@ const dayLabel = (d: string) => `${WEEK[weekdayOf(d)]}, ${d.slice(8, 10)}/${d.sl
 function money(b: Booking) {
   const toReceive = b.price_cents - b.paid_cents;
   if (b.status === "pending_payment") return `aguardando pagamento online de ${formatBRL(b.online_cents)}`;
-  const parts = [b.paid_cents ? `pago online ${formatBRL(b.paid_cents)}` : null, toReceive > 0 ? `receber ${formatBRL(toReceive)}` : "tudo pago"];
+  const parts = [
+    b.paid_cents ? `pago online ${formatBRL(b.paid_cents)}` : null,
+    toReceive > 0 ? `receber ${formatBRL(toReceive)}` : "tudo pago",
+    b.coupon_code ? `cupom ${b.coupon_code}` : null,
+  ];
   return parts.filter(Boolean).join(" · ");
 }
 
@@ -124,6 +129,14 @@ export default async function AgendaPage({ searchParams }: { searchParams: Promi
     supabase.from("stores").select("booking_enabled").eq("id", store.id).single(),
   ]);
   const bookings = (rows ?? []) as Booking[];
+  // Cupom usado no agendamento (SQL 20261121000000; sem ele, nenhum): aparece junto do valor.
+  const { data: couponRows } = bookings.length
+    ? await supabase.from("bookings").select("id, coupon_code").in("id", bookings.map((x) => x.id)).not("coupon_code", "is", null)
+    : { data: [] };
+  for (const r of (couponRows ?? []) as { id: string; coupon_code: string }[]) {
+    const b = bookings.find((x) => x.id === r.id);
+    if (b) b.coupon_code = r.coupon_code;
+  }
   // Recebimentos no salão (vendas de balcão ligadas ao agendamento). Sem o SQL 20261115000000, nenhum.
   const { data: receiptRows } = bookings.length
     ? await supabase.from("orders").select("booking_id, total_cents, counter_payment").eq("store_id", store.id).in("booking_id", bookings.map((x) => x.id)).neq("status", "canceled")

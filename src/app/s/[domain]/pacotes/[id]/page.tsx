@@ -6,6 +6,7 @@ import { formatBRL } from "@/lib/money";
 import { isUuid } from "@/lib/validation";
 import { perSessionCents } from "@/lib/packages";
 import { packagesForSale } from "@/lib/packages-server";
+import { hasActiveCoupons } from "@/lib/coupons-server";
 import { PayLinkForm } from "../../pagar/[token]/pay-link-form";
 
 export const dynamic = "force-dynamic";
@@ -34,7 +35,7 @@ export default async function BuyPackagePage({ params }: { params: Promise<{ dom
       <p className="rounded-lg bg-neutral-50 px-4 py-3 text-sm text-neutral-600">
         Use sempre <strong>este mesmo celular</strong> ao agendar: assim o sistema reconhece o seu pacote e não cobra sinal.
       </p>
-      <PayLinkForm endpoint={`/api/packages/${p.id}`} />
+      <PayLinkForm endpoint={`/api/packages/${p.id}`} withCoupon={await hasActiveCoupons(createAdminClient(), store.id, "services")} />
     </div>
   );
 }

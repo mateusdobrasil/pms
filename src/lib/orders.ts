@@ -187,7 +187,7 @@ export async function createOrder(db: SupabaseClient, store: Store, body: unknow
   // Cupom: conferido de novo aqui (validade, mínimo, limite e 1 uso por CPF); o desconto vale só para os produtos.
   let coupon: AppliedCoupon | null = null;
   if (b.coupon) {
-    const applied = await applyCoupon(db, store.id, b.coupon, subtotalCents, customer.cpf);
+    const applied = await applyCoupon(db, store.id, b.coupon, subtotalCents, { cpf: customer.cpf, phone: customer.phone });
     if (!applied.ok) return { ok: false, errors: [`Cupom: ${applied.error} Remova o cupom para continuar sem ele.`] };
     coupon = applied.coupon;
   }

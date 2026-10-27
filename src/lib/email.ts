@@ -451,6 +451,7 @@ type BookingForEmail = {
   online_cents: number;
   paid_cents: number;
   stores: { name: string; email: string | null; whatsapp: string | null; primary_color: string; address: string | null; store_domains: { domain: string; is_primary: boolean }[] };
+  coupon?: OrderCoupon; // price_cents já vem com o desconto
 };
 
 export type BookingNotice = "confirmed" | "reminder" | "canceled" | "store";
@@ -473,6 +474,7 @@ function bookingSummary(b: BookingForEmail) {
   return `<p style="margin:0 0 4px;padding:14px;border-radius:8px;background:#f5f5f5;font-size:15px">
     <strong>${esc(b.service_name)}</strong><br>${esc(bookingWhen(b.starts_at))}<br>com ${esc(b.professional_name)}
     ${b.stores.address ? `<br><span style="color:#525252">${esc(b.stores.address)}</span>` : ""}
+    ${b.coupon ? `<br><span style="color:#047857">Cupom ${esc(b.coupon.code)}: −${formatBRL(b.coupon.cents)}</span>` : ""}
     <br><span style="color:#525252">${b.paid_cents ? `Pago online: ${formatBRL(b.paid_cents)} · ` : ""}${remaining > 0 ? `a pagar no salão: ${formatBRL(remaining)}` : "tudo pago"}</span></p>`;
 }
 
@@ -496,6 +498,7 @@ export async function notifyBooking(bookingId: string, notice: BookingNotice | "
     if (!data) return;
     const { data: legal } = await db.from("stores").select("address").eq("id", data.store_id).maybeSingle();
     const b = { ...data, stores: { ...(data.stores as unknown as BookingForEmail["stores"]), address: (legal as { address: string | null } | null)?.address ?? null } } as unknown as BookingForEmail;
+    b.coupon = await orderCoupon(db, b.id, "bookings");
     const domain = (b.stores.store_domains.find((d) => d.is_primary) ?? b.stores.store_domains[0])?.domain;
     const link = domain ? `${storeBaseUrl(domain)}/agendamento/${b.public_token}` : null;
     const calendar = googleCalendarUrl({ title: `${b.service_name} · ${b.stores.name}`, startsAt: b.starts_at, endsAt: b.ends_at, location: b.stores.address ?? undefined, details: link ?? undefined });
@@ -770,6 +773,9 @@ export async function sendMonthlyReport(storeId: string, m: { month: string; lab
     ${r.top.length ? `<p style="margin:20px 0 6px;font-weight:bold">Mais vendidos</p><ol style="margin:0;padding-left:20px;color:#404040">${r.top
       .map((t) => `<li style="padding:2px 0">${esc(t.name)} · ${t.quantity} un. · ${formatBRL(t.cents)}</li>`)
       .join("")}</ol>` : ""}
+    ${r.coupons?.length ? `<p style="margin:20px 0 6px;font-weight:bold">Cupons</p><ul style="margin:0;padding-left:20px;color:#404040">${r.coupons
+      .map((c) => `<li style="padding:2px 0">${esc(c.code)} · ${c.uses} ${c.uses === 1 ? "uso" : "usos"} · vendeu ${formatBRL(c.salesCents)} · desconto ${formatBRL(c.discountCents)}</li>`)
+      .join("")}</ul>` : ""}
     ${r.awayCustomers > 0 ? `<p style="margin:20px 0 0;padding:14px;border-radius:8px;background:#fffbeb;color:#78350f">${r.awayCustomers} cliente${r.awayCustomers === 1 ? " não volta" : "s não voltam"} há mais de 60 dias. Uma mensagem no WhatsApp costuma trazer de volta.</p>
       ${button(platformUrl("/painel/clientes"), "Chamar clientes de volta", "#16a34a")}` : ""}
     ${button(platformUrl("/painel"), "Abrir o painel", store.primary_color)}`);

@@ -1,5 +1,6 @@
 // Resumo do mês do lojista (e-mail do dia 1). Funções puras, testadas em tests/monthly-report.test.ts.
 import { type TopProduct, dayBR, topProducts } from "@/lib/sales";
+import type { CouponResult } from "@/lib/coupons";
 
 const MONTHS = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
 
@@ -45,6 +46,7 @@ export type ReportInput = {
   bookings: { status: string }[]; // agendamentos com horário no mês
   newCustomers: number;
   awayCustomers: number; // sumidos há 60+ dias, sem horário marcado
+  coupons?: CouponResult[]; // cupons usados no mês (couponSummary), do que mais vendeu ao que menos
 };
 
 export type Report = {
@@ -61,6 +63,7 @@ export type Report = {
   canceled: number;
   newCustomers: number;
   awayCustomers: number;
+  coupons: CouponResult[]; // os 3 que mais venderam
   hasActivity: boolean;
 };
 
@@ -88,6 +91,7 @@ export function buildReport(input: ReportInput): Report {
     canceled,
     newCustomers: input.newCustomers,
     awayCustomers: input.awayCustomers,
+    coupons: (input.coupons ?? []).slice(0, 3),
     hasActivity: orders > 0 || attended + noShows + canceled > 0,
   };
 }

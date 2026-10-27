@@ -2,11 +2,12 @@
 
 import { useActionState, useState } from "react";
 import { submitKeepingValues } from "@/lib/form-submit";
+import { COUPON_SCOPES } from "@/lib/coupons";
 import { createCoupon, type CouponState } from "./actions";
 
 const input = "w-full rounded-md border px-3 py-2 text-sm";
 
-export function CouponForm() {
+export function CouponForm({ withScope }: { withScope: boolean }) {
   const [state, action, pending] = useActionState<CouponState, FormData>(createCoupon, null);
   const [kind, setKind] = useState<"percent" | "fixed">("percent");
   return (
@@ -44,11 +45,21 @@ export function CouponForm() {
           <span className="font-medium text-neutral-700">Limite de usos (opcional)</span>
           <input name="max_uses" inputMode="numeric" placeholder="Ex.: 50" className={input} />
         </label>
+        {withScope && (
+          <label className="block space-y-1 text-sm sm:col-span-6">
+            <span className="font-medium text-neutral-700">Onde vale</span>
+            <select name="scope" defaultValue="all" className={input}>
+              {Object.entries(COUPON_SCOPES).map(([k, label]) => (
+                <option key={k} value={k}>{label}</option>
+              ))}
+            </select>
+          </label>
+        )}
         <label className="flex items-start gap-2 text-sm sm:col-span-6">
           <input type="checkbox" name="once" className="mt-0.5" />
           <span>
             <span className="font-medium text-neutral-700">Uma vez por cliente</span>
-            <span className="block text-xs text-neutral-500">Cada CPF usa o cupom uma vez só (bom para cupom de primeira compra).</span>
+            <span className="block text-xs text-neutral-500">Cada cliente (CPF ou celular) usa o cupom uma vez só (bom para cupom de primeira compra).</span>
           </span>
         </label>
         <div className="flex flex-wrap items-center gap-3 sm:col-span-6">

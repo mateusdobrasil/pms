@@ -1,6 +1,12 @@
 import { formatBRL } from "@/lib/money";
 
-// Cupons de desconto: regras puras (testadas em tests/coupons.test.ts). O desconto vale só para os produtos.
+// Cupons de desconto: regras puras (testadas em tests/coupons.test.ts). Na loja virtual, o desconto vale para os
+// produtos (não para o frete); na agenda, para o preço do serviço; nos pacotes, para o preço do pacote.
+export type CouponTarget = "products" | "services";
+export type CouponScope = "all" | CouponTarget;
+export const COUPON_SCOPES: Record<CouponScope, string> = { all: "Loja virtual, agenda e pacotes", products: "Só na loja virtual", services: "Só na agenda e nos pacotes" };
+export const isCouponScope = (v: unknown): v is CouponScope => typeof v === "string" && v in COUPON_SCOPES;
+
 export type Coupon = {
   id: string;
   code: string;
@@ -12,6 +18,7 @@ export type Coupon = {
   max_uses: number | null;
   once_per_customer: boolean;
   active: boolean;
+  applies_to?: CouponScope; // SQL 20261121000000 (sem ele, "all")
 };
 
 // "  bemvindo10 " → "BEMVINDO10". Inválido → null.
@@ -29,12 +36,14 @@ export function couponDiscountCents(c: Pick<Coupon, "kind" | "value">, subtotalC
 // "10% de desconto" / "R$ 20,00 de desconto".
 export const couponLabel = (c: Pick<Coupon, "kind" | "value">) => (c.kind === "percent" ? `${c.value}% de desconto` : `${formatBRL(c.value)} de desconto`);
 
-// Por que o cupom não vale agora (null = vale). Usos: pedidos pagos e pedidos ainda aguardando pagamento.
-export function couponProblem(c: Coupon, subtotalCents: number, now: Date, used: { total: number; byCustomer: number }) {
+// Por que o cupom não vale agora (null = vale). Usos: pedidos e agendamentos pagos ou ainda aguardando pagamento.
+export function couponProblem(c: Coupon, subtotalCents: number, now: Date, used: { total: number; byCustomer: number }, target: CouponTarget = "products") {
   if (!c.active) return "Este cupom não está mais ativo.";
+  const scope = c.applies_to ?? "all";
+  if (scope !== "all" && scope !== target) return target === "products" ? "Este cupom vale só para agendamentos e pacotes." : "Este cupom vale só para as compras da loja virtual.";
   if (c.starts_at && now < new Date(c.starts_at)) return "Este cupom ainda não começou a valer.";
   if (c.ends_at && now > new Date(c.ends_at)) return "Este cupom expirou.";
-  if (c.min_subtotal_cents && subtotalCents < c.min_subtotal_cents) return `Este cupom vale para compras a partir de ${formatBRL(c.min_subtotal_cents)} em produtos.`;
+  if (c.min_subtotal_cents && subtotalCents < c.min_subtotal_cents) return `Este cupom vale para ${target === "products" ? "compras" : "valores"} a partir de ${formatBRL(c.min_subtotal_cents)}${target === "products" ? " em produtos" : ""}.`;
   if (c.max_uses && used.total >= c.max_uses) return "Este cupom já atingiu o limite de usos.";
   if (c.once_per_customer && used.byCustomer > 0) return "Você já usou este cupom.";
   return null;
@@ -52,6 +61,7 @@ export function parseCouponForm(f: {
   ends: string;
   maxUses: string;
   once: boolean;
+  scope?: string;
 }, parseMoney: (s: string) => number | null): { coupon: CouponInput } | { error: string } {
   const code = normalizeCouponCode(f.code);
   if (!code) return { error: "Código inválido: de 3 a 30 letras, números, - ou _ (ex.: BEMVINDO10)." };
@@ -65,6 +75,8 @@ export function parseCouponForm(f: {
   if ((f.starts && !date(f.starts)) || (f.ends && !date(f.ends))) return { error: "Data inválida." };
   if (f.starts && f.ends && f.ends < f.starts) return { error: "O fim da validade é antes do começo." };
   const maxUses = f.maxUses.trim() ? Number(f.maxUses) : null;
+  const scope = f.scope ?? "all";
+  if (!isCouponScope(scope)) return { error: "Escolha onde o cupom vale." };
   if (maxUses !== null && (!Number.isInteger(maxUses) || maxUses < 1 || maxUses > 100000)) return { error: "Limite de usos: um número inteiro a partir de 1." };
   return {
     coupon: {
@@ -76,18 +88,20 @@ export function parseCouponForm(f: {
       ends_at: f.ends ? `${f.ends}T23:59:59-03:00` : null,
       max_uses: maxUses,
       once_per_customer: f.once,
+      applies_to: scope,
     },
   };
 }
 
 // Condições em texto, para a lista do painel.
-export function couponConditions(c: Pick<Coupon, "min_subtotal_cents" | "starts_at" | "ends_at" | "once_per_customer">) {
+export function couponConditions(c: Pick<Coupon, "min_subtotal_cents" | "starts_at" | "ends_at" | "once_per_customer" | "applies_to">) {
   const day = (iso: string) => new Date(iso).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" });
   return [
-    c.min_subtotal_cents && `compras a partir de ${formatBRL(c.min_subtotal_cents)}`,
+    c.applies_to && c.applies_to !== "all" && COUPON_SCOPES[c.applies_to].replace(/^Só/, "só"),
+    c.min_subtotal_cents && `a partir de ${formatBRL(c.min_subtotal_cents)}`,
     c.starts_at && `a partir de ${day(c.starts_at)}`,
     c.ends_at && `até ${day(c.ends_at)}`,
-    c.once_per_customer && "1 uso por CPF",
+    c.once_per_customer && "1 uso por cliente",
   ].filter(Boolean) as string[];
 }
 
@@ -101,6 +115,22 @@ export function discountLines(discountCents: number, coupon: OrderCoupon, otherL
   if (coupon && c > 0) lines.push({ label: `Cupom ${coupon.code}`, cents: c });
   if (discountCents - c > 0) lines.push({ label: otherLabel, cents: discountCents - c });
   return lines;
+}
+
+export type CouponResult = { code: string; uses: number; salesCents: number; discountCents: number };
+
+// Resultado por cupom (pedidos pagos e agendamentos com o cupom): usos, quanto vendeu (já com o desconto) e
+// quanto deu de desconto. Do que mais vendeu para o que menos.
+export function couponSummary(rows: { code: string; salesCents: number; discountCents: number }[]): CouponResult[] {
+  const by = new Map<string, CouponResult>();
+  for (const r of rows) {
+    const c = by.get(r.code) ?? { code: r.code, uses: 0, salesCents: 0, discountCents: 0 };
+    c.uses++;
+    c.salesCents += r.salesCents;
+    c.discountCents += r.discountCents;
+    by.set(r.code, c);
+  }
+  return [...by.values()].sort((a, b) => b.salesCents - a.salesCents || b.uses - a.uses);
 }
 
 // Situação para o painel.

@@ -5,6 +5,15 @@ import { useRouter } from "next/navigation";
 import { formatBRL } from "@/lib/money";
 import { formatDuration, type PaymentMode } from "@/lib/booking";
 import { weekdayOf } from "@/lib/booking-slots";
+import { forgetCoupon, savedCoupon } from "@/lib/coupon-link";
+
+// Cupom vindo de um link da loja (?cupom=): preenche o campo uma vez, quando ele aparece.
+function fillSavedCoupon(el: HTMLInputElement | null) {
+  if (el && !el.dataset.filled) {
+    el.dataset.filled = "1";
+    el.value = savedCoupon() ?? "";
+  }
+}
 
 type Service = {
   id: string;
@@ -55,6 +64,7 @@ export function BookingWizard({
   initialDate = null,
   packageServiceIds = [],
   whatsappOptIn = false,
+  withCoupon = false,
 }: {
   services: Service[];
   professionals: Professional[];
@@ -65,6 +75,7 @@ export function BookingWizard({
   initialDate?: string | null; // vindo do e-mail da lista de espera (?data=)
   packageServiceIds?: string[]; // serviços com pacote à venda (quem tem pacote agenda sem sinal)
   whatsappOptIn?: boolean; // a loja oferece novidades pelo WhatsApp (caixa de aceite, desmarcada)
+  withCoupon?: boolean; // a loja tem cupom que vale na agenda (campo opcional, conferido no servidor)
 }) {
   const router = useRouter();
   const [serviceId, setServiceId] = useState<string | null>(reschedule?.serviceId ?? initialServiceId ?? (services.length === 1 ? services[0].id : null));
@@ -166,10 +177,12 @@ export function BookingWizard({
         cpf: f.get("cpf") ?? "",
         notes: f.get("notes") ?? "",
         whatsappOptIn: f.get("whatsapp_optin") === "on",
+        coupon: String(f.get("coupon") ?? "").trim() || null,
       }),
     }).catch(() => null);
     const data = (await res?.json().catch(() => null)) as { token?: string; error?: string } | null;
     if (res?.ok && data?.token) {
+      forgetCoupon();
       router.push(`/agendamento/${data.token}`);
       return;
     }
@@ -294,6 +307,9 @@ export function BookingWizard({
               <p className="text-xs text-neutral-600">Tem pacote deste serviço? Use o <strong>mesmo celular do pacote</strong>: o sinal não é cobrado e a sessão é descontada no atendimento.</p>
             )}
             <textarea name="notes" rows={2} maxLength={500} placeholder="Observação para o salão (opcional)" className={input} />
+            {withCoupon && (
+              <input ref={fillSavedCoupon} name="coupon" placeholder="Cupom de desconto (opcional)" aria-label="Cupom de desconto" autoCapitalize="characters" className={`${input} uppercase`} />
+            )}
             {whatsappOptIn && (
               <label className="flex items-start gap-2 text-sm text-neutral-700">
                 <input type="checkbox" name="whatsapp_optin" className="mt-0.5" />

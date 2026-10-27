@@ -284,7 +284,7 @@ export default async function AdminStorePage({ params }: { params: Promise<{ id:
                 <input type="hidden" name="storeId" value={store.id} />
                 <p className="font-medium">Campanhas (marketing)</p>
                 <p className="text-xs text-neutral-500">
-                  Mensagens de campanha por mês que o lojista pode mandar em Painel → Campanhas, só para quem aceitou receber (cerca de R$ 0,35 cada, pagos pela
+                  Mensagens de campanha por mês que o lojista pode mandar em Painel → Divulgar → Campanhas, só para quem aceitou receber (cerca de R$ 0,35 cada, pagos pela
                   plataforma). 0 = sem campanhas (nem a caixa de aceite aparece na loja).
                 </p>
                 <div className="flex items-center gap-2">

@@ -10,6 +10,7 @@ import { isUuid } from "@/lib/validation";
 import { BookingWizard } from "./booking-wizard";
 import { packagesForSale } from "@/lib/packages-server";
 import { campaignsOffered } from "@/lib/whatsapp-campaigns-server";
+import { hasActiveCoupons } from "@/lib/coupons-server";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Agendar horário" };
@@ -60,6 +61,7 @@ export default async function BookPage({ params, searchParams }: { params: Promi
           whatsapp={store.whatsapp}
           packageServiceIds={[...new Set(forSale.map((p) => p.service_id))]}
           whatsappOptIn={await campaignsOffered(db, store.id)}
+          withCoupon={!reschedule && (await hasActiveCoupons(db, store.id, "services"))}
         />
       )}
     </div>

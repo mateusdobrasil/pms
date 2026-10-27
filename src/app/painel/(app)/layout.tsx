@@ -3,7 +3,6 @@ import Link from "next/link";
 import { requireStore } from "@/lib/panel";
 import { formatDay, lastPayDay, todayBR } from "@/lib/billing";
 import { storeTestMode, testAccessUrl } from "@/lib/test-mode";
-import { signOut } from "../actions";
 import { PanelNav } from "./panel-nav";
 import { panelAppMetadata, panelViewport } from "../app-metadata";
 
@@ -61,15 +60,9 @@ export default async function PanelLayout({ children }: { children: ReactNode })
               <p className="text-xs text-neutral-400">Painel da loja</p>
             </div>
           </div>
-          <form action={signOut} className="flex items-center gap-3 text-sm text-neutral-300 sm:order-last">
-            <Link href="/painel/conta" className="hidden rounded-md px-2 py-1 hover:bg-white/10 hover:text-white md:inline" title="Minha conta">
-              {email}
-            </Link>
-            <Link href="/painel/conta" className="rounded-md px-2 py-1 hover:bg-white/10 hover:text-white md:hidden">Conta</Link>
-            <button type="submit" className="rounded-md px-2 py-1 hover:bg-white/10 hover:text-white">Sair</button>
-          </form>
+          {/* Uma linha só: a assinatura, a conta e sair ficam no grupo "Conta" do menu. */}
           <div className="w-full sm:w-auto sm:flex-1">
-            <PanelNav agenda={agenda} campaigns={campaigns} />
+            <PanelNav agenda={agenda} campaigns={campaigns} email={email} />
           </div>
         </div>
       </header>

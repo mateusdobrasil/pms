@@ -1,15 +1,21 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { forgetCoupon, savedCoupon } from "@/lib/coupon-link";
 
 const inputClass = "w-full rounded-lg border px-3 py-2.5 text-sm";
 
 // Dados do cliente (os mesmos do checkout: o Pix e o cartão pedem CPF e e-mail). Depois, a página do pedido cobra.
-// endpoint: quem cria o pedido (link de pagamento ou compra de pacote).
-export function PayLinkForm({ endpoint }: { endpoint: string }) {
+// endpoint: quem cria o pedido (link de pagamento ou compra de pacote). withCoupon: campo de cupom (pacotes),
+// já preenchido com o cupom de um link da loja (?cupom=); o servidor confere.
+export function PayLinkForm({ endpoint, withCoupon = false }: { endpoint: string; withCoupon?: boolean }) {
   const router = useRouter();
+  const couponInput = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (couponInput.current && !couponInput.current.value) couponInput.current.value = savedCoupon() ?? "";
+  }, []);
   const [errors, setErrors] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
 
@@ -18,11 +24,13 @@ export function PayLinkForm({ endpoint }: { endpoint: string }) {
     setSubmitting(true);
     setErrors([]);
     const form = new FormData(e.currentTarget);
+    const coupon = String(form.get("coupon") ?? "").trim();
     const res = await fetch(endpoint, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         customer: { name: form.get("name"), email: form.get("email"), cpf: form.get("cpf"), phone: form.get("phone") },
+        ...(coupon ? { coupon } : {}),
       }),
     }).catch(() => null);
     const data = await res?.json().catch(() => null);
@@ -31,6 +39,7 @@ export function PayLinkForm({ endpoint }: { endpoint: string }) {
       setSubmitting(false);
       return;
     }
+    if (withCoupon) forgetCoupon();
     router.push(`/pedido/${data.token}`);
   }
 
@@ -43,6 +52,16 @@ export function PayLinkForm({ endpoint }: { endpoint: string }) {
         <input name="cpf" required inputMode="numeric" placeholder="CPF" className={inputClass} />
         <input name="phone" type="tel" required autoComplete="tel" placeholder="Celular com DDD" className={inputClass} />
       </div>
+      {withCoupon && (
+        <input
+          ref={couponInput}
+          name="coupon"
+          placeholder="Cupom de desconto (opcional)"
+          aria-label="Cupom de desconto"
+          autoCapitalize="characters"
+          className={`${inputClass} uppercase`}
+        />
+      )}
       {errors.length > 0 && (
         <ul className="space-y-1 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">
           {errors.map((err) => (

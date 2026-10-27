@@ -84,7 +84,7 @@ export const WA_EVENTS: Record<WaEvent, EventDef> = {
   store_new_booking: { label: "Novo agendamento (para o lojista)", description: "Para o WhatsApp da loja, a cada agendamento novo.", audience: "store", fields: ["store_name", "customer_name", "customer_phone", "service", "professional", "date", "time", "link"] },
   campaign: {
     label: "Campanha (novidades e promoções)",
-    description: "Enviada pelo lojista em Painel → Campanhas, só para quem aceitou receber. Categoria Marketing na Meta.",
+    description: "Enviada pelo lojista em Painel → Divulgar → Campanhas, só para quem aceitou receber. Categoria Marketing na Meta.",
     audience: "optin",
     fields: ["first_name", "customer_name", "store_name", "campaign_text", "link", "coupon_code", "optout_link"],
   },

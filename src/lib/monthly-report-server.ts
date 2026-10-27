@@ -8,6 +8,7 @@ import { isCounterSale } from "@/lib/counter";
 import { daysSince } from "@/lib/customers";
 import { loadStoreCustomers } from "@/lib/customers-server";
 import { buildReport, monthOf, previousMonth } from "@/lib/monthly-report";
+import { couponSummary } from "@/lib/coupons";
 import { sendMonthlyReport } from "@/lib/email";
 import { todayBR } from "@/lib/billing";
 import { chunks, fetchAll } from "@/lib/supabase/fetch-all";
@@ -65,6 +66,16 @@ export async function storeMonthReport(db: SupabaseClient, storeId: string, m: M
   for (let i = 0; i < (walkIns ?? 0) + (packageUses ?? 0); i++) bookings.push({ status: "completed" });
   // Venda no balcão não passa pelo Mercado Pago: sem taxa, o valor inteiro é do lojista.
   for (const o of sold) if (isCounterSale(o.shipping_method)) feeByOrder.set(o.id, { feeCents: 0, netCents: o.total_cents });
+  // Cupons do mês (SQL 20261120100000 e 20261121000000; sem as colunas, a seção fica de fora): pedidos pagos no
+  // mês e agendamentos atendidos ou confirmados no mês.
+  const [{ data: couponOrders }, { data: couponBookings }] = await Promise.all([
+    db.from("orders").select("coupon_code, coupon_discount_cents, total_cents").eq("store_id", storeId).in("status", SOLD_STATUSES).not("coupon_code", "is", null).gte("paid_at", m.from).lt("paid_at", m.to).limit(5000),
+    db.from("bookings").select("coupon_code, coupon_discount_cents, price_cents").eq("store_id", storeId).in("status", ["completed", "confirmed"]).not("coupon_code", "is", null).gte("starts_at", m.from).lt("starts_at", m.to).limit(5000),
+  ]);
+  const coupons = couponSummary([
+    ...((couponOrders ?? []) as { coupon_code: string; coupon_discount_cents: number; total_cents: number }[]).map((o) => ({ code: o.coupon_code, salesCents: o.total_cents, discountCents: o.coupon_discount_cents })),
+    ...((couponBookings ?? []) as { coupon_code: string; coupon_discount_cents: number; price_cents: number }[]).map((b) => ({ code: b.coupon_code, salesCents: b.price_cents, discountCents: b.coupon_discount_cents })),
+  ]);
   const skip = new Set(((optedOut ?? []) as { customer_key: string }[]).map((c) => c.customer_key));
   return buildReport({
     orders: sold,
@@ -73,6 +84,7 @@ export async function storeMonthReport(db: SupabaseClient, storeId: string, m: M
     previousSalesCents: prevOrders.reduce((s, o) => s + o.total_cents, 0),
     bookings,
     newCustomers: customers.filter((c) => c.firstAt >= m.from && c.firstAt < m.to).length,
+    coupons,
     awayCustomers: customers.filter((c) => daysSince(c.lastAt, now) >= AWAY_DAYS && !c.nextBookingAt && !skip.has(c.key)).length,
   });
 }
