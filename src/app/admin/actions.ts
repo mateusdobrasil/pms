@@ -115,6 +115,16 @@ export async function setStoreStatus(form: FormData) {
   refresh(id);
 }
 
+// Lembrete de agendamento por WhatsApp: decisão do admin (o custo por mensagem é da plataforma).
+export async function setWhatsappReminders(form: FormData) {
+  const { db } = await requireAdmin();
+  const id = String(form.get("storeId") ?? "");
+  if (!isUuid(id)) return;
+  await db.from("stores").update({ whatsapp_reminders: form.get("enabled") === "1" }).eq("id", id);
+  refresh(id);
+  revalidatePath("/admin/whatsapp");
+}
+
 export async function addDomain(_prev: AdminState, form: FormData): Promise<AdminState> {
   const { db } = await requireAdmin();
   const storeId = String(form.get("storeId") ?? "");

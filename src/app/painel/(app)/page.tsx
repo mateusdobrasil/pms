@@ -10,6 +10,7 @@ import { SalesChart, TopProducts } from "./sales-chart";
 import { FEE_FIELDS, paymentFees } from "@/lib/payments/fees";
 import { pushPublicKey } from "@/lib/push";
 import { PAYMENT_LINK_METHOD } from "@/lib/payment-links";
+import { PACKAGE_METHOD } from "@/lib/packages";
 import { isCounterSale } from "@/lib/counter";
 import { PushCard } from "./push-card";
 
@@ -64,6 +65,9 @@ export default async function PanelHome() {
       .eq("store_id", store.id)
       .in("orders.status", SOLD_STATUSES)
       .neq("orders.shipping_method", PAYMENT_LINK_METHOD) // cobrança avulsa não é produto: fora do "Mais vendidos"
+      .neq("orders.shipping_method", PACKAGE_METHOD) // compra de pacote também não
+      .is("package_id", null) // pacote vendido no balcão
+      .is("professional_id", null) // serviço vendido no balcão
       .gte("orders.paid_at", chartFrom),
     // Pagamentos aprovados das vendas do mês: taxa do Mercado Pago e valor líquido.
     supabase

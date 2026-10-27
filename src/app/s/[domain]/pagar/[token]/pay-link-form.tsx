@@ -7,7 +7,8 @@ import { useRouter } from "next/navigation";
 const inputClass = "w-full rounded-lg border px-3 py-2.5 text-sm";
 
 // Dados do cliente (os mesmos do checkout: o Pix e o cartão pedem CPF e e-mail). Depois, a página do pedido cobra.
-export function PayLinkForm({ token }: { token: string }) {
+// endpoint: quem cria o pedido (link de pagamento ou compra de pacote).
+export function PayLinkForm({ endpoint }: { endpoint: string }) {
   const router = useRouter();
   const [errors, setErrors] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
@@ -17,7 +18,7 @@ export function PayLinkForm({ token }: { token: string }) {
     setSubmitting(true);
     setErrors([]);
     const form = new FormData(e.currentTarget);
-    const res = await fetch(`/api/payment-links/${token}`, {
+    const res = await fetch(endpoint, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({

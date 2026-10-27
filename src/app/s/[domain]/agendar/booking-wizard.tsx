@@ -53,6 +53,7 @@ export function BookingWizard({
   reschedule = null,
   initialServiceId = null,
   initialDate = null,
+  packageServiceIds = [],
 }: {
   services: Service[];
   professionals: Professional[];
@@ -61,6 +62,7 @@ export function BookingWizard({
   reschedule?: { token: string; serviceId: string; professionalId: string | null } | null; // remarcar um agendamento existente
   initialServiceId?: string | null; // vindo de um cartão de serviço da home (?servico=)
   initialDate?: string | null; // vindo do e-mail da lista de espera (?data=)
+  packageServiceIds?: string[]; // serviços com pacote à venda (quem tem pacote agenda sem sinal)
 }) {
   const router = useRouter();
   const [serviceId, setServiceId] = useState<string | null>(reschedule?.serviceId ?? initialServiceId ?? (services.length === 1 ? services[0].id : null));
@@ -285,6 +287,9 @@ export function BookingWizard({
               <input name="email" required type="email" autoComplete="email" placeholder="E-mail (recebe a confirmação)" className={input} />
               {service.online_cents > 0 && <input name="cpf" required inputMode="numeric" placeholder="CPF (exigido no pagamento)" className={input} />}
             </div>
+            {service.online_cents > 0 && packageServiceIds.includes(service.id) && (
+              <p className="text-xs text-neutral-600">Tem pacote deste serviço? Use o <strong>mesmo celular do pacote</strong>: o sinal não é cobrado e a sessão é descontada no atendimento.</p>
+            )}
             <textarea name="notes" rows={2} maxLength={500} placeholder="Observação para o salão (opcional)" className={input} />
             <div className="rounded-xl bg-neutral-50 p-4 text-sm">
               <p className="font-semibold">{service.name} · {formatDuration(service.duration_minutes)}</p>

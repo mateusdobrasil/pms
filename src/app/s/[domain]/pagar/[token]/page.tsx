@@ -52,7 +52,7 @@ export default async function PayLinkPage({ params }: { params: Promise<{ domain
           )}
         </section>
       ) : (
-        <PayLinkForm token={token} />
+        <PayLinkForm endpoint={`/api/payment-links/${token}`} />
       )}
     </div>
   );

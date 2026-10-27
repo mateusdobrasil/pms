@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canSelfManage, formatDuration, formatRanges, googleCalendarUrl, onlineCents, parseRanges, parseTime } from "@/lib/booking";
+import { canSelfManage, formatDuration, formatRanges, googleCalendarUrl, onlineCents, parseRanges, parseTime, whatsappReminderParams } from "@/lib/booking";
 
 describe("pagamento do agendamento", () => {
   it("tudo online, sinal ou no salão", () => {
@@ -48,5 +48,13 @@ describe("agenda do cliente", () => {
     expect(canSelfManage("2026-11-10T15:00:00-03:00", 24, now)).toBe(true);
     expect(canSelfManage("2026-11-10T13:00:00-03:00", 24, now)).toBe(false);
     expect(canSelfManage("2026-11-09T15:00:00-03:00", 0, now)).toBe(true);
+  });
+});
+
+describe("lembrete no WhatsApp", () => {
+  it("parâmetros do template: primeiro nome, loja, serviço, hora de Brasília, profissional e link", () => {
+    expect(
+      whatsappReminderParams({ customerName: "Ana Maria Souza", storeName: "Salão X", serviceName: "Escova", startsAt: "2026-10-31T17:00:00Z", professionalName: "Bia", link: "https://x.com/agendamento/abc" }),
+    ).toEqual(["Ana", "Salão X", "Escova", "14:00", "Bia", "https://x.com/agendamento/abc"]);
   });
 });

@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { SOLD_STATUSES } from "@/lib/order-status";
 import { FEE_FIELDS, paymentFees } from "@/lib/payments/fees";
 import { PAYMENT_LINK_METHOD } from "@/lib/payment-links";
+import { PACKAGE_METHOD } from "@/lib/packages";
 import { isCounterSale } from "@/lib/counter";
 import { daysSince } from "@/lib/customers";
 import { loadStoreCustomers } from "@/lib/customers-server";
@@ -31,10 +32,11 @@ export async function storeMonthReport(db: SupabaseClient, storeId: string, m: M
     loadStoreCustomers(db, storeId, now),
     db.from("customer_contacts").select("customer_key").eq("store_id", storeId).eq("do_not_contact", true),
   ]);
-  const productIds = sold.filter((o) => o.shipping_method !== PAYMENT_LINK_METHOD).map((o) => o.id);
+  const productIds = sold.filter((o) => o.shipping_method !== PAYMENT_LINK_METHOD && o.shipping_method !== PACKAGE_METHOD).map((o) => o.id);
   const items: { product_name: string; unit_price_cents: number; quantity: number }[] = [];
   for (const ids of chunks(productIds)) {
-    const { data, error } = await db.from("order_items").select("product_name, unit_price_cents, quantity").eq("store_id", storeId).in("order_id", ids);
+    // Só produtos: pacotes e serviços vendidos no balcão ficam fora do "Mais vendidos".
+    const { data, error } = await db.from("order_items").select("product_name, unit_price_cents, quantity").eq("store_id", storeId).in("order_id", ids).is("package_id", null).is("professional_id", null);
     if (error) throw new Error(error.message);
     items.push(...(data ?? []));
   }

@@ -48,7 +48,7 @@ function money(b: Booking) {
 
 type Receipt = { total_cents: number; counter_payment: CounterPayment };
 
-type PackageOffer = { id: string; left: number; name: string };
+type PackageOffer = { id: string; left: number; name: string; linked: boolean };
 
 function BookingCard({ b, now, receipt, pkg, usedPackage }: { b: Booking; now: number; receipt?: Receipt; pkg?: PackageOffer | null; usedPackage?: boolean }) {
   const due = Math.max(0, b.price_cents - b.paid_cents);
@@ -67,7 +67,7 @@ function BookingCard({ b, now, receipt, pkg, usedPackage }: { b: Booking; now: n
           WhatsApp do cliente
         </a>
       )}
-      {!faded && !receipt && !usedPackage && <p className="text-xs text-neutral-500">{money(b)}</p>}
+      {!faded && !receipt && !usedPackage && !pkg?.linked && <p className="text-xs text-neutral-500">{money(b)}</p>}
       {b.notes && <p className="text-xs text-neutral-500">“{b.notes}”</p>}
       {receipt && (
         <p className="text-xs font-medium text-emerald-700">
@@ -75,10 +75,11 @@ function BookingCard({ b, now, receipt, pkg, usedPackage }: { b: Booking; now: n
         </p>
       )}
       {usedPackage && <p className="text-xs font-medium text-violet-700">Sessão de pacote usada</p>}
+      {!usedPackage && pkg?.linked && <p className="text-xs font-medium text-violet-700">Agendado pelo pacote (sem sinal)</p>}
       {(b.status === "confirmed" || b.status === "completed") && !receipt && !usedPackage && (
         <div className="flex flex-wrap gap-2">
           {pkg && <UsePackage bookingId={b.id} packageId={pkg.id} left={pkg.left} name={pkg.name} />}
-          {due > 0 && <ReceiveBooking bookingId={b.id} dueCents={due} />}
+          {due > 0 && !pkg?.linked && <ReceiveBooking bookingId={b.id} dueCents={due} />}
         </div>
       )}
       {b.status === "confirmed" && <BookingActions id={b.id} paidLabel={b.paid_cents ? formatBRL(b.paid_cents) : null} past={Date.parse(b.starts_at) < now} />}
@@ -133,10 +134,14 @@ export default async function AgendaPage({ searchParams }: { searchParams: Promi
   const pkgs = open.length ? await loadCustomerPackages(supabase, store.id, [...new Set(open.flatMap((x) => customerKeys(x.customer_phone, x.customer_email)))]) : [];
   const { data: useRows } = open.length ? await supabase.from("package_uses").select("booking_id").in("booking_id", open.map((x) => x.id)) : { data: [] };
   const usedFor = new Set(((useRows ?? []) as { booking_id: string }[]).map((u) => u.booking_id));
+  // Agendamento feito pelo pacote (SQL 20261117000000): o "Usar pacote" usa esse pacote.
+  const { data: linkRows } = open.length ? await supabase.from("bookings").select("id, customer_package_id").in("id", open.map((x) => x.id)).not("customer_package_id", "is", null) : { data: [] };
+  const linkedTo = new Map(((linkRows ?? []) as { id: string; customer_package_id: string }[]).map((r) => [r.id, r.customer_package_id]));
   const offerFor = (x: Booking): PackageOffer | null => {
     const keys = customerKeys(x.customer_phone, x.customer_email);
-    const p = pickPackage(pkgs.filter((k) => keys.includes(k.customer_key)), x.service_id);
-    return p ? { id: p.id, left: remaining(p), name: p.name } : null;
+    const linked = pkgs.find((k) => k.id === linkedTo.get(x.id) && remaining(k) > 0);
+    const p = linked ?? pickPackage(pkgs.filter((k) => keys.includes(k.customer_key)), x.service_id);
+    return p ? { id: p.id, left: remaining(p), name: p.name, linked: !!linked } : null;
   };
   // Lista de espera do dia (visão do dia). Sem o SQL da lista, a consulta falha e a seção não aparece.
   const { data: waitRows } = week

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { getStoreByDomain } from "@/lib/store";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -7,6 +8,7 @@ import { canSelfManage, onlineCents } from "@/lib/booking";
 import { todayBR } from "@/lib/billing";
 import { isUuid } from "@/lib/validation";
 import { BookingWizard } from "./booking-wizard";
+import { packagesForSale } from "@/lib/packages-server";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Agendar horário" };
@@ -20,6 +22,7 @@ export default async function BookPage({ params, searchParams }: { params: Promi
   const settings = await getBookingSettings(db, store.id);
   if (!settings?.enabled) notFound();
   const { services, professionals } = await loadCatalog(db, store.id);
+  const forSale = await packagesForSale(db, store.id);
 
   // Remarcação pelo link do agendamento: mesmo serviço, dentro do prazo da loja.
   let reschedule: { token: string; serviceId: string; professionalId: string | null } | null = null;
@@ -37,6 +40,11 @@ export default async function BookPage({ params, searchParams }: { params: Promi
       <header>
         <h1 className="text-2xl font-bold tracking-tight">{reschedule ? "Remarcar horário" : "Agendar horário"}</h1>
         <p className="text-neutral-600">{reschedule ? "Escolha o novo dia e horário. O que você já pagou continua valendo." : "Escolha o serviço, o profissional e o melhor horário para você."}</p>
+        {!reschedule && forSale.length > 0 && (
+          <Link href="/pacotes" className="mt-2 inline-block text-sm font-medium underline" style={{ color: "var(--brand)" }}>
+            Pacotes com desconto: pague uma vez e agende sem sinal →
+          </Link>
+        )}
       </header>
       {shown.length === 0 ? (
         <p className="rounded-xl bg-neutral-100 px-4 py-8 text-center text-neutral-600">Nenhum serviço disponível para agendar no momento.</p>
@@ -49,6 +57,7 @@ export default async function BookPage({ params, searchParams }: { params: Promi
           professionals={professionals.map((p) => ({ id: p.id, name: p.name, serviceIds: p.serviceIds, weekdays: p.weekdays }))}
           days={bookingDays(todayBR(), settings.maxDays)}
           whatsapp={store.whatsapp}
+          packageServiceIds={[...new Set(forSale.map((p) => p.service_id))]}
         />
       )}
     </div>

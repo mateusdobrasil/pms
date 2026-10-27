@@ -77,3 +77,10 @@ export const BOOKING_STATUS: Record<BookingStatus, { label: string; tone: string
   canceled: { label: "Cancelado", tone: "bg-neutral-100 text-neutral-600 ring-neutral-200" },
   expired: { label: "Não pagou", tone: "bg-neutral-100 text-neutral-500 ring-neutral-200" },
 };
+
+// Parâmetros do template de lembrete no WhatsApp (corpo com {{1}} a {{6}}):
+// "Olá, {{1}}! Lembrete do seu horário na {{2}} amanhã: {{3}} às {{4}}, com {{5}}. Para remarcar ou cancelar, use o link {{6}} . Até lá!"
+export function whatsappReminderParams(b: { customerName: string; storeName: string; serviceName: string; startsAt: string; professionalName: string; link: string }) {
+  const time = new Date(b.startsAt).toLocaleTimeString("pt-BR", { timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit" });
+  return [b.customerName.trim().split(/\s+/)[0] || b.customerName, b.storeName, b.serviceName, time, b.professionalName, b.link];
+}

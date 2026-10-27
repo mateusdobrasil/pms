@@ -25,6 +25,7 @@ export default async function AdminLayout({ children }: { children: ReactNode })
             <Link href="/admin" className="rounded-md px-2 py-1 hover:bg-white/10">Lojas</Link>
             <Link href="/admin/propostas" className="rounded-md px-2 py-1 hover:bg-white/10">Propostas</Link>
             <Link href="/admin/financeiro" className="rounded-md px-2 py-1 hover:bg-white/10">Financeiro</Link>
+            <Link href="/admin/whatsapp" className="rounded-md px-2 py-1 hover:bg-white/10">WhatsApp</Link>
             <Link href="/admin/ajuda" className="rounded-md px-2 py-1 hover:bg-white/10">Ajuda</Link>
           </nav>
           <form action={signOut} className="flex items-center gap-3 text-sm text-primary-100">

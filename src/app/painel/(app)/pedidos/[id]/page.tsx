@@ -9,6 +9,7 @@ import { OrderActions, RefundSection } from "./order-actions";
 import { FEE_FIELDS, feePercent, paymentFees } from "@/lib/payments/fees";
 import { isPaymentLink } from "@/lib/payment-links";
 import { COUNTER_PAYMENTS, type CounterPayment, isCounterSale } from "@/lib/counter";
+import { isPackagePurchase } from "@/lib/packages";
 import { CancelSale } from "../../vender/cancel-sale";
 import { emailStatusLabel, isProblem } from "@/lib/resend-webhook";
 
@@ -61,6 +62,7 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
   const fromLink = isPaymentLink(order.shipping_method);
   // Venda no balcão: forma de pagamento lida à parte (coluna do SQL 20261114000000).
   const counter = isCounterSale(order.shipping_method);
+  const packagePurchase = isPackagePurchase(order.shipping_method);
   const { data: counterRow } = counter ? await supabase.from("orders").select("counter_payment").eq("id", order.id).maybeSingle() : { data: null };
   const counterPayment = (counterRow as { counter_payment: CounterPayment | null } | null)?.counter_payment ?? null;
   // Serviços vendidos no balcão: quem atendeu (coluna do SQL 20261115000000).
@@ -145,7 +147,7 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
             </ul>
             <div className="space-y-1 border-t px-4 py-3 text-sm">
               <p className="flex justify-between"><span>Subtotal</span><span>{formatBRL(order.subtotal_cents)}</span></p>
-              {!fromLink && !counter && (
+              {!fromLink && !counter && !packagePurchase && (
                 <p className="flex justify-between">
                   <span>{isPickup ? "Retirada na loja" : order.shipping_method}</span>
                   <span>{formatBRL(order.shipping_cents)}</span>
@@ -226,7 +228,12 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
 
           <section className="space-y-1 rounded-xl border bg-white shadow-sm px-4 py-3 text-sm">
             <h2 className="mb-2 font-medium">Entrega</h2>
-            {counter ? (
+            {packagePurchase ? (
+              <p className="text-neutral-600">
+                Compra de pacote pela loja. Pago, o pacote fica ativo em{" "}
+                <Link href="/painel/agenda/pacotes" className="font-medium text-primary-700 hover:underline">Agenda → Pacotes</Link>.
+              </p>
+            ) : counter ? (
               <div className="space-y-2">
                 <p className="text-neutral-600">
                   Venda no balcão{counterPayment ? `, paga em ${COUNTER_PAYMENTS[counterPayment].toLowerCase()}` : ""}. Entregue na hora.

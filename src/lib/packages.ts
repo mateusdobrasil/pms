@@ -45,3 +45,7 @@ export const suggestedName = (serviceName: string, sessions: number) => `${sessi
 
 // Preço por sessão (exibição: "R$ 40,00 por sessão").
 export const perSessionCents = (priceCents: number, sessions: number) => Math.round(priceCents / sessions);
+
+// Nome gravado em orders.shipping_method na compra online de pacote (sem entrega).
+export const PACKAGE_METHOD = "Pacote de sessões";
+export const isPackagePurchase = (shippingMethod: string | null | undefined) => shippingMethod === PACKAGE_METHOD;

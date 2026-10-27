@@ -8,6 +8,7 @@ import { googleCalendarUrl } from "@/lib/booking";
 import { isLocalDelivery } from "@/lib/shipping-settings";
 import { pushToStore } from "@/lib/push";
 import { isPaymentLink } from "@/lib/payment-links";
+import { isPackagePurchase } from "@/lib/packages";
 import type { Report } from "@/lib/monthly-report";
 import { progressText } from "@/lib/loyalty";
 import { customerStamps, getLoyaltyConfig } from "@/lib/loyalty-data";
@@ -152,6 +153,15 @@ async function loyaltyLine(storeId: string, email: string | null, phone: string 
   }
 }
 
+// Agendado com pacote: avisa que a sessão é descontada do pacote (nada a pagar no salão).
+async function packageLine(bookingId: string) {
+  const { data } = await createAdminClient().from("bookings").select("customer_packages(name)").eq("id", bookingId).maybeSingle();
+  const name = (data as { customer_packages: { name: string } | null } | null)?.customer_packages?.name;
+  return name
+    ? `<p style="margin:20px 0 0;padding:12px 14px;border-radius:8px;background:#f5f3ff;color:#5b21b6">✨ Este horário usa o seu pacote <strong>${esc(name)}</strong>: a sessão é descontada no atendimento, sem nada a pagar.</p>`
+    : "";
+}
+
 // Completou o cartão fidelidade: e-mail para o cliente e aviso no celular da loja (a trava é a linha do prêmio).
 export async function notifyLoyaltyReward(storeId: string, who: { name: string; email: string | null }, reward: string) {
   const { data: store } = await createAdminClient().from("stores").select("name, email, primary_color").eq("id", storeId).single();
@@ -231,7 +241,7 @@ export async function notifyOrderPaid(orderId: string) {
       html: layout(o.stores, `
         <h1 style="margin:0 0 8px;font-size:22px">Pagamento confirmado!</h1>
         <p style="margin:0 0 20px;color:#525252">Olá, ${esc(firstName(o.customer_name))}. Recebemos o pagamento do pedido <strong>${o.code}</strong>.
-        ${isPaymentLink(o.shipping_method) ? `A ${esc(o.stores.name)} já foi avisada. Guarde este e-mail como comprovante.` : o.shipping_method === "pickup" ? "Avisaremos quando estiver pronto para retirada." : isLocalDelivery(o.shipping_method) ? "Avisaremos quando sair para entrega." : "Avisaremos quando for enviado, com o código de rastreio."}</p>
+        ${isPackagePurchase(o.shipping_method) ? "Seu pacote já está ativo: é só agendar usando este mesmo celular. Guarde este e-mail como comprovante." : isPaymentLink(o.shipping_method) ? `A ${esc(o.stores.name)} já foi avisada. Guarde este e-mail como comprovante.` : o.shipping_method === "pickup" ? "Avisaremos quando estiver pronto para retirada." : isLocalDelivery(o.shipping_method) ? "Avisaremos quando sair para entrega." : "Avisaremos quando for enviado, com o código de rastreio."}</p>
         ${itemsTable(o)}
         ${loyalty}
         ${o.shipping_address ? addressBlock(o.shipping_address) : ""}
@@ -503,7 +513,7 @@ export async function notifyBooking(bookingId: string, notice: BookingNotice | "
       idempotencyKey: `booking-${notice}-${b.id}-${notice === "rescheduled" ? b.starts_at : ""}`,
       subject: content.subject,
       // Confirmação: mostra o cartão fidelidade do cliente (o atendimento carimba quando é marcado "atendido").
-      html: layout(b.stores, notice === "confirmed" ? content.body + (await loyaltyLine(b.store_id, b.customer_email, b.customer_phone)) : content.body),
+      html: layout(b.stores, notice === "confirmed" ? content.body + (await packageLine(b.id)) + (await loyaltyLine(b.store_id, b.customer_email, b.customer_phone)) : content.body),
     });
     if (!ok && column) await db.from("bookings").update({ [column]: null }).eq("id", bookingId);
     // Remarcação: o lojista também fica sabendo.
@@ -906,7 +916,7 @@ function itemsTable(o: OrderForEmail) {
   const shippingLabel = o.shipping_method === "pickup" ? "Retirada na loja" : esc(o.shipping_method);
   return `<table style="width:100%;border-collapse:collapse;font-size:14px">${rows}
     <tr><td style="padding:8px 0;color:#525252">Subtotal</td><td style="padding:8px 0;text-align:right">${formatBRL(o.subtotal_cents)}</td></tr>
-    ${isPaymentLink(o.shipping_method) ? "" : `<tr><td style="padding:0 0 8px;color:#525252">${shippingLabel}</td><td style="padding:0 0 8px;text-align:right">${o.shipping_cents ? formatBRL(o.shipping_cents) : "Grátis"}</td></tr>`}${
+    ${isPaymentLink(o.shipping_method) || isPackagePurchase(o.shipping_method) ? "" : `<tr><td style="padding:0 0 8px;color:#525252">${shippingLabel}</td><td style="padding:0 0 8px;text-align:right">${o.shipping_cents ? formatBRL(o.shipping_cents) : "Grátis"}</td></tr>`}${
       o.discount_cents ? `
     <tr><td style="padding:0 0 8px;color:#047857">Desconto Pix</td><td style="padding:0 0 8px;text-align:right;color:#047857">−${formatBRL(o.discount_cents)}</td></tr>` : ""
     }

@@ -11,6 +11,7 @@ import { TrackPurchase } from "./track-purchase";
 import { RedoOrder } from "./redo-order";
 import { availableOrderItems } from "@/lib/order-recovery";
 import { isPaymentLink, linkState } from "@/lib/payment-links";
+import { isPackagePurchase } from "@/lib/packages";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Seu pedido", robots: { index: false } };
@@ -163,7 +164,7 @@ export default async function OrderPage({
         </ul>
         <div className="mt-3 space-y-1 text-sm">
           <p className="flex justify-between"><span>Subtotal</span><span>{formatBRL(order.subtotal_cents)}</span></p>
-          {!fromLink && (
+          {!fromLink && !isPackagePurchase(order.shipping_method) && (
             <p className="flex justify-between">
               <span>{order.shipping_method === "pickup" ? "Retirada na loja" : order.shipping_method}</span>
               <span>{formatBRL(order.shipping_cents)}</span>

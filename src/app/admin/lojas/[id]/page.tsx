@@ -9,7 +9,8 @@ import { formatDateTime } from "@/lib/format";
 import { daysLate, dueDateOptions, formatDay, invoiceTitle, todayBR } from "@/lib/billing";
 import { INVOICE_FIELDS, type InvoiceRow } from "@/lib/billing-server";
 import { isTestToken, testAccessUrl } from "@/lib/test-mode";
-import { cancelInvoice, markInvoicePaid, removeDomain, removeMember, setPrimaryDomain, setStoreStatus } from "../../actions";
+import { cancelInvoice, markInvoicePaid, removeDomain, removeMember, setPrimaryDomain, setStoreStatus, setWhatsappReminders } from "../../actions";
+import { whatsappConfigured } from "@/lib/whatsapp";
 import { AddDomainForm, AddMemberForm, BillingForm, BrandingForm, SecretsForm } from "../../forms";
 
 export default async function AdminStorePage({ params }: { params: Promise<{ id: string }> }) {
@@ -29,6 +30,16 @@ export default async function AdminStorePage({ params }: { params: Promise<{ id:
   if (!store) notFound();
 
   // Cobrança: colunas e tabela do SQL 20261024000000, lidas à parte (sem o SQL, a seção avisa).
+  // WhatsApp: coluna e registro do SQL 20261118000000 (sem eles, a seção não aparece).
+  const monthStart = new Date(`${todayBR().slice(0, 7)}-01T00:00:00-03:00`).toISOString();
+  const [{ data: wa, error: waError }, { count: waSent }, { count: waFailed }] = await Promise.all([
+    db.from("stores").select("whatsapp_reminders").eq("id", id).maybeSingle(),
+    db.from("whatsapp_messages").select("id", { count: "exact", head: true }).eq("store_id", id).eq("status", "sent").gte("created_at", monthStart),
+    db.from("whatsapp_messages").select("id", { count: "exact", head: true }).eq("store_id", id).eq("status", "failed").gte("created_at", monthStart),
+  ]);
+  const whatsapp = waError
+    ? null
+    : { enabled: !!(wa as { whatsapp_reminders?: boolean } | null)?.whatsapp_reminders, sent: waSent ?? 0, failed: waFailed ?? 0, configured: whatsappConfigured() };
   const [{ data: billing, error: billingError }, { data: invoiceRows }] = await Promise.all([
     db.from("stores").select("setup_fee_cents, monthly_fee_cents, billing_starts_on, suspended_for_billing").eq("id", id).single(),
     db.from("store_invoices").select(INVOICE_FIELDS).eq("store_id", id).order("due_date", { ascending: false }),
@@ -222,6 +233,27 @@ export default async function AdminStorePage({ params }: { params: Promise<{ id:
             </div>
           )}
         </section>
+
+        {whatsapp && (
+          <section className={card}>
+            <h2 className="font-semibold">Lembrete por WhatsApp</h2>
+            <p className="text-sm text-neutral-600">
+              {whatsapp.enabled
+                ? "Ligado: os clientes recebem o lembrete da véspera pelo WhatsApp oficial da plataforma (além do e-mail)."
+                : "Desligado. O custo por mensagem é da plataforma: ligue para lojas com plano que inclua o WhatsApp."}
+              {" "}Este mês: <strong>{whatsapp.sent}</strong> {whatsapp.sent === 1 ? "mensagem enviada" : "mensagens enviadas"}
+              {whatsapp.failed > 0 && <span className="text-red-700"> · {whatsapp.failed} com falha</span>}.
+            </p>
+            {!whatsapp.configured && <p className="text-sm text-amber-700">As variáveis do WhatsApp ainda não estão configuradas na Vercel: nada é enviado.</p>}
+            <form action={setWhatsappReminders}>
+              <input type="hidden" name="storeId" value={store.id} />
+              <input type="hidden" name="enabled" value={whatsapp.enabled ? "0" : "1"} />
+              <button type="submit" className={`rounded-lg px-4 py-2 text-sm font-semibold shadow-sm ${whatsapp.enabled ? "border bg-white hover:bg-neutral-50" : "bg-emerald-600 text-white hover:bg-emerald-700"}`}>
+                {whatsapp.enabled ? "Desligar lembrete por WhatsApp" : "Ligar lembrete por WhatsApp"}
+              </button>
+            </form>
+          </section>
+        )}
 
         <section className={card}>
           <h2 className="font-semibold">Situação</h2>

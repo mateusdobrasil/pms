@@ -19,6 +19,9 @@ export async function GET(req: Request) {
     await notifyPlatformError("cron:lembretes", "Erro nos lembretes de agendamento", { erro: String(err) });
     return { reminders: 0, error: String(err) };
   });
+  // Lembrete por WhatsApp com falha (template não aprovado, token vencido, número inválido): avisa o admin.
+  const wa = "whatsapp" in bookings ? (bookings.whatsapp as { sent: number; failed: number; skipped?: string }) : null;
+  if (wa?.failed) await notifyPlatformError("cron:whatsapp", "Lembretes por WhatsApp com falha", { enviados: wa.sent, falharam: wa.failed, detalhe: "Veja a tabela whatsapp_messages (coluna error)." });
   try {
     const result = await runBilling(db);
     console.log("Cobrança diária", result, "| lembretes", bookings);

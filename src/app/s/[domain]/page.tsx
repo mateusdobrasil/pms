@@ -5,6 +5,7 @@ import { getBanner, type Banner } from "@/lib/banner";
 import { ProductGrid, fetchProducts } from "./product-grid";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getBookingSettings, loadCatalog, type BookableService } from "@/lib/booking-server";
+import { packagesForSale } from "@/lib/packages-server";
 import { formatDuration, onlineCents } from "@/lib/booking";
 import { formatBRL } from "@/lib/money";
 
@@ -20,13 +21,14 @@ export default async function StoreHome({ params }: { params: Promise<{ domain: 
   // Loja só de serviços (agenda ligada e nenhum produto): a home mostra os serviços para agendar.
   const servicesOnly = !!booking?.enabled && products.length === 0;
   const services = servicesOnly ? (await loadCatalog(db, store.id)).services : [];
+  const hasPackages = servicesOnly && (await packagesForSale(db, store.id)).length > 0;
 
   return (
     <div className="space-y-10">
       <Hero store={store} banner={banner} servicesOnly={servicesOnly} />
 
       {servicesOnly ? (
-        <ServicesSection services={services} />
+        <ServicesSection services={services} hasPackages={hasPackages} />
       ) : (
         <section className="space-y-5">
           <h2 className="text-xl font-bold tracking-tight">Produtos</h2>
@@ -45,18 +47,25 @@ function paymentNote(s: BookableService) {
 }
 
 // Serviços da agenda no lugar dos produtos (cada cartão abre o agendamento já com o serviço escolhido).
-function ServicesSection({ services }: { services: BookableService[] }) {
+function ServicesSection({ services, hasPackages }: { services: BookableService[]; hasPackages: boolean }) {
   return (
     <section className="space-y-5">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <h2 className="text-xl font-bold tracking-tight">Serviços</h2>
-        <Link
-          href="/agendar"
-          className="rounded-full px-6 py-3 text-sm font-semibold text-white shadow-sm transition hover:brightness-110"
-          style={{ background: "var(--brand)" }}
-        >
-          Agendar horário
-        </Link>
+        <div className="flex flex-wrap gap-2">
+          {hasPackages && (
+            <Link href="/pacotes" className="rounded-full border-2 px-5 py-2.5 text-sm font-semibold transition hover:brightness-95" style={{ borderColor: "var(--brand)", color: "var(--brand)" }}>
+              Pacotes com desconto
+            </Link>
+          )}
+          <Link
+            href="/agendar"
+            className="rounded-full px-6 py-3 text-sm font-semibold text-white shadow-sm transition hover:brightness-110"
+            style={{ background: "var(--brand)" }}
+          >
+            Agendar horário
+          </Link>
+        </div>
       </div>
       {services.length === 0 && <p className="text-neutral-600">Nenhum serviço disponível para agendar no momento.</p>}
       <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

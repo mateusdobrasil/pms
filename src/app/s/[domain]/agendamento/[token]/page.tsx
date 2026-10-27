@@ -61,6 +61,9 @@ export default async function BookingPage({
     publicKey = secret?.gateway_public_key ?? null;
   }
   const remaining = b.price_cents - b.paid_cents;
+  // Agendado com pacote (SQL 20261117000000): a sessão é descontada no atendimento, nada a pagar.
+  const { data: pk } = await db.from("bookings").select("customer_packages(name)").eq("id", b.id).maybeSingle();
+  const packageName = (pk as { customer_packages: { name: string } | null } | null)?.customer_packages?.name ?? null;
   const settings = await getBookingSettings(db, store.id);
   const manageable = b.status === "confirmed" && !!settings && canSelfManage(b.starts_at, settings.cancelHours);
   const deadline = settings
@@ -106,7 +109,13 @@ export default async function BookingPage({
               <span>{b.paid_cents >= b.online_cents ? `pago ${formatBRL(b.paid_cents)}` : formatBRL(b.online_cents)}</span>
             </p>
           )}
-          {(status === "confirmed" || awaiting) && remaining > 0 && (
+          {packageName && (
+            <p className="flex justify-between font-semibold text-violet-700">
+              <span>Pelo seu pacote</span>
+              <span>{packageName}</span>
+            </p>
+          )}
+          {!packageName && (status === "confirmed" || awaiting) && remaining > 0 && (
             <p className="flex justify-between font-semibold">
               <span>A pagar no salão</span>
               <span>{formatBRL(b.paid_cents >= b.online_cents ? remaining : b.price_cents - b.online_cents)}</span>

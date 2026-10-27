@@ -3,8 +3,11 @@ import { after } from "next/server";
 import type { createAdminClient } from "@/lib/supabase/admin";
 import { notifyBooking, notifyPlatformError, notifyWaitlistOpening } from "@/lib/email";
 import { pushToStore } from "@/lib/push";
+import { packageForNewBooking } from "@/lib/packages-server";
 import { PROVIDER, type GatewayPayment, getPayment, refundPayment } from "@/lib/payments/mercadopago";
-import { canSelfManage, formatTime, onlineCents, parseTime, type PaymentMode } from "@/lib/booking";
+import { canSelfManage, formatTime, onlineCents, parseTime, type PaymentMode, whatsappReminderParams } from "@/lib/booking";
+import { reminderTemplate, sendTemplate, toWhatsappNumber, whatsappConfigured } from "@/lib/whatsapp";
+import { storeBaseUrl } from "@/lib/urls";
 import { type Interval, bookingDays, dayStartMs, daySlots, instantOf, mergeSlots, weekdayOf } from "@/lib/booking-slots";
 import { addDays, todayBR } from "@/lib/billing";
 import { isEmail, isValidCPF, onlyDigits } from "@/lib/validation";
@@ -176,7 +179,10 @@ export async function createBooking(db: Db, storeId: string, input: BookingInput
   const pro = professionals?.find((p) => p.id === proId);
   if (!pro || !slot.professionals.includes(pro.id)) return { error: "Esse horário não está mais livre. Escolha outro." };
 
-  const online = onlineCents(service.price_cents, service.payment_mode, service.deposit_percent);
+  // Cliente com pacote ativo deste serviço (pelo celular) e sessão livre: não paga sinal; o horário fica ligado
+  // ao pacote e o salão usa a sessão no atendimento ("Usar pacote").
+  const pkg = await packageForNewBooking(db, storeId, service.id, phone).catch(() => null);
+  const online = pkg ? 0 : onlineCents(service.price_cents, service.payment_mode, service.deposit_percent);
   if (online > 0) {
     if (!isValidCPF(cpf)) return { error: "Informe um CPF válido: ele é exigido para o pagamento." };
     const { data: secret } = await db.from("store_secrets").select("gateway_access_token").eq("store_id", storeId).maybeSingle();
@@ -194,29 +200,33 @@ export async function createBooking(db: Db, storeId: string, input: BookingInput
     .lt("expires_at", new Date().toISOString());
 
   const startsAt = instantOf(input.date, input.time);
-  const { data, error } = await db
-    .from("bookings")
-    .insert({
-      store_id: storeId,
-      service_id: service.id,
-      service_name: service.name,
-      professional_id: pro.id,
-      professional_name: pro.name,
-      starts_at: new Date(startsAt).toISOString(),
-      ends_at: new Date(startsAt + service.duration_minutes * 60_000).toISOString(),
-      status: online > 0 ? "pending_payment" : "confirmed",
-      expires_at: online > 0 ? new Date(Date.now() + BOOKING_HOLD_MINUTES * 60_000).toISOString() : null,
-      customer_name: name,
-      customer_email: email,
-      customer_phone: phone,
-      customer_cpf: online > 0 ? cpf : null,
-      notes: input.notes.trim().slice(0, 500) || null,
-      price_cents: service.price_cents,
-      payment_mode: service.payment_mode,
-      online_cents: online,
-    })
-    .select("id, public_token, status")
-    .single();
+  const insertBooking = (row: Record<string, unknown>) => db.from("bookings").insert(row).select("id, public_token, status").single();
+  const row: Record<string, unknown> = {
+    store_id: storeId,
+    service_id: service.id,
+    service_name: service.name,
+    professional_id: pro.id,
+    professional_name: pro.name,
+    starts_at: new Date(startsAt).toISOString(),
+    ends_at: new Date(startsAt + service.duration_minutes * 60_000).toISOString(),
+    status: online > 0 ? "pending_payment" : "confirmed",
+    expires_at: online > 0 ? new Date(Date.now() + BOOKING_HOLD_MINUTES * 60_000).toISOString() : null,
+    customer_name: name,
+    customer_email: email,
+    customer_phone: phone,
+    customer_cpf: online > 0 ? cpf : null,
+    notes: input.notes.trim().slice(0, 500) || null,
+    price_cents: service.price_cents,
+    payment_mode: service.payment_mode,
+    online_cents: online,
+    ...(pkg ? { customer_package_id: pkg.id } : {}),
+  };
+  let { data, error } = await insertBooking(row);
+  // Sem a coluna (SQL 20261117000000 não rodado): agenda sem o vínculo (o "Usar pacote" continua aparecendo).
+  if (error && pkg && /customer_package_id/.test(error.message)) {
+    delete row.customer_package_id;
+    ({ data, error } = await insertBooking(row));
+  }
   // 23P01: o banco recusou por sobreposição (outro cliente pegou o horário no mesmo instante).
   if (error?.code === "23P01") return { error: "Esse horário acabou de ser reservado por outra pessoa. Escolha outro." };
   if (error || !data) {
@@ -406,7 +416,66 @@ export async function sendBookingReminders(db: Db, today = todayBR()) {
     .lt("starts_at", new Date(dayStartMs(addDays(tomorrow, 1))).toISOString());
   if (error) return { reminders: 0, error: error.message }; // sem o SQL da agenda
   for (const b of data ?? []) await notifyBooking(b.id, "reminder");
-  return { reminders: data?.length ?? 0 };
+  const whatsapp = await sendWhatsappReminders(db, tomorrow);
+  return { reminders: data?.length ?? 0, whatsapp };
+}
+
+type WhatsappBooking = {
+  id: string;
+  store_id: string;
+  public_token: string;
+  customer_name: string;
+  customer_phone: string | null;
+  service_name: string;
+  professional_name: string;
+  starts_at: string;
+  stores: { name: string; store_domains: { domain: string; is_primary: boolean }[] };
+};
+
+// Lembrete da véspera também pelo WhatsApp, nas lojas em que o super-admin ligou (o custo é da plataforma).
+// Trava própria (notified_reminder_whatsapp_at): cada agendamento recebe uma vez; cada envio fica registrado.
+async function sendWhatsappReminders(db: Db, day: string) {
+  if (!whatsappConfigured()) return { sent: 0, failed: 0, skipped: "não configurado" };
+  const { data, error } = await db
+    .from("bookings")
+    .select("id, store_id, public_token, customer_name, customer_phone, service_name, professional_name, starts_at, stores!inner(name, whatsapp_reminders, store_domains(domain, is_primary))")
+    .eq("status", "confirmed")
+    .is("notified_reminder_whatsapp_at", null)
+    .not("customer_phone", "is", null)
+    .eq("stores.whatsapp_reminders", true)
+    .gte("starts_at", new Date(dayStartMs(day)).toISOString())
+    .lt("starts_at", new Date(dayStartMs(addDays(day, 1))).toISOString());
+  if (error) return { sent: 0, failed: 0, skipped: error.message }; // sem o SQL do WhatsApp
+  const template = reminderTemplate()!;
+  let sent = 0, failed = 0;
+  for (const b of (data ?? []) as unknown as WhatsappBooking[]) {
+    const to = toWhatsappNumber(b.customer_phone);
+    const domain = (b.stores.store_domains.find((d) => d.is_primary) ?? b.stores.store_domains[0])?.domain;
+    if (!to || !domain) continue;
+    const { data: claimed } = await db.from("bookings").update({ notified_reminder_whatsapp_at: new Date().toISOString() }).eq("id", b.id).is("notified_reminder_whatsapp_at", null).select("id");
+    if (!claimed?.length) continue;
+    const params = whatsappReminderParams({
+      customerName: b.customer_name,
+      storeName: b.stores.name,
+      serviceName: b.service_name,
+      startsAt: b.starts_at,
+      professionalName: b.professional_name,
+      link: `${storeBaseUrl(domain)}/agendamento/${b.public_token}`,
+    });
+    const r = await sendTemplate(to, template, params);
+    await db.from("whatsapp_messages").insert({
+      store_id: b.store_id,
+      booking_id: b.id,
+      to_phone: to,
+      template,
+      wa_message_id: r.ok ? r.id : null,
+      status: r.ok ? "sent" : "failed",
+      error: r.ok ? null : r.error,
+    });
+    if (r.ok) sent++;
+    else failed++;
+  }
+  return { sent, failed };
 }
 
 // ---------------------------------------------------------------- lista de espera

@@ -1,7 +1,8 @@
 import "server-only";
 import { after } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { notifyOrderPaid, notifyPlatformError } from "@/lib/email";
+import { notifyOrderPaid, notifyPackage, notifyPlatformError } from "@/lib/email";
+import { activatePackagesForOrder } from "@/lib/packages-server";
 import { checkLoyaltyForOrder } from "@/lib/loyalty-server";
 import { PROVIDER, type GatewayPayment } from "@/lib/payments/mercadopago";
 
@@ -80,6 +81,12 @@ export async function recordPayment(db: SupabaseClient, order: OrderRef, payment
     // E-mails depois da resposta (não atrasam o webhook). A trava em notified_paid_at evita duplicados.
     // O cartão fidelidade vem antes, para o e-mail do pedido já mostrar o carimbo desta compra.
     after(async () => {
+      // Pacote comprado online: ativa (uma vez só, mesmo com webhook e polling juntos) e avisa o cliente.
+      const packages = await activatePackagesForOrder(db, order.id).catch((err) => {
+        console.error("Pacote não ativado", { orderId: order.id, err });
+        return [] as string[];
+      });
+      for (const id of packages) await notifyPackage(id, "activated");
       await checkLoyaltyForOrder(order.id);
       await notifyOrderPaid(order.id);
     });
