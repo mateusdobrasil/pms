@@ -24,6 +24,8 @@ export default async function SettingsPage() {
     .select("pix_discount_percent, free_shipping_min_cents")
     .eq("id", store.id)
     .single();
+  // Carrinho abandonado: também à parte (SQL 20261125000000).
+  const { data: cartRow, error: cartError } = await supabase.from("stores").select("abandoned_cart_enabled").eq("id", store.id).single();
   // Instagram e rastreamento: também à parte (SQL 20261023000000).
   const { data: marketing, error: marketingError } = await supabase
     .from("stores")
@@ -81,6 +83,7 @@ export default async function SettingsPage() {
     <div className="max-w-2xl space-y-6">
       <h1 className="text-2xl font-semibold tracking-tight">Configurações da loja</h1>
       <SettingsForm storeId={store.id} settings={data!} banner={bannerError ? null : banner} promos={promosError ? null : promos} marketing={marketingError ? null : marketing}
+        abandonedCart={cartError ? undefined : !!(cartRow as { abandoned_cart_enabled: boolean }).abandoned_cart_enabled}
         legal={legalError ? null : legal}
         about={aboutError ? undefined : (aboutRow?.about ?? null)}
         booking={bookingError ? null : booking}

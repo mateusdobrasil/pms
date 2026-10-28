@@ -10,11 +10,12 @@ export const getPolicyFeatures = cache(async (storeId: string): Promise<PolicyFe
     const { data, error } = await db.from("stores").select(column).eq("id", storeId).maybeSingle();
     return error || !data ? null : ((data as unknown as Record<string, T>)[column] ?? null);
   };
-  const [booking, whatsapp, quota, birthday] = await Promise.all([
+  const [booking, whatsapp, quota, birthday, abandonedCart] = await Promise.all([
     col<boolean>("booking_enabled"),
     col<boolean>("whatsapp_reminders"),
     col<number>("whatsapp_campaign_quota"),
     col<boolean>("birthday_enabled"),
+    col<boolean>("abandoned_cart_enabled"),
   ]);
-  return { booking: !!booking, whatsapp: !!whatsapp, campaigns: !!whatsapp && (quota ?? 0) > 0, birthday: !!birthday };
+  return { booking: !!booking, whatsapp: !!whatsapp, campaigns: !!whatsapp && (quota ?? 0) > 0, birthday: !!birthday, abandonedCart: !!abandonedCart };
 });

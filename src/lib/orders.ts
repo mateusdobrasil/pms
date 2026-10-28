@@ -6,6 +6,7 @@ import { getPromotions, pixDiscountCents } from "@/lib/promotions";
 import { type AppliedCoupon, applyCoupon } from "@/lib/coupons-server";
 import { recordOptIn } from "@/lib/whatsapp-campaigns-server";
 import { recordBirthday } from "@/lib/birthday-server";
+import { markCartConverted } from "@/lib/abandoned-cart-server";
 import { isEmail, isUuid, isValidCPF, onlyDigits } from "@/lib/validation";
 
 export type CartItemInput = { variantId: string; quantity: number };
@@ -236,6 +237,8 @@ export async function createOrder(db: SupabaseClient, store: Store, body: unknow
     throw itemsErr;
   }
 
+  // Virou pedido: o carrinho deste e-mail não recebe lembrete de carrinho abandonado.
+  await markCartConverted(db, store.id, customer.email, order.id);
   // Marcou "quero receber novidades pelo WhatsApp": vale como aceite mesmo que não pague.
   if (b.whatsappOptIn === true) await recordOptIn(db, store.id, { phone: customer.phone, name: customer.name, source: "checkout" });
   // Aniversário (opcional): o presente vem no dia, mesmo que este pedido não seja pago.

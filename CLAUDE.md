@@ -36,7 +36,7 @@ Painel: login, CRUD de produtos/categorias/variações/estoque com upload de ima
 Super-admin: criar loja, vincular domínio, ativar/suspender.
 
 ## Fora da v1 (não implementar sem pedir)
-Cupons, avaliações, carrinho abandonado, conta de cliente, marketplaces, ERP, NF-e, multi-gateway.
+Conta de cliente, marketplaces, ERP, NF-e, multi-gateway. (Cupons, avaliações e carrinho abandonado já foram feitos, a pedido.)
 
 ## Ordem de trabalho
 1. Checkout → criação do pedido no servidor → pagamento Pix/cartão → webhook (o mais arriscado primeiro)

@@ -257,6 +257,37 @@ export async function notifyBirthday(
   });
 }
 
+// Carrinho abandonado: os itens que ainda estão à venda, com o preço de agora, e o link que refaz o carrinho.
+// A trava (abandoned_carts.notified_at) fica com quem chama; aqui só o envio.
+export async function notifyAbandonedCart(
+  store: { name: string; email: string | null; primary_color: string },
+  cart: { id: string; key: string; name: string | null; email: string; lines: { productName: string; variantName: string; quantity: number; unitPriceCents: number }[]; link: string; optOutLink: string },
+) {
+  const rows = cart.lines
+    .map(
+      (l) => `<tr>
+        <td style="padding:8px 0;border-bottom:1px solid #eee">${l.quantity}× ${esc(l.productName)}${l.variantName !== "Único" ? ` <span style="color:#737373">· ${esc(l.variantName)}</span>` : ""}</td>
+        <td style="padding:8px 0;border-bottom:1px solid #eee;text-align:right;white-space:nowrap">${formatBRL(l.unitPriceCents * l.quantity)}</td>
+      </tr>`,
+    )
+    .join("");
+  const hello = cart.name ? `Olá, ${esc(firstName(cart.name))}.` : "Olá!";
+  return sendEmail({
+    to: cart.email,
+    fromName: store.name,
+    replyTo: store.email,
+    idempotencyKey: `cart-${cart.id}-${cart.key}`,
+    subject: `Você esqueceu algo no carrinho da ${store.name}`,
+    html: layout(store, `
+      <h1 style="margin:0 0 8px;font-size:22px">Seu carrinho está esperando</h1>
+      <p style="margin:0 0 16px;color:#525252">${hello} Você separou estes produtos e não chegou a finalizar. Eles ainda estão disponíveis:</p>
+      <table style="width:100%;border-collapse:collapse;font-size:14px">${rows}</table>
+      ${button(cart.link, "Voltar ao carrinho", store.primary_color)}
+      <p style="margin:24px 0 0;font-size:12px;color:#a3a3a3">Preço, estoque e frete são conferidos de novo ao finalizar. Se você já comprou, ignore este e-mail.
+      Não quer receber lembretes de carrinho desta loja? <a href="${esc(cart.optOutLink)}" style="color:#a3a3a3">Clique aqui</a>.</p>`),
+  });
+}
+
 // Pacote de sessões: "ativo" (na venda) e "sessão usada" (a cada uso). Sem e-mail do cliente, não envia.
 export async function notifyPackage(customerPackageId: string, kind: "activated" | "used", left?: number) {
   try {

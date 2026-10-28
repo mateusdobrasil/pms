@@ -39,6 +39,7 @@ export function SettingsForm({
   banner,
   promos,
   marketing,
+  abandonedCart,
   legal,
   policyBase,
   about,
@@ -53,6 +54,7 @@ export function SettingsForm({
   banner: BannerSettings;
   promos: PromoSettings;
   marketing: MarketingSettings;
+  abandonedCart: boolean | undefined; // undefined = coluna ainda não existe
   legal: LegalSettings | null;
   about: string | null | undefined;
   booking: BookingSettings | null; // null = SQL dos agendamentos ainda não rodado
@@ -242,6 +244,24 @@ export function SettingsForm({
             <span className="block text-xs text-neutral-500">
               Compras com produtos a partir desse valor ganham a opção de entrega mais barata de graça. O custo do envio
               continua sendo seu no Melhor Envio. Deixe vazio para não oferecer.
+            </span>
+          </label>
+        </section>
+      )}
+
+      {abandonedCart !== undefined && (
+        <section className="space-y-3 rounded-xl border bg-white p-5 shadow-sm">
+          <h2 className="font-semibold">Carrinho abandonado</h2>
+          <input type="hidden" name="abandoned_cart_field" value="1" />
+          <label className="flex items-start gap-2 text-sm">
+            <input type="checkbox" name="abandoned_cart_enabled" defaultChecked={abandonedCart} className="mt-0.5" />
+            <span>
+              <span className="font-medium text-neutral-700">Lembrar quem deixa produtos no carrinho</span>
+              <span className="block text-xs text-neutral-500">
+                Quando o cliente informa o e-mail no checkout e não finaliza, recebe um e-mail 1 hora depois, uma vez só, com o botão que refaz o
+                carrinho. Se ele aceitou novidades pelo WhatsApp e a loja tem cota de campanhas, recebe também pelo WhatsApp. Acompanhe em Pedidos →
+                Carrinhos abandonados.
+              </span>
             </span>
           </label>
         </section>

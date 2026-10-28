@@ -59,6 +59,9 @@ export async function saveSettings(_prev: SettingsState, form: FormData): Promis
     if (freeShippingText && (freeShippingMin === null || freeShippingMin <= 0)) return { error: "Frete grátis: valor inválido. Use o formato 199,90." };
   }
 
+  // Carrinho abandonado: só vem no formulário quando a coluna existe no banco.
+  const hasAbandonedCart = form.get("abandoned_cart_field") === "1";
+
   // Instagram e rastreamento: só vêm no formulário quando as colunas existem no banco.
   const hasMarketing = form.get("marketing_enabled") === "1";
   const instagramText = String(form.get("instagram") ?? "").trim();
@@ -171,6 +174,7 @@ export async function saveSettings(_prev: SettingsState, form: FormData): Promis
       ...(hasShipping ? shipping : {}),
       ...(hasMarketing ? { instagram, meta_pixel_id: metaPixelId || null, ga_measurement_id: gaId || null } : {}),
       ...(hasPromos ? { pix_discount_percent: pixPercent, free_shipping_min_cents: freeShippingMin } : {}),
+      ...(hasAbandonedCart ? { abandoned_cart_enabled: form.get("abandoned_cart_enabled") === "on" } : {}),
     })
     .eq("id", store.id)
     .select("id");

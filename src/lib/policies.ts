@@ -26,8 +26,9 @@ export type PolicyFeatures = {
   whatsapp: boolean; // avisos pelo WhatsApp oficial da plataforma
   campaigns: boolean; // novidades e promoções pelo WhatsApp (com aceite)
   birthday: boolean; // cupom de aniversário
+  abandonedCart: boolean; // lembrete de carrinho abandonado
 };
-const NO_FEATURES: PolicyFeatures = { booking: false, whatsapp: false, campaigns: false, birthday: false };
+const NO_FEATURES: PolicyFeatures = { booking: false, whatsapp: false, campaigns: false, birthday: false, abandonedCart: false };
 
 // Quem responde pela loja, sem repetir o nome dela: razão social (quando diferente do nome), documento e endereço.
 function legalParts(s: PolicyStore) {
@@ -71,6 +72,8 @@ export function privacyPolicyTemplate(s: PolicyStore): PolicySection[] {
         f.booking &&
           "Ao agendar um horário, registramos também o serviço, o profissional, a data, a hora e as observações que você escrever. O CPF só é pedido quando há pagamento online.",
         f.birthday && "Se você quiser, o dia e o mês do seu aniversário (sem o ano), para receber um cupom de presente.",
+        f.abandonedCart &&
+          "Se você preencher o e-mail no checkout e não finalizar, guardamos o e-mail, o nome, o celular e os produtos do carrinho para lembrar você uma vez.",
         "Se você avaliar uma compra ou um atendimento, a nota e o comentário.",
         "Não temos acesso aos dados do seu cartão: eles são digitados em um formulário seguro do Mercado Pago e ficam só com ele.",
       ]),
@@ -81,6 +84,8 @@ export function privacyPolicyTemplate(s: PolicyStore): PolicySection[] {
         `Usamos os seus dados para registrar e entregar o pedido${f.booking ? ", confirmar e lembrar o seu horário" : ""}, confirmar o pagamento, enviar e-mails sobre a compra (confirmação, envio e rastreio)${f.whatsapp ? " e avisos pelo WhatsApp sobre o seu pedido ou horário" : ""}, prestar atendimento, prevenir fraudes e cumprir obrigações legais e fiscais.`,
         "Depois da entrega ou do atendimento, enviamos um convite para você avaliar, se quiser.",
         f.birthday && "Com o seu aniversário, enviamos no dia um cupom de presente, por e-mail (e pelo WhatsApp, se você aceitou receber novidades).",
+        f.abandonedCart &&
+          "Se você deixar produtos no carrinho sem finalizar, enviamos um único lembrete por e-mail (e pelo WhatsApp, se você aceitou receber novidades), com um link para não receber mais.",
         f.campaigns &&
           "Novidades e promoções pelo WhatsApp só chegam se você marcar a caixa \"Quero receber novidades e promoções\" na compra ou no agendamento. Cada mensagem traz um link para sair da lista, e você sai na hora.",
         "Não vendemos os seus dados e não enviamos propaganda sem o seu consentimento.",
@@ -116,6 +121,7 @@ export function privacyPolicyTemplate(s: PolicyStore): PolicySection[] {
         "Guardamos os dados do pedido pelo tempo necessário para a entrega, o atendimento, a garantia e o cumprimento de obrigações legais. Registros fiscais e de compra são mantidos pelos prazos exigidos em lei (em geral, 5 anos).",
         f.campaigns && "O aceite para receber novidades vale até você sair da lista.",
         f.birthday && "O aniversário fica guardado até você pedir para apagar.",
+        f.abandonedCart && "O carrinho não finalizado é guardado por até 30 dias.",
       ]),
     },
     {

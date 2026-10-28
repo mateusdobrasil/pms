@@ -68,7 +68,10 @@ export default async function OrdersPage({
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-semibold tracking-tight">Pedidos</h1>
+        <div className="flex flex-wrap items-baseline gap-3">
+          <h1 className="text-2xl font-semibold tracking-tight">Pedidos</h1>
+          <Link href="/painel/pedidos/carrinhos" className="text-sm font-medium text-primary-700 hover:underline">Carrinhos abandonados</Link>
+        </div>
         <form action="/painel/pedidos" className="flex flex-wrap gap-2">
           {status && <input type="hidden" name="status" value={status} />}
           <input

@@ -66,7 +66,8 @@ export type WaEvent =
   | "store_new_booking"
   | "review_request"
   | "campaign"
-  | "birthday";
+  | "birthday"
+  | "abandoned_cart";
 
 // optin: campanha (marketing), só para quem aceitou receber; enviada pelo lojista, não por um acontecimento.
 type EventDef = { label: string; description: string; audience: "customer" | "store" | "optin"; fields: WaField[] };
@@ -103,6 +104,12 @@ export const WA_EVENTS: Record<WaEvent, EventDef> = {
     description: "No dia do aniversário, para quem informou a data e aceitou novidades. Conta na cota de campanhas. Categoria Marketing.",
     audience: "optin",
     fields: ["first_name", "customer_name", "store_name", "gift", "coupon_code", "valid_until", "link", "optout_link"],
+  },
+  abandoned_cart: {
+    label: "Carrinho abandonado",
+    description: "1 h depois de o cliente largar o checkout, para quem aceitou novidades. Conta na cota de campanhas. Categoria Marketing.",
+    audience: "optin",
+    fields: ["first_name", "customer_name", "store_name", "items", "total", "link", "optout_link"],
   },
 };
 
@@ -205,6 +212,11 @@ export const WA_SUGGESTIONS: Record<WaEvent, { name: string; body: string; param
     name: "cupom_aniversario",
     body: "Feliz aniversário, {{1}}! 🎉 A {{2}} preparou um presente: {{3}} com o cupom {{4}}, válido até {{5}}. Aproveite em {{6}} . Para não receber mais, acesse {{7}} e confirme.",
     params: ["first_name", "store_name", "gift", "coupon_code", "valid_until", "link", "optout_link"],
+  },
+  abandoned_cart: {
+    name: "carrinho_abandonado",
+    body: "Olá, {{1}}! Você deixou no carrinho da {{2}}: {{3}}. Ainda está disponível; finalize em {{4}} . Para não receber mais, acesse {{5}} e confirme.",
+    params: ["first_name", "store_name", "items", "link", "optout_link"],
   },
 };
 

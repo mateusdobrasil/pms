@@ -50,7 +50,7 @@ describe("políticas da loja", () => {
     expect(bare).toContain("convite para você avaliar");
     expect(bare).not.toMatch(/WhatsApp Business|aniversário|agendar um horário|sair da lista/);
     expect(bare).toContain("não enviamos propaganda sem o seu consentimento");
-    const all = policyToText(privacyPolicyTemplate({ ...store, features: { booking: true, whatsapp: true, campaigns: true, birthday: true } }));
+    const all = policyToText(privacyPolicyTemplate({ ...store, features: { booking: true, whatsapp: true, campaigns: true, birthday: true, abandonedCart: true } }));
     expect(all).toContain("Ao agendar um horário");
     expect(all).toContain("confirmar e lembrar o seu horário");
     expect(all).toContain("avisos pelo WhatsApp sobre o seu pedido ou horário");
@@ -58,7 +58,7 @@ describe("políticas da loja", () => {
     expect(all).toContain("dia e o mês do seu aniversário (sem o ano)");
     expect(all).toContain("Cada mensagem traz um link para sair da lista");
     expect(all).toContain("retirar a qualquer momento o consentimento");
-    const whatsOnly = policyToText(privacyPolicyTemplate({ ...store, features: { booking: false, whatsapp: true, campaigns: false, birthday: false } }));
+    const whatsOnly = policyToText(privacyPolicyTemplate({ ...store, features: { booking: false, whatsapp: true, campaigns: false, birthday: false, abandonedCart: false } }));
     expect(whatsOnly).toContain("Meta (WhatsApp Business)");
     expect(whatsOnly).not.toMatch(/sair da lista|aniversário/);
   });

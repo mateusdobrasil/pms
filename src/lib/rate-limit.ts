@@ -11,6 +11,7 @@ const LIMITS = {
   booking: { limit: 10, windowSeconds: 10 * 60 }, // agendamentos criados
   coupon: { limit: 20, windowSeconds: 10 * 60 }, // cupons conferidos no checkout (barra quem tenta adivinhar)
   review: { limit: 10, windowSeconds: 10 * 60 }, // avaliações enviadas
+  cart: { limit: 30, windowSeconds: 10 * 60 }, // carrinhos gravados no checkout (carrinho abandonado)
 } as const;
 
 export type RateLimitAction = keyof typeof LIMITS;

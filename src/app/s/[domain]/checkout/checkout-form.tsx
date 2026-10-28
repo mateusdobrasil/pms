@@ -8,6 +8,7 @@ import { formatBRL } from "@/lib/money";
 import { trackBeginCheckout } from "@/lib/tracking";
 import { type CheckoutPrefill, takePrefill } from "@/lib/checkout-prefill";
 import { forgetCoupon, savedCoupon } from "@/lib/coupon-link";
+import { isEmail } from "@/lib/validation";
 
 type Option = {
   id: string;
@@ -30,6 +31,7 @@ type Quote = {
   couponError?: string;
   whatsappOptIn?: boolean; // a loja oferece novidades pelo WhatsApp
   birthdayGift?: string | null; // a loja dá presente de aniversário ("15% de desconto")
+  abandonedCart?: boolean; // a loja lembra o carrinho de quem não finaliza
 };
 type Address = { street: string; number: string; complement: string; district: string; city: string; state: string };
 
@@ -69,6 +71,23 @@ export function CheckoutForm() {
   const [couponInput, setCouponInput] = useState("");
   const [couponError, setCouponError] = useState<string | null>(null);
   const [couponLoading, setCouponLoading] = useState(false);
+  const savedCart = useRef(""); // último carrinho gravado para o lembrete (não reenvia igual)
+
+  // Carrinho abandonado: com e-mail válido, guarda carrinho e contato (ao sair de um campo). Falha em silêncio.
+  function saveCart(form: HTMLFormElement | null) {
+    if (!form || !quote?.abandonedCart) return;
+    const f = new FormData(form);
+    const payload = JSON.stringify({
+      email: String(f.get("email") ?? "").trim(),
+      name: f.get("name"),
+      phone: f.get("phone"),
+      whatsappOptIn: f.get("whatsapp_optin") === "on",
+      items: readCart(),
+    });
+    if (payload === savedCart.current || !isEmail(String(f.get("email") ?? "").trim())) return;
+    savedCart.current = payload;
+    fetch("/api/cart/abandoned", { method: "POST", headers: { "Content-Type": "application/json" }, body: payload, keepalive: true }).catch(() => {});
+  }
 
   function applyQuote(q: Quote) {
     setQuote(q);
@@ -249,10 +268,13 @@ export function CheckoutForm() {
         )}
       </section>
 
-      <section className="space-y-3">
+      <section className="space-y-3" onBlur={(e) => saveCart(e.currentTarget.closest("form"))}>
         <h2 className="font-semibold">Seus dados</h2>
         <input name="name" required autoComplete="name" placeholder="Nome completo" defaultValue={prefill?.name} className={inputClass} />
         <input name="email" type="email" required autoComplete="email" placeholder="E-mail" defaultValue={prefill?.email} className={inputClass} />
+        {quote.abandonedCart && (
+          <p className="-mt-1 text-xs text-neutral-500">Se você não concluir, podemos lembrar você do carrinho por e-mail (uma vez só).</p>
+        )}
         <div className="grid grid-cols-2 gap-3">
           <input name="cpf" required inputMode="numeric" placeholder="CPF" autoFocus={!!prefill} className={inputClass} />
           <input name="phone" type="tel" required autoComplete="tel" placeholder="Celular com DDD" defaultValue={prefill?.phone} className={inputClass} />
