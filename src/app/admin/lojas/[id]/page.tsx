@@ -13,7 +13,7 @@ import { isTestToken, testAccessUrl } from "@/lib/test-mode";
 import { cancelInvoice, markInvoicePaid, removeDomain, removeMember, setPrimaryDomain, setStoreStatus, setWhatsappCampaignQuota, setWhatsappEvents, setWhatsappReminders } from "../../actions";
 import { whatsappConnected } from "@/lib/whatsapp";
 import { WA_AUTO_EVENTS, WA_EVENTS } from "@/lib/whatsapp-events";
-import { AddDomainForm, AddMemberForm, BillingForm, BrandingForm, SecretsForm } from "../../forms";
+import { AddDomainForm, AddMemberForm, BillingForm, BrandingForm, SecretsForm, TestCorreiosForm } from "../../forms";
 import { ROLE_LABELS, isMemberRole } from "@/lib/team";
 
 export default async function AdminStorePage({ params }: { params: Promise<{ id: string }> }) {
@@ -76,7 +76,7 @@ export default async function AdminStorePage({ params }: { params: Promise<{ id:
     (a, b) => Number(b.is_primary) - Number(a.is_primary),
   );
   // Só "configurado ou não": os valores nunca vão para a página.
-  const SECRET_KEYS = ["gateway_access_token", "gateway_public_key", "gateway_webhook_secret", "melhor_envio_token"];
+  const SECRET_KEYS = ["gateway_access_token", "gateway_public_key", "gateway_webhook_secret", "melhor_envio_token", "correios_user", "correios_access_code", "correios_card"];
   const configured = Object.fromEntries(SECRET_KEYS.map((k) => [k, !!secret?.[k]]));
   const meSandbox: boolean = secret?.melhor_envio_sandbox ?? true;
   const mpTest = String(secret?.gateway_access_token ?? "").startsWith("TEST-");
@@ -204,6 +204,7 @@ export default async function AdminStorePage({ params }: { params: Promise<{ id:
               Mercado Pago em {mpTest ? "modo de TESTE (credenciais TEST-): nenhum dinheiro real é cobrado." : "PRODUÇÃO: cobranças reais."}
             </p>
           )}
+          {configured.correios_user && configured.correios_access_code && <TestCorreiosForm storeId={store.id} />}
           {isTestToken(secret?.gateway_access_token) && (
             <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-900">
               Loja em modo de teste: a vitrine mostra &quot;Loja em preparação&quot; e recusa pedidos.

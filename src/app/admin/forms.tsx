@@ -2,7 +2,7 @@
 
 import { useActionState, useEffect, useRef, useState } from "react";
 import { submitKeepingValues } from "@/lib/form-submit";
-import { addDomain, addMember, createStore, saveBilling, saveSecrets, updateBranding, type AdminState } from "./actions";
+import { addDomain, addMember, createStore, saveBilling, saveSecrets, testCorreiosAction, updateBranding, type AdminState } from "./actions";
 import { BILLING } from "@/lib/billing";
 import { centsToInput, parseBRL } from "@/lib/money";
 import { STORE_BASE_DOMAIN } from "@/lib/store-domains";
@@ -138,6 +138,13 @@ const SECRET_FIELDS = [
     hint: "Opcional. Use o da mesma aplicação do Access Token (ao trocar de TEST- para APP_USR-, troque este também). Mesmo sem ele, ou com um errado, o pagamento confirma: o sistema sempre consulta o Mercado Pago.",
   },
   { name: "melhor_envio_token", label: "Melhor Envio — token" },
+  {
+    name: "correios_user",
+    label: "Correios — usuário do Meu Correios",
+    hint: "Opcional: só para lojas com contrato (sem contrato, os Correios bloqueiam o rastreio: \"API restrita\"). É o nome de usuário do login, não o CPF/CNPJ. Liga o rastreio automático dos pedidos enviados pelos Correios.",
+  },
+  { name: "correios_access_code", label: "Correios — código de acesso às APIs", hint: "Gerado em cws.correios.com.br (Gestão de acesso a APIs). Não é a senha do Meu Correios." },
+  { name: "correios_card", label: "Correios — cartão de postagem", hint: "Número do cartão de postagem do contrato." },
 ] as const;
 
 export function SecretsForm({
@@ -196,6 +203,20 @@ export function SecretsForm({
       <button type="submit" disabled={pending} className={primaryButton}>
         {pending ? "Salvando…" : "Salvar configurações"}
       </button>
+    </form>
+  );
+}
+
+// "Testar Correios": autentica com o contrato salvo e mostra o resultado.
+export function TestCorreiosForm({ storeId }: { storeId: string }) {
+  const [state, action, pending] = useActionState<AdminState, FormData>(testCorreiosAction, null);
+  return (
+    <form action={action} className="space-y-2">
+      <input type="hidden" name="storeId" value={storeId} />
+      <button type="submit" disabled={pending} className="rounded-md border px-3 py-1.5 text-sm font-medium hover:border-neutral-400 disabled:opacity-50">
+        {pending ? "Conferindo…" : "Testar contrato dos Correios"}
+      </button>
+      <Feedback state={state} />
     </form>
   );
 }

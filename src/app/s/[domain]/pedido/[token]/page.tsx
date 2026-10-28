@@ -15,6 +15,8 @@ import { isPackagePurchase } from "@/lib/packages";
 import { discountLines } from "@/lib/coupons";
 import { orderCoupon } from "@/lib/coupons-server";
 import { COUNTER_METHOD } from "@/lib/counter";
+import { type TrackingEvent, correiosTrackingUrl, isCorreiosCode } from "@/lib/correios";
+import { TrackingTimeline } from "@/lib/tracking-timeline";
 
 const fromLinkMethod = (m: string | null) => isPaymentLink(m) || isPackagePurchase(m) || m === COUNTER_METHOD;
 
@@ -48,6 +50,9 @@ export default async function OrderPage({
     .maybeSingle();
   if (!order) notFound();
   const coupon = order.discount_cents > 0 ? await orderCoupon(db, order.id) : null;
+  // Histórico dos Correios (SQL 20261126000000; sem ele, só o código).
+  const { data: trackRow } = order.tracking_code ? await db.from("orders").select("tracking_events").eq("id", order.id).maybeSingle() : { data: null };
+  const trackEvents = ((trackRow as { tracking_events: TrackingEvent[] | null } | null)?.tracking_events ?? []) as TrackingEvent[];
   // Avaliar: compra entregue ou enviada (não balcão, link de pagamento ou pacote) e ainda sem avaliação (sem o SQL, não aparece).
   const reviewKind = !fromLinkMethod(order.shipping_method) && ["shipped", "delivered"].includes(order.status);
   const { count: reviewed, error: reviewErr } = reviewKind ? await db.from("reviews").select("id", { count: "exact", head: true }).eq("order_id", order.id) : { count: 1, error: null };
@@ -143,9 +148,17 @@ export default async function OrderPage({
             </p>
           ))}
         {order.tracking_code && (
-          <p className="mt-2 text-sm">
-            Código de rastreio: <span className="font-mono">{order.tracking_code}</span>
-          </p>
+          <div className="mt-2 space-y-3 text-sm">
+            <p>
+              Código de rastreio: <span className="font-mono">{order.tracking_code}</span>
+              {!trackEvents.length && isCorreiosCode(order.tracking_code) && (
+                <a href={correiosTrackingUrl(order.tracking_code)} target="_blank" rel="noopener noreferrer" className="ml-2 underline">
+                  Rastrear nos Correios
+                </a>
+              )}
+            </p>
+            {trackEvents.length > 0 && <TrackingTimeline code={order.tracking_code} events={trackEvents} />}
+          </div>
         )}
         {canReview && (
           <Link href={`/avaliar/${token}`} className="mt-3 inline-block rounded-lg border-2 px-4 py-2 text-sm font-semibold" style={{ borderColor: "var(--brand)", color: "var(--brand)" }}>

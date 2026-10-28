@@ -58,6 +58,7 @@ export type WaEvent =
   | "order_paid"
   | "order_shipped"
   | "order_ready"
+  | "order_delivered"
   | "package_activated"
   | "package_used"
   | "waitlist_opening"
@@ -81,6 +82,7 @@ export const WA_EVENTS: Record<WaEvent, EventDef> = {
   order_paid: { label: "Compra confirmada", description: "Quando o pagamento do pedido é aprovado.", audience: "customer", fields: ORDER },
   order_shipped: { label: "Pedido enviado", description: "Quando o pedido sai para entrega (com o rastreio, se houver).", audience: "customer", fields: [...ORDER, "tracking", "shipping"] },
   order_ready: { label: "Pronto para retirada", description: "Quando o pedido de retirada fica pronto.", audience: "customer", fields: ORDER },
+  order_delivered: { label: "Pedido entregue", description: "Quando o rastreio dos Correios mostra o pedido entregue (lojas com contrato).", audience: "customer", fields: [...ORDER, "tracking"] },
   package_activated: { label: "Pacote ativo", description: "Quando um pacote de sessões é comprado.", audience: "customer", fields: ["first_name", "customer_name", "store_name", "package_name", "sessions_left", "valid_until"] },
   package_used: { label: "Sessão do pacote usada", description: "A cada sessão usada, com o que sobrou.", audience: "customer", fields: ["first_name", "customer_name", "store_name", "package_name", "sessions_left", "valid_until"] },
   waitlist_opening: { label: "Horário liberado (lista de espera)", description: "Quando abre horário no dia que a pessoa esperava.", audience: "customer", fields: ["first_name", "customer_name", "store_name", "service", "date", "free_times", "link"] },
@@ -166,6 +168,11 @@ export const WA_SUGGESTIONS: Record<WaEvent, { name: string; body: string; param
   order_ready: {
     name: "pedido_pronto_retirada",
     body: "Olá, {{1}}! Seu pedido {{2}} da {{3}} está pronto para retirada. Detalhes no link {{4}} . Te esperamos!",
+    params: ["first_name", "order_code", "store_name", "link"],
+  },
+  order_delivered: {
+    name: "pedido_entregue",
+    body: "Olá, {{1}}! Seu pedido {{2}} da {{3}} foi entregue pelos Correios. Detalhes no link {{4}} . Obrigado pela compra!",
     params: ["first_name", "order_code", "store_name", "link"],
   },
   package_activated: {

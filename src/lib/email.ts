@@ -144,7 +144,7 @@ function orderWhatsappData(o: OrderForEmail, link: string | null) {
   });
 }
 
-type OrderNotice = "notified_paid_at" | "notified_shipped_at" | "notified_refunded_at" | "notified_expired_at";
+type OrderNotice = "notified_paid_at" | "notified_shipped_at" | "notified_refunded_at" | "notified_expired_at" | "notified_delivered_at";
 
 // Trava: só quem preencher a coluna envia. Se o envio falhar, libera para tentar de novo.
 async function claim(orderId: string, column: OrderNotice, statuses: string[]) {
@@ -441,6 +441,36 @@ export async function notifyOrderShipped(orderId: string) {
     await sendWhatsappEvent({ storeId: o.store_id, event: pickup ? "order_ready" : "order_shipped", phone: o.customer_phone, data: orderWhatsappData(o, url), orderId: o.id });
   } catch (err) {
     console.error("Falha ao notificar envio", { orderId, err });
+  }
+}
+
+// Entregue pelos Correios (rastreio automático): avisa o cliente uma vez, por e-mail e WhatsApp.
+export async function notifyOrderDelivered(orderId: string) {
+  try {
+    if (!(await claim(orderId, "notified_delivered_at", ["delivered"]))) return;
+    const o = await loadOrder(orderId);
+    if (!o) return;
+    const url = orderUrl(o);
+    const ok = await sendEmail({
+      to: o.customer_email,
+      fromName: o.stores.name,
+      replyTo: o.stores.email,
+      idempotencyKey: `delivered-${o.id}`,
+      track: { kind: "order", refId: o.id, storeId: o.store_id },
+      subject: `Pedido ${o.code} entregue`,
+      html: layout(o.stores, `
+        <h1 style="margin:0 0 8px;font-size:22px">Seu pedido chegou!</h1>
+        <p style="margin:0 0 20px;color:#525252">Olá, ${esc(firstName(o.customer_name))}. Os Correios entregaram o pedido <strong>${o.code}</strong>. Esperamos que goste!
+        ${o.stores.whatsapp ? `Algum problema? Fale com a gente pelo <a href="https://wa.me/${o.stores.whatsapp}">WhatsApp</a>.` : ""}</p>`
+        + (url ? button(url, "Ver o pedido", o.stores.primary_color) : "")),
+    });
+    if (!ok) {
+      await release(orderId, "notified_delivered_at");
+      return;
+    }
+    await sendWhatsappEvent({ storeId: o.store_id, event: "order_delivered", phone: o.customer_phone, data: orderWhatsappData(o, url), orderId: o.id });
+  } catch (err) {
+    console.error("Falha ao avisar entrega", { orderId, err });
   }
 }
 

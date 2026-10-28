@@ -7,6 +7,7 @@ import { normalizeDomain, requireAdmin } from "@/lib/admin";
 import { removeStoreLogo, uploadStoreLogo, validateLogo } from "@/lib/branding";
 import { slugify } from "@/lib/slug";
 import { findUserByEmail, tempPassword } from "@/lib/users-server";
+import { testCorreios } from "@/lib/correios-server";
 import { isStoreSubdomain, storeDomainError, storeSubdomain } from "@/lib/store-domains";
 import { isEmail, isUuid, onlyDigits } from "@/lib/validation";
 import { BILLING, isDueDay, todayBR } from "@/lib/billing";
@@ -221,13 +222,15 @@ export async function saveSecrets(_prev: AdminState, form: FormData): Promise<Ad
   const storeId = String(form.get("storeId") ?? "");
   if (!isUuid(storeId)) return { error: "Loja inválida." };
 
-  const fields = ["gateway_access_token", "gateway_public_key", "gateway_webhook_secret", "melhor_envio_token"] as const;
+  const fields = ["gateway_access_token", "gateway_public_key", "gateway_webhook_secret", "melhor_envio_token", "correios_user", "correios_access_code", "correios_card"] as const;
   const patch: Record<string, string | null> = {};
   for (const f of fields) {
     const value = String(form.get(f) ?? "").trim();
     if (form.get(`clear_${f}`) === "on") patch[f] = null;
     else if (value) patch[f] = value;
   }
+  // Contrato dos Correios mudou: o token guardado é do acesso anterior.
+  if (Object.keys(patch).some((k) => k.startsWith("correios_"))) Object.assign(patch, { correios_token: null, correios_token_expires_at: null });
   const originZip = onlyDigits(String(form.get("origin_zip") ?? ""));
   if (originZip && originZip.length !== 8) return { error: "CEP de origem inválido." };
 
@@ -244,13 +247,24 @@ export async function saveSecrets(_prev: AdminState, form: FormData): Promise<Ad
     return {
       error: error.message.includes("melhor_envio_sandbox")
         ? "Rode a migration 20261021000000_melhor_envio_env_por_loja.sql antes de salvar."
-        : "Não foi possível salvar as credenciais.",
+        : error.message.includes("correios_")
+          ? "Rode a migration 20261126000000_rastreio_correios.sql antes de salvar o contrato dos Correios."
+          : "Não foi possível salvar as credenciais.",
     };
   }
   if (originZip) await db.from("stores").update({ origin_zip: originZip }).eq("id", storeId);
 
   refresh(storeId);
   return { ok: "Configurações salvas." };
+}
+
+// Confere o contrato dos Correios da loja (autentica de novo).
+export async function testCorreiosAction(_prev: AdminState, form: FormData): Promise<AdminState> {
+  const { db } = await requireAdmin();
+  const storeId = String(form.get("storeId") ?? "");
+  if (!isUuid(storeId)) return { error: "Loja inválida." };
+  const r = await testCorreios(db, storeId);
+  return r.ok ? { ok: "Correios: contrato aceito. O rastreio automático está ligado." } : { error: r.error };
 }
 
 // Identidade da loja (nome, cor, logo) editada pelo super-admin.

@@ -143,6 +143,7 @@ footer { color: var(--muted); font-size: 14px; border-top: 1px solid var(--line)
       <li><strong>Cupons de desconto</strong>: percentual ou valor fixo, com validade, compra mínima, limite de usos e opção de 1 uso por cliente. O cliente digita no checkout ou chega por um link que já aplica o cupom. <a href="#cupons">Ver como criar</a></li>
       <li><strong>Link para a bio do Instagram</strong>: uma página com os botões da sua loja (comprar, agendar, pacotes, WhatsApp), seus links extras e produtos em destaque. <a href="#divulgar">Ver detalhes</a></li>
       <li><strong>Campanhas no WhatsApp</strong> (nos planos com WhatsApp): mande novidades e promoções para os clientes que aceitaram receber. <a href="#campanhas">Ver como funciona</a></li>
+      <li><strong>Rastreio automático dos Correios</strong> (lojas com contrato): o pedido mostra o caminho do objeto e vira "Entregue" sozinho, com aviso ao cliente. <a href="#rastreio-correios">Ver como funciona</a></li>
       <li><strong>Carrinho abandonado</strong>: quem preenche o e-mail no checkout e não finaliza recebe um lembrete 1 hora depois, com o botão que refaz o carrinho. <a href="#carrinho-abandonado">Ver como funciona</a></li>
       <li><strong>Pacotes de sessões</strong>: venda pacotes como "5 escovas por R$ 200". O cliente paga uma vez e cada atendimento desconta uma sessão, com aviso por e-mail do que sobrou. <a href="#agenda">Ver como usar</a></li>
       <li><strong>Vender no balcão</strong>: um caixa simples para as vendas da loja física (dinheiro com troco, Pix, maquininha), inclusive serviços: receber um agendamento pela Agenda ou vender para quem chegou sem horário. O estoque baixa na hora, a venda entra no Resumo e você vê o caixa do dia. <a href="#vender">Ver como usar</a></li>
@@ -592,6 +593,13 @@ footer { color: var(--muted); font-size: 14px; border-top: 1px solid var(--line)
       <li><div>Embale, cole a etiqueta e poste, ou agende a coleta.</div></li>
       <li><div>No painel, abra o pedido, cole o <strong>código de rastreio</strong> e clique em <strong>Salvar</strong>. O pedido passa a "Enviado", e o cliente recebe um e-mail com o rastreio.</div></li>
     </ol>
+    <h3 id="rastreio-correios">Rastreio automático dos Correios</h3>
+    <p>Se a sua loja tem <strong>contrato com os Correios</strong>, a PMS app liga o rastreio automático com os dados do contrato (usuário do Meu Correios, código de acesso às APIs e cartão de postagem; fale com o suporte). Com ele ligado, todo pedido enviado com código dos Correios (como AB123456789BR, inclusive de etiqueta do Melhor Envio):</p>
+    <ul>
+      <li>mostra o <strong>histórico do objeto</strong> no pedido do painel e na página do pedido do cliente (postado, em trânsito, saiu para entrega...), atualizado a cada 3 horas, ou na hora pelo botão <strong>Atualizar rastreio</strong>;</li>
+      <li>passa para <strong>Entregue sozinho</strong> quando os Correios entregam, e o cliente recebe um e-mail (e WhatsApp, nos planos com WhatsApp) avisando.</li>
+    </ul>
+    <p>Sem contrato, o pedido mostra o link "Ver nos Correios", e o "Entregue" continua sendo marcado por você.</p>
     <p><strong>Retirada na loja</strong>: quando o pedido estiver separado, clique em "Marcar como pronto para retirada". O cliente recebe um e-mail avisando.</p>
     <p><strong>Entrega própria</strong> (o pedido aparece como "Entrega da loja"): não tem etiqueta nem rastreio. Quando sair para entregar, clique em "Marcar como saiu para entrega": o cliente recebe um e-mail avisando. Depois de entregar, marque "Entregue". O endereço está no pedido.</p>
   </section>

@@ -7,6 +7,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { MercadoPagoError, getPayment, refundPayment } from "@/lib/payments/mercadopago";
 import { requireStore } from "@/lib/panel";
 import { isUuid } from "@/lib/validation";
+import { isCorreiosCode } from "@/lib/correios";
+import { syncOrderTracking } from "@/lib/correios-server";
 import { MEMBER_TRANSITIONS, SOLD_STATUSES, staffTransitions, statusLabel, type OrderStatus } from "@/lib/order-status";
 
 export type OrderActionState = { error?: string; ok?: string } | null;
@@ -14,14 +16,14 @@ export type OrderActionState = { error?: string; ok?: string } | null;
 // Atualiza com o cliente da sessão: RLS limita à loja do lojista e o trigger valida a transição.
 async function loadOrder(id: string) {
   const { supabase, store, role } = await requireStore("vendas");
-  if (!isUuid(id)) return { supabase, role, order: null };
+  if (!isUuid(id)) return { supabase, role, store, order: null };
   const { data: order } = await supabase
     .from("orders")
     .select("id, status, shipping_method")
     .eq("id", id)
     .eq("store_id", store.id)
     .maybeSingle();
-  return { supabase, role, order: order as { id: string; status: OrderStatus; shipping_method: string } | null };
+  return { supabase, role, store, order: order as { id: string; status: OrderStatus; shipping_method: string } | null };
 }
 
 function done(id: string, ok: string): OrderActionState {
@@ -59,7 +61,7 @@ export async function saveTracking(_prev: OrderActionState, form: FormData): Pro
   const code = String(form.get("trackingCode") ?? "").trim().toUpperCase().replace(/\s+/g, "");
   if (!/^[A-Z0-9-]{4,40}$/.test(code)) return { error: "Código de rastreio inválido." };
 
-  const { supabase, order } = await loadOrder(id);
+  const { supabase, store, order } = await loadOrder(id);
   if (!order) return { error: "Pedido não encontrado." };
 
   // Informar o rastreio de um pedido pago/em preparação já o marca como enviado.
@@ -76,8 +78,22 @@ export async function saveTracking(_prev: OrderActionState, form: FormData): Pro
     .select("id");
   if (error || !data?.length) return { error: "Não foi possível salvar. Recarregue a página e tente de novo." };
 
+  // Código novo: o histórico do anterior sai (SQL 20261126000000; sem ele, nada a limpar). Dos Correios, já consulta.
+  const admin = createAdminClient();
+  await admin.from("orders").update({ tracking_events: null, tracking_checked_at: null }).eq("id", order.id).eq("store_id", store.id);
+  if (isCorreiosCode(code)) after(() => syncOrderTracking(admin, store.id, order.id));
+
   if (markShipped) after(() => notifyOrderShipped(order.id));
   return done(order.id, markShipped ? "Rastreio salvo e pedido marcado como enviado." : "Rastreio atualizado.");
+}
+
+// "Atualizar rastreio": consulta os Correios agora (contrato da loja).
+export async function refreshTracking(orderId: string): Promise<OrderActionState> {
+  const { store } = await requireStore("vendas");
+  if (!isUuid(orderId)) return { error: "Pedido não encontrado." };
+  const r = await syncOrderTracking(createAdminClient(), store.id, orderId);
+  if (!r.ok) return { error: r.error };
+  return done(orderId, r.delivered ? "Entregue! O pedido foi marcado como entregue." : "Rastreio atualizado.");
 }
 
 // Cancelar e estornar: devolve o pagamento no Mercado Pago (conta do lojista), cancela o pedido e,

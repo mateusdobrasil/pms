@@ -14,6 +14,11 @@ import { discountLines } from "@/lib/coupons";
 import { orderCoupon } from "@/lib/coupons-server";
 import { CancelSale } from "../../vender/cancel-sale";
 import { emailStatusLabel, isProblem } from "@/lib/resend-webhook";
+import { type TrackingEvent, correiosTrackingUrl, isCorreiosCode } from "@/lib/correios";
+import { correiosConfigured } from "@/lib/correios-server";
+import { TrackingTimeline } from "@/lib/tracking-timeline";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { RefreshTracking } from "./refresh-tracking";
 
 type Order = {
   id: string;
@@ -80,6 +85,11 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
   // E-mails ao cliente que voltaram ou viraram spam (SQL 20261029000000; sem a tabela, nada aparece).
   const { data: mails } = await supabase.from("sent_emails").select("subject, status, detail").eq("kind", "order").eq("ref_id", order.id);
   const badMails = (mails ?? []).filter((m) => isProblem(m.status));
+  // Rastreio automático dos Correios (SQL 20261126000000; sem ele, nada).
+  const correiosCode = isCorreiosCode(order.tracking_code);
+  const { data: trackRow } = correiosCode ? await supabase.from("orders").select("tracking_events, tracking_checked_at").eq("id", order.id).maybeSingle() : { data: null };
+  const track = trackRow as { tracking_events: TrackingEvent[] | null; tracking_checked_at: string | null } | null;
+  const autoTracking = correiosCode && (await correiosConfigured(createAdminClient(), store.id));
   const refundable = SOLD_STATUSES.includes(order.status) && !!approved;
   // O que o lojista de fato recebe: pago menos a taxa do Mercado Pago (pedido cancelado/estornado não conta).
   const owner = role === "owner";
@@ -207,6 +217,30 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
             transitions={owner ? MEMBER_TRANSITIONS[order.status] : staffTransitions(order.status)}
             refundable={refundable}
           />
+          {correiosCode && order.tracking_code && (
+            <section className="space-y-3 rounded-xl border bg-white px-4 py-3 text-sm shadow-sm">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h2 className="font-medium">Rastreio</h2>
+                {autoTracking && <RefreshTracking orderId={order.id} />}
+              </div>
+              {track?.tracking_events?.length ? (
+                <TrackingTimeline code={order.tracking_code} events={track.tracking_events} />
+              ) : autoTracking ? (
+                <p className="text-neutral-500">Os Correios ainda não mostram eventos deste objeto.</p>
+              ) : (
+                <a href={correiosTrackingUrl(order.tracking_code)} target="_blank" rel="noopener noreferrer" className="text-sm underline">
+                  Ver nos Correios
+                </a>
+              )}
+              {autoTracking && (
+                <p className="text-xs text-neutral-500">
+                  Atualiza sozinho a cada 3 horas
+                  {track?.tracking_checked_at ? ` (última consulta ${formatDateTime(track.tracking_checked_at)})` : ""}. Quando os Correios entregam, o pedido
+                  passa para &quot;Entregue&quot;.
+                </p>
+              )}
+            </section>
+          )}
           {owner && refundable && approved && (
             <RefundSection orderId={order.id} totalLabel={formatBRL(order.total_cents)} method={approved.method} stockIssue={order.stock_issue} />
           )}
