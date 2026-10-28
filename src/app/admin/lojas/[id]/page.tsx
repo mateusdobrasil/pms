@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { loadSetup } from "@/lib/setup-server";
 import { notFound } from "next/navigation";
 import { requireAdmin } from "@/lib/admin";
 import { isUuid } from "@/lib/validation";
@@ -29,6 +30,7 @@ export default async function AdminStorePage({ params }: { params: Promise<{ id:
     db.from("store_members").select("user_id, role, created_at").eq("store_id", id),
   ]);
   if (!store) notFound();
+  const setup = await loadSetup(db, store.id);
 
   // Cobrança: colunas e tabela do SQL 20261024000000, lidas à parte (sem o SQL, a seção avisa).
   // WhatsApp: coluna e registro do SQL 20261118000000 (sem eles, a seção não aparece).
@@ -95,6 +97,30 @@ export default async function AdminStorePage({ params }: { params: Promise<{ id:
         </div>
         <p className="text-sm text-neutral-500">Identificador: {store.slug}</p>
       </div>
+
+      {/* Implantação: os mesmos primeiros passos que o lojista vê no Resumo, para acompanhar sem perguntar. */}
+      <section className={`${card} lg:max-w-none`}>
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <h2 className="font-semibold">Implantação</h2>
+          <span className={`text-sm font-medium ${setup.progress.ready ? "text-emerald-700" : "text-neutral-600"}`}>
+            {setup.progress.ready ? "Pronta para vender" : `${setup.progress.done} de ${setup.progress.total} passos · ${setup.progress.requiredLeft === 1 ? "falta 1 essencial" : `faltam ${setup.progress.requiredLeft} essenciais`}`}
+          </span>
+        </div>
+        <ul className="grid gap-x-6 gap-y-1.5 text-sm sm:grid-cols-2">
+          {setup.steps.map((st) => (
+            <li key={st.key} className="flex items-start gap-2">
+              <span className={`mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full text-xs font-bold ${st.done ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}>
+                {st.done ? "✓" : "!"}
+              </span>
+              <span>
+                {st.label}
+                {!st.required && <span className="text-xs text-neutral-400"> (opcional)</span>}
+                {!st.done && <span className="block text-xs text-neutral-500">{st.hint}</span>}
+              </span>
+            </li>
+          ))}
+        </ul>
+      </section>
 
       <div className="grid gap-6 lg:grid-cols-2">
         <section className={card}>

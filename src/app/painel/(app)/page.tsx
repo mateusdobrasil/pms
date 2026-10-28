@@ -13,6 +13,9 @@ import { PAYMENT_LINK_METHOD } from "@/lib/payment-links";
 import { PACKAGE_METHOD } from "@/lib/packages";
 import { isCounterSale } from "@/lib/counter";
 import { PushCard } from "./push-card";
+import { SetupCard } from "./setup-card";
+import { loadSetup } from "@/lib/setup-server";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 const CHART_DAYS = 30;
 
@@ -20,6 +23,7 @@ type LowStock = { id: string; name: string; stock: number; products: { id: strin
 
 export default async function PanelHome() {
   const { supabase, store } = await requireStore();
+  const setup = await loadSetup(createAdminClient(), store.id);
   const { startOfDay, startOfMonth } = saoPauloBoundaries();
   const today = todayBR();
   const chartFrom = new Date(`${windowStart(today, CHART_DAYS)}T00:00:00-03:00`).toISOString();
@@ -156,6 +160,9 @@ export default async function PanelHome() {
 
       {/* Sem as chaves VAPID na Vercel, o painel não oferece o aviso no celular. */}
       {pushPublicKey() && <PushCard publicKey={pushPublicKey()!} />}
+
+      {/* Primeiros passos: até o essencial ficar pronto. */}
+      {!setup.progress.ready && <SetupCard storeId={store.id} steps={setup.steps} done={setup.progress.done} total={setup.progress.total} />}
 
       {(stockIssues ?? 0) > 0 && (
         <p className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">

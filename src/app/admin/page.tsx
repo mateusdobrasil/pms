@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { loadSetup } from "@/lib/setup-server";
 import { requireAdmin } from "@/lib/admin";
 import { formatDateTime } from "@/lib/format";
 import { todayBR } from "@/lib/billing";
@@ -25,6 +26,8 @@ export default async function AdminHome({ searchParams }: { searchParams: Promis
   // Lojas com fatura vencida (sem o SQL da cobrança, a consulta falha e ninguém aparece em atraso).
   const { data: overdue } = await db.from("store_invoices").select("store_id").eq("status", "open").lt("due_date", todayBR());
   const late = new Set((overdue ?? []).map((i) => i.store_id as string));
+  // Primeiros passos de cada loja (implantação): "6 de 9", em verde quando o essencial está pronto.
+  const setups = new Map(await Promise.all(stores.map(async (s) => [s.id, (await loadSetup(db, s.id)).progress] as const)));
 
   return (
     <div className="grid gap-8 lg:grid-cols-3">
@@ -42,6 +45,14 @@ export default async function AdminHome({ searchParams }: { searchParams: Promis
                       {primary?.domain ?? "sem domínio"} · {s.store_members.length} usuário(s) · criada em {formatDateTime(s.created_at)}
                     </p>
                   </div>
+                  {setups.get(s.id) && (
+                    <span
+                      className={`rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset ${setups.get(s.id)!.ready ? "bg-emerald-50 text-emerald-800 ring-emerald-200" : "bg-neutral-100 text-neutral-700 ring-neutral-200"}`}
+                      title="Primeiros passos da loja"
+                    >
+                      {setups.get(s.id)!.ready ? "Pronta" : `Implantação ${setups.get(s.id)!.done}/${setups.get(s.id)!.total}`}
+                    </span>
+                  )}
                   {late.has(s.id) && (
                     <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-900 ring-1 ring-inset ring-amber-200">Fatura vencida</span>
                   )}
