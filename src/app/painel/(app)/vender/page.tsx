@@ -13,7 +13,7 @@ type SaleRow = { id: string; code: string; status: string; total_cents: number; 
 
 // Venda no balcão: caixa simples para vendas presenciais, que baixam o estoque e entram nos relatórios.
 export default async function SellPage() {
-  const { supabase, store } = await requireStore();
+  const { supabase, store } = await requireStore("vendas");
   const { startOfDay } = saoPauloBoundaries();
   const [{ data: rows }, { data: sales, error }, { data: svcRows }, { data: pkgRows }] = await Promise.all([
     supabase

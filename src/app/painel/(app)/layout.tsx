@@ -10,9 +10,10 @@ export const metadata = { title: "Painel · PMS app", robots: { index: false }, 
 export const viewport = panelViewport;
 
 export default async function PanelLayout({ children }: { children: ReactNode }) {
-  const { supabase, store, email } = await requireStore();
-  // Fatura vencida mais antiga (aviso no topo de todas as telas). Se a tabela ainda não existir, segue sem aviso.
-  const { data: overdue } = await supabase
+  const { supabase, store, email, role } = await requireStore("todos");
+  // Fatura vencida mais antiga (aviso no topo de todas as telas, só para o dono). Se a tabela ainda não existir, segue sem aviso.
+  const owner = role === "owner";
+  const { data: overdue } = !owner ? { data: null } : await supabase
     .from("store_invoices")
     .select("due_date")
     .eq("store_id", store.id)
@@ -33,7 +34,7 @@ export default async function PanelLayout({ children }: { children: ReactNode })
   const campaigns = ((campaignRow as { whatsapp_campaign_quota?: number } | null)?.whatsapp_campaign_quota ?? 0) > 0;
 
   // Modo de teste (Mercado Pago TEST-): link que libera as compras de teste no domínio da loja.
-  const testMode = await storeTestMode(store.id);
+  const testMode = owner && (await storeTestMode(store.id));
   const { data: domains } = testMode
     ? await supabase.from("store_domains").select("domain, is_primary").eq("store_id", store.id)
     : { data: null };
@@ -62,13 +63,15 @@ export default async function PanelLayout({ children }: { children: ReactNode })
           </div>
           {/* Uma linha só: a assinatura, a conta e sair ficam no grupo "Conta" do menu. */}
           <div className="w-full sm:w-auto sm:flex-1">
-            <PanelNav agenda={agenda} campaigns={campaigns} email={email} />
+            <PanelNav agenda={agenda} campaigns={campaigns} email={email} role={role} />
           </div>
         </div>
       </header>
       {store.status === "suspended" ? (
         <p className="bg-amber-100 px-4 py-2 text-center text-sm text-amber-900">
-          {oldestDue ? (
+          {!owner ? (
+            "A loja está fora do ar e não aparece para os clientes. Fale com o responsável pela loja."
+          ) : oldestDue ? (
             <>
               Sua loja está fora do ar por falta de pagamento.{" "}
               <Link href="/painel/assinatura" className="font-semibold underline">Pague a fatura</Link> e ela volta ao ar sozinha.

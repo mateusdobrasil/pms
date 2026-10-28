@@ -5,7 +5,7 @@ import { AgendaTabs } from "./agenda-tabs";
 
 // Área de agendamentos: abas e aviso quando o módulo está desligado (ou sem o SQL).
 export default async function AgendaLayout({ children }: { children: ReactNode }) {
-  const { supabase, store } = await requireStore();
+  const { supabase, store, role } = await requireStore("agenda");
   const { data, error } = await supabase.from("stores").select("booking_enabled").eq("id", store.id).single();
 
   if (error) {
@@ -16,7 +16,7 @@ export default async function AgendaLayout({ children }: { children: ReactNode }
     <div className="space-y-6">
       <div className="space-y-3">
         <h1 className="text-2xl font-semibold tracking-tight">Agenda</h1>
-        <AgendaTabs />
+        <AgendaTabs role={role} />
       </div>
       {!data?.booking_enabled && (
         <p className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">

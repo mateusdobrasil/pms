@@ -33,7 +33,7 @@ type Order = {
 export default async function PrintOrderPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   if (!isUuid(id)) notFound();
-  const { supabase, store } = await requireStore();
+  const { supabase, store } = await requireStore("vendas");
 
   const { data } = await supabase
     .from("orders")

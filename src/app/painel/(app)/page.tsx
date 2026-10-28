@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { requireStore } from "@/lib/panel";
 import { formatBRL } from "@/lib/money";
 import { saoPauloBoundaries } from "@/lib/format";
@@ -22,7 +23,12 @@ const CHART_DAYS = 30;
 type LowStock = { id: string; name: string; stock: number; products: { id: string; name: string } };
 
 export default async function PanelHome() {
-  const { supabase, store } = await requireStore();
+  const { supabase, store, role } = await requireStore("todos");
+  if (role === "professional") redirect("/painel/minha-agenda");
+  if (role === "staff") {
+    const { data: b } = await supabase.from("stores").select("booking_enabled").eq("id", store.id).maybeSingle();
+    redirect((b as { booking_enabled?: boolean } | null)?.booking_enabled ? "/painel/agenda" : "/painel/pedidos");
+  }
   const setup = await loadSetup(createAdminClient(), store.id);
   const { startOfDay, startOfMonth } = saoPauloBoundaries();
   const today = todayBR();

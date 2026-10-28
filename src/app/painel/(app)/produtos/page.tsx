@@ -30,7 +30,8 @@ export default async function ProductsPage({
 }: {
   searchParams: Promise<{ q?: string; filtro?: string; categoria?: string; page?: string }>;
 }) {
-  const { supabase, store } = await requireStore();
+  const { supabase, store, role } = await requireStore("estoque");
+  const owner = role === "owner";
   const sp = await searchParams;
   const q = (sp.q ?? "").trim();
   const filter = (FILTERS.find((f) => f.value === sp.filtro)?.value ?? null) as Filter;
@@ -87,9 +88,11 @@ export default async function ProductsPage({
             {category && <input type="hidden" name="categoria" value={category} />}
             <input name="q" defaultValue={q} placeholder="Buscar produto" className="w-44 rounded-md border bg-white px-3 py-1.5 text-sm" />
           </form>
-          <Link href="/painel/produtos/novo" className="rounded-md bg-primary-600 hover:bg-primary-700 px-4 py-1.5 text-sm font-medium text-white">
-            Novo produto
-          </Link>
+          {owner && (
+            <Link href="/painel/produtos/novo" className="rounded-md bg-primary-600 hover:bg-primary-700 px-4 py-1.5 text-sm font-medium text-white">
+              Novo produto
+            </Link>
+          )}
         </div>
       </div>
 
@@ -140,7 +143,7 @@ export default async function ProductsPage({
 
             return (
               <li key={p.id}>
-                <Link href={`/painel/produtos/${p.id}`} className="flex items-center gap-4 px-4 py-3 text-sm hover:bg-neutral-50">
+                <Link href={owner ? `/painel/produtos/${p.id}` : `/painel/produtos/${p.id}/estoque`} className="flex items-center gap-4 px-4 py-3 text-sm hover:bg-neutral-50">
                   <div className="h-12 w-12 shrink-0 overflow-hidden rounded bg-neutral-100">
                     {cover && <ThumbImage path={cover.path} alt="" className="h-full w-full object-cover" />}
                   </div>

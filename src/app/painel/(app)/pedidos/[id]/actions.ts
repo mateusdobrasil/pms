@@ -7,21 +7,21 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { MercadoPagoError, getPayment, refundPayment } from "@/lib/payments/mercadopago";
 import { requireStore } from "@/lib/panel";
 import { isUuid } from "@/lib/validation";
-import { MEMBER_TRANSITIONS, SOLD_STATUSES, statusLabel, type OrderStatus } from "@/lib/order-status";
+import { MEMBER_TRANSITIONS, SOLD_STATUSES, staffTransitions, statusLabel, type OrderStatus } from "@/lib/order-status";
 
 export type OrderActionState = { error?: string; ok?: string } | null;
 
 // Atualiza com o cliente da sessão: RLS limita à loja do lojista e o trigger valida a transição.
 async function loadOrder(id: string) {
-  const { supabase, store } = await requireStore();
-  if (!isUuid(id)) return { supabase, order: null };
+  const { supabase, store, role } = await requireStore("vendas");
+  if (!isUuid(id)) return { supabase, role, order: null };
   const { data: order } = await supabase
     .from("orders")
     .select("id, status, shipping_method")
     .eq("id", id)
     .eq("store_id", store.id)
     .maybeSingle();
-  return { supabase, order: order as { id: string; status: OrderStatus; shipping_method: string } | null };
+  return { supabase, role, order: order as { id: string; status: OrderStatus; shipping_method: string } | null };
 }
 
 function done(id: string, ok: string): OrderActionState {
@@ -35,9 +35,9 @@ export async function changeStatus(_prev: OrderActionState, form: FormData): Pro
   const id = String(form.get("orderId") ?? "");
   const next = String(form.get("status") ?? "") as OrderStatus;
 
-  const { supabase, order } = await loadOrder(id);
+  const { supabase, role, order } = await loadOrder(id);
   if (!order) return { error: "Pedido não encontrado." };
-  if (!MEMBER_TRANSITIONS[order.status]?.includes(next)) {
+  if (!(role === "owner" ? MEMBER_TRANSITIONS[order.status] : staffTransitions(order.status))?.includes(next)) {
     return { error: `Não é possível passar de "${statusLabel(order.status)}" para "${statusLabel(next)}".` };
   }
 

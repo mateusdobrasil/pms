@@ -4,7 +4,7 @@ import { requireStore } from "@/lib/panel";
 import { formatBRL } from "@/lib/money";
 import { formatCPF, formatDateTime, formatPhone } from "@/lib/format";
 import { isUuid } from "@/lib/validation";
-import { MEMBER_TRANSITIONS, SOLD_STATUSES, statusLabel, statusTone, type OrderStatus } from "@/lib/order-status";
+import { MEMBER_TRANSITIONS, SOLD_STATUSES, staffTransitions, statusLabel, statusTone, type OrderStatus } from "@/lib/order-status";
 import { OrderActions, RefundSection } from "./order-actions";
 import { FEE_FIELDS, feePercent, paymentFees } from "@/lib/payments/fees";
 import { isPaymentLink } from "@/lib/payment-links";
@@ -48,7 +48,7 @@ const PAYMENT_STATUS: Record<string, string> = {
 export default async function OrderDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   if (!isUuid(id)) notFound();
-  const { supabase, store } = await requireStore();
+  const { supabase, store, role } = await requireStore("vendas");
 
   const { data } = await supabase
     .from("orders")
@@ -82,7 +82,8 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
   const badMails = (mails ?? []).filter((m) => isProblem(m.status));
   const refundable = SOLD_STATUSES.includes(order.status) && !!approved;
   // O que o lojista de fato recebe: pago menos a taxa do Mercado Pago (pedido cancelado/estornado não conta).
-  const fees = refundable && approved ? paymentFees(approved.amount_cents, approved.fee, approved.net) : null;
+  const owner = role === "owner";
+  const fees = owner && refundable && approved ? paymentFees(approved.amount_cents, approved.fee, approved.net) : null;
 
   return (
     <div className="space-y-6">
@@ -203,10 +204,10 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
             status={order.status}
             shippingMethod={order.shipping_method}
             trackingCode={order.tracking_code}
-            transitions={MEMBER_TRANSITIONS[order.status]}
+            transitions={owner ? MEMBER_TRANSITIONS[order.status] : staffTransitions(order.status)}
             refundable={refundable}
           />
-          {refundable && approved && (
+          {owner && refundable && approved && (
             <RefundSection orderId={order.id} totalLabel={formatBRL(order.total_cents)} method={approved.method} stockIssue={order.stock_issue} />
           )}
 

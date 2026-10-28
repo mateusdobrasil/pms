@@ -100,6 +100,7 @@ footer { color: var(--muted); font-size: 14px; border-top: 1px solid var(--line)
       <li><a href="#novidades">Novidades<span>O que mudou em outubro</span></a></li>
       <li><a href="#acesso">Primeiro acesso<span>Entrar e trocar a senha</span></a></li>
       <li><a href="#celular">Painel no celular<span>App e aviso a cada venda</span></a></li>
+      <li><a href="#equipe">Equipe<span>Acesso para recepção e profissionais</span></a></li>
       <li><a href="#configurar">Configurar a loja<span>Logo, banner, promoções, CEP</span></a></li>
       <li><a href="#legal">Dados legais e políticas<span>O que a lei exige da loja</span></a></li>
       <li><a href="#google">Google Shopping<span>Produtos no Google, grátis</span></a></li>
@@ -168,6 +169,7 @@ footer { color: var(--muted); font-size: 14px; border-top: 1px solid var(--line)
 
     <h3>Para o seu dia a dia</h3>
     <ul>
+      <li><strong>Equipe com acessos</strong>: dê um login próprio para a recepção (balcão, pedidos, agenda, clientes e estoque, sem ver o faturamento) e para cada profissional (só a própria agenda e a própria comissão). <a href="#equipe">Ver como funciona</a></li>
       <li><strong>Aviso de e-mail que não chegou</strong>: se o e-mail de um pedido voltar (endereço errado, caixa cheia) ou for marcado como spam, o Resumo e o pedido mostram um aviso para você falar com o cliente pelo WhatsApp. <a href="#duvidas">Ver detalhes</a></li>
       <li><strong>Quanto você recebe de verdade</strong>: cada venda mostra a taxa do Mercado Pago e o valor que fica para você; o Resumo traz o total do mês, e a planilha de pedidos ganhou as colunas de taxa e valor líquido. <a href="#pagamentos">Ver detalhes</a></li>
       <li><strong>Estorno pelo painel</strong>: "Cancelar e estornar" no pedido devolve o dinheiro ao cliente pelo Mercado Pago, cancela o pedido, avisa o cliente por e-mail e, se você quiser, devolve os itens ao estoque. <a href="#pedidos">Ver detalhes</a></li>
@@ -186,7 +188,7 @@ footer { color: var(--muted); font-size: 14px; border-top: 1px solid var(--line)
 
   <section id="acesso">
     <h2>Primeiro acesso</h2>
-    <p>Sua loja tem dois endereços: o da <strong>vitrine</strong>, que você divulga para os clientes, e o do <strong>painel</strong>, onde só você entra para administrar.</p>
+    <p>Sua loja tem dois endereços: o da <strong>vitrine</strong>, que você divulga para os clientes, e o do <strong>painel</strong>, onde você (e quem você der acesso, veja <a href="#equipe">Equipe</a>) administra a loja.</p>
     <p>A vitrine pode estar em um destes endereços:</p>
     <ul>
       <li><strong>Endereço da plataforma</strong>: <code>sualoja.minhaloja.promo</code>. Já vem pronto e com cadeado (HTTPS). Você não precisa comprar nem configurar nada.</li>
@@ -212,6 +214,23 @@ footer { color: var(--muted); font-size: 14px; border-top: 1px solid var(--line)
       <li><div><strong>Computador</strong>: no Chrome ou no Edge, o mesmo botão do Resumo ativa os avisos no canto da tela.</div></li>
     </ol>
     <div class="tip info"><strong>Cada aparelho ativa o seu</strong>Ative em todos os celulares e computadores que devem receber o aviso (o seu, o de quem atende a loja). "Enviar teste" confere se está chegando; "Desativar" para de avisar naquele aparelho. Se não chegar, confira se as notificações do navegador (ou do app, no iPhone) estão permitidas nas configurações do celular e se o modo "Não perturbe" está desligado.</div>
+  </section>
+
+  <section id="equipe">
+    <h2>Equipe</h2>
+    <p>Cada pessoa que trabalha com você pode ter o próprio login no painel, vendo só o que o perfil dela permite. Assim ninguém precisa usar a sua senha.</p>
+    <ol class="steps">
+      <li><div>No menu, abra <strong>Conta ▾</strong> → <span class="where">Equipe</span>.</div></li>
+      <li><div>Em "Adicionar pessoa", digite o <strong>e-mail</strong> da pessoa e escolha o <strong>perfil</strong>. Para Profissional, escolha também qual profissional da agenda ela é (cadastre antes em Agenda → Profissionais).</div></li>
+      <li><div>Toque em <strong>Adicionar</strong>. Aparece uma <strong>senha temporária</strong>, uma vez só: use "Copiar mensagem com o acesso" e mande pelo WhatsApp. A pessoa entra em <strong>www.pmsapp.dev/painel</strong> e troca a senha em Conta → Minha conta.</div></li>
+    </ol>
+    <p>O que cada perfil vê:</p>
+    <ul>
+      <li><strong>Dono</strong> (você): tudo.</li>
+      <li><strong>Recepção</strong>: Vender no balcão, Pedidos (sem a planilha, as taxas e o estorno; cancela só pedido ainda não pago), Agenda (agendamentos, folgas e pacotes dos clientes; sem serviços, profissionais e comissões), Clientes e o <strong>estoque</strong> dos produtos (sem mudar preço, fotos ou cadastro). Não vê o Resumo de vendas, Configurações, Divulgar, Equipe nem Assinatura.</li>
+      <li><strong>Profissional</strong>: só <span class="where">Minha agenda</span>, com os próprios agendamentos da semana e a própria comissão do mês.</li>
+    </ul>
+    <div class="tip info"><strong>Mudar ou tirar o acesso</strong>Na mesma tela, troque o perfil e toque em Salvar, ou toque em <strong>Remover</strong>: a pessoa deixa de entrar na hora. Se alguém esquecer a senha, "Gerar senha nova" cria outra senha temporária para você mandar. Cada pessoa precisa de um e-mail próprio, que não seja usado em outra loja.</div>
   </section>
 
   <section id="configurar">

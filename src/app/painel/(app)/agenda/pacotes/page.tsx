@@ -15,7 +15,7 @@ const date = (iso: string) => new Date(iso).toLocaleDateString("pt-BR", { timeZo
 
 // Pacotes de sessões: os modelos à venda e os pacotes dos clientes (sessões restantes, usar e cancelar).
 export default async function PackagesPage({ searchParams }: { searchParams: Promise<{ ver?: string }> }) {
-  const { supabase, store } = await requireStore();
+  const { supabase, store, role } = await requireStore("agenda");
   const showClosed = (await searchParams).ver === "encerrados";
   const [{ data: models, error }, { data: services }, { data: links }, customerPkgs] = await Promise.all([
     supabase.from("service_packages").select("id, name, sessions, price_cents, validity_days, active, services(name)").eq("store_id", store.id).order("created_at"),
@@ -38,6 +38,7 @@ export default async function PackagesPage({ searchParams }: { searchParams: Pro
 
   return (
     <div className="space-y-6">
+      {role === "owner" && (
       <section className="space-y-3 rounded-xl border bg-white p-5 shadow-sm">
         <h2 className="font-medium">Pacotes à venda</h2>
         <p className="text-sm text-neutral-600">
@@ -70,6 +71,7 @@ export default async function PackagesPage({ searchParams }: { searchParams: Pro
           <CreatePackageForm services={(services ?? []) as { id: string; name: string }[]} />
         )}
       </section>
+      )}
 
       <section className="rounded-xl border bg-white shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-2 border-b px-4 py-3">
@@ -99,7 +101,7 @@ export default async function PackagesPage({ searchParams }: { searchParams: Pro
                     {p.expires_at && ` · vale até ${date(p.expires_at)}`}
                   </p>
                 </div>
-                {p.state === "active" && <CustomerPackageActions id={p.id} pros={prosFor(p.service_id)} />}
+                {p.state === "active" && <CustomerPackageActions id={p.id} pros={prosFor(p.service_id)} canCancel={role === "owner"} />}
               </li>
             ))}
           </ul>

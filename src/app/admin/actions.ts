@@ -1,12 +1,12 @@
 "use server";
 
-import { randomBytes } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { after } from "next/server";
 import { normalizeDomain, requireAdmin } from "@/lib/admin";
 import { removeStoreLogo, uploadStoreLogo, validateLogo } from "@/lib/branding";
 import { slugify } from "@/lib/slug";
+import { findUserByEmail, tempPassword } from "@/lib/users-server";
 import { isStoreSubdomain, storeDomainError, storeSubdomain } from "@/lib/store-domains";
 import { isEmail, isUuid, onlyDigits } from "@/lib/validation";
 import { BILLING, isDueDay, todayBR } from "@/lib/billing";
@@ -25,14 +25,9 @@ type Db = Awaited<ReturnType<typeof requireAdmin>>["db"];
 
 // Acha o usuário pelo e-mail ou cria um com senha temporária (mostrada uma única vez ao admin).
 async function findOrCreateUser(db: Db, email: string) {
-  for (let page = 1; page <= 20; page++) {
-    const { data, error } = await db.auth.admin.listUsers({ page, perPage: 200 });
-    if (error) throw error;
-    const found = data.users.find((u) => u.email?.toLowerCase() === email);
-    if (found) return { userId: found.id, password: null as string | null };
-    if (data.users.length < 200) break;
-  }
-  const password = randomBytes(9).toString("base64url"); // 12 caracteres
+  const found = await findUserByEmail(db, email);
+  if (found) return { userId: found.id, password: null as string | null };
+  const password = tempPassword();
   const { data, error } = await db.auth.admin.createUser({ email, password, email_confirm: true });
   if (error) throw error;
   return { userId: data.user.id, password };

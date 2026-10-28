@@ -103,7 +103,7 @@ type Waiting = {
 };
 
 export default async function AgendaPage({ searchParams }: { searchParams: Promise<{ dia?: string; visao?: string }> }) {
-  const { supabase, store } = await requireStore();
+  const { supabase, store, role } = await requireStore("agenda");
   const sp = await searchParams;
   const today = todayBR();
   const date = sp.dia && /^\d{4}-\d{2}-\d{2}$/.test(sp.dia) ? sp.dia : today;
@@ -185,7 +185,7 @@ export default async function AgendaPage({ searchParams }: { searchParams: Promi
 
   return (
     <div className="space-y-6">
-      {steps.some((s) => !s.done) && (
+      {role === "owner" && steps.some((s) => !s.done) && (
         <section className="max-w-2xl space-y-3 rounded-xl border bg-white p-5 shadow-sm">
           <h2 className="font-medium">Deixe a agenda pronta</h2>
           <ol className="space-y-2 text-sm">

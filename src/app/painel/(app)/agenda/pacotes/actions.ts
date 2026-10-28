@@ -47,7 +47,7 @@ export async function togglePackage(form: FormData) {
 
 // Sessão usada sem agendamento (cliente que chegou sem horário): com quem atendeu, para a comissão.
 export async function redeemSessionAtCounter(customerPackageId: string, professionalId: string) {
-  const { store } = await requireStore();
+  const { store } = await requireStore("agenda");
   if (!isUuid(customerPackageId) || !isUuid(professionalId)) return { ok: false as const, error: "Escolha quem atendeu." };
   const r = await redeemPackageSession(createAdminClient(), store.id, { customerPackageId, professionalId });
   if (r.ok) after(() => notifyPackage(customerPackageId, "used", r.left));
@@ -57,7 +57,7 @@ export async function redeemSessionAtCounter(customerPackageId: string, professi
 
 // "Usar pacote" no agendamento: marca como atendido e desconta a sessão (sem cobrar).
 export async function redeemSessionForBooking(customerPackageId: string, bookingId: string) {
-  const { store } = await requireStore();
+  const { store } = await requireStore("agenda");
   if (!isUuid(customerPackageId) || !isUuid(bookingId)) return { ok: false as const, error: "Agendamento não encontrado." };
   const r = await redeemPackageSession(createAdminClient(), store.id, { customerPackageId, bookingId });
   if (r.ok) {

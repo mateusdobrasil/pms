@@ -17,7 +17,7 @@ export type AgendaState = { error?: string; ok?: string } | null;
 
 // Agendamentos só são alterados pelo servidor (service role), sempre depois de conferir que são da loja.
 async function ownBooking(id: string) {
-  const { store } = await requireStore();
+  const { store } = await requireStore("agenda");
   if (!isUuid(id)) return null;
   const db = createAdminClient();
   const { data } = await db.from("bookings").select("id, public_token, status").eq("id", id).eq("store_id", store.id).maybeSingle();
@@ -59,7 +59,7 @@ export async function cancelBookingByStore(_prev: AgendaState, form: FormData): 
 // Encaixe: agendamento feito pelo salão (balcão, WhatsApp). Aceita qualquer horário que não bata com outro
 // agendamento do profissional; o pagamento é no salão.
 export async function createManualBooking(_prev: AgendaState, form: FormData): Promise<AgendaState> {
-  const { store } = await requireStore();
+  const { store } = await requireStore("agenda");
   const db = createAdminClient();
   const serviceId = String(form.get("service_id") ?? "");
   const proId = String(form.get("professional_id") ?? "");

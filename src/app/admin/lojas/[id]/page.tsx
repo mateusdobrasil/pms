@@ -14,6 +14,7 @@ import { cancelInvoice, markInvoicePaid, removeDomain, removeMember, setPrimaryD
 import { whatsappConnected } from "@/lib/whatsapp";
 import { WA_AUTO_EVENTS, WA_EVENTS } from "@/lib/whatsapp-events";
 import { AddDomainForm, AddMemberForm, BillingForm, BrandingForm, SecretsForm } from "../../forms";
+import { ROLE_LABELS, isMemberRole } from "@/lib/team";
 
 export default async function AdminStorePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -173,6 +174,7 @@ export default async function AdminStorePage({ params }: { params: Promise<{ id:
                 <span className="flex-1">
                   {m.email}
                   <span className="block text-xs text-neutral-500">
+                    {isMemberRole(m.role) ? ROLE_LABELS[m.role] : m.role} ·{" "}
                     {m.lastSignIn ? `último acesso ${new Date(m.lastSignIn).toLocaleDateString("pt-BR")}` : "nunca entrou"}
                   </span>
                 </span>

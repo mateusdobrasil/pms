@@ -47,7 +47,7 @@ export function CreatePackageForm({ services }: { services: { id: string; name: 
 }
 
 // No pacote do cliente: usar uma sessão no balcão (escolhendo quem atendeu) ou cancelar o pacote.
-export function CustomerPackageActions({ id, pros }: { id: string; pros: { id: string; name: string }[] }) {
+export function CustomerPackageActions({ id, pros, canCancel }: { id: string; pros: { id: string; name: string }[]; canCancel: boolean }) {
   const [picking, setPicking] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -77,7 +77,7 @@ export function CustomerPackageActions({ id, pros }: { id: string; pros: { id: s
             <button type="button" onClick={() => setPicking(false)} className="text-neutral-500 hover:underline">Voltar</button>
           </>
         )}
-        <button
+        {canCancel && <button
           type="button"
           disabled={pending}
           onClick={() => {
@@ -86,7 +86,7 @@ export function CustomerPackageActions({ id, pros }: { id: string; pros: { id: s
           className="px-1 font-medium text-red-700 hover:underline disabled:opacity-50"
         >
           Cancelar pacote
-        </button>
+        </button>}
       </div>
       {message && <p className="text-neutral-600">{message}</p>}
     </div>

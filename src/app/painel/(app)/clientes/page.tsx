@@ -25,7 +25,7 @@ const when = (iso: string) => {
 // Clientes que sumiram (quem não volta há um tempo, com atalho para o WhatsApp) e o cartão fidelidade.
 // ?dias=30|60|90|180 (sumidos), ?dias=fidelidade (cartões e prêmios) ou ?dias=todos.
 export default async function CustomersPage({ searchParams }: { searchParams: Promise<{ dias?: string }> }) {
-  const { supabase, store } = await requireStore();
+  const { supabase, store, role } = await requireStore("clientes");
   const sp = await searchParams;
   const loyaltyTab = sp.dias === "fidelidade";
   const away = loyaltyTab || sp.dias === "todos" ? 0 : (AWAY_DAYS as readonly number[]).includes(Number(sp.dias)) ? Number(sp.dias) : 60;
@@ -124,7 +124,7 @@ export default async function CustomersPage({ searchParams }: { searchParams: Pr
         </p>
       </div>
 
-      {loyalty && (
+      {loyalty && role === "owner" && (
         <LoyaltyCard
           config={loyalty}
           agenda={agendaOn}

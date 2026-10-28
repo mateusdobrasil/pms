@@ -8,7 +8,7 @@ const validKey = (key: unknown): key is string => typeof key === "string" && key
 
 // Ao tocar em "Chamar no WhatsApp": registra a data para o lojista não chamar a mesma pessoa duas vezes.
 export async function markContacted(key: string) {
-  const { supabase, store } = await requireStore();
+  const { supabase, store } = await requireStore("clientes");
   if (!validKey(key)) return;
   const now = new Date().toISOString();
   await supabase.from("customer_contacts").upsert({ store_id: store.id, customer_key: key, contacted_at: now, updated_at: now }, { onConflict: "store_id,customer_key" });
@@ -17,7 +17,7 @@ export async function markContacted(key: string) {
 
 // "Não chamar mais" (o cliente pediu, ou não faz sentido): some da lista de sumidos. Reversível.
 export async function setDoNotContact(key: string, value: boolean) {
-  const { supabase, store } = await requireStore();
+  const { supabase, store } = await requireStore("clientes");
   if (!validKey(key)) return;
   await supabase
     .from("customer_contacts")
@@ -59,7 +59,7 @@ export async function saveLoyalty(_prev: LoyaltyState, form: FormData): Promise<
 
 // Entregou o prêmio: dá baixa no mais antigo em aberto deste cliente (pelo celular ou pelo e-mail).
 export async function redeemReward(keys: string[]) {
-  const { supabase, store } = await requireStore();
+  const { supabase, store } = await requireStore("clientes");
   const valid = keys.filter(validKey);
   if (!valid.length) return;
   const { data: open } = await supabase

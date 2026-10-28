@@ -13,7 +13,7 @@ const isDate = (v: string) => /^\d{4}-\d{2}-\d{2}$/.test(v);
 const brt = (date: string, time: string) => `${date}T${time}:00-03:00`;
 
 export async function createTimeOff(_prev: TimeOffState, form: FormData): Promise<TimeOffState> {
-  const { supabase, store } = await requireStore();
+  const { supabase, store } = await requireStore("agenda");
   const pro = String(form.get("professional_id") ?? "");
   const startDate = String(form.get("start_date") ?? "");
   const endDate = String(form.get("end_date") ?? "") || startDate;
@@ -41,7 +41,7 @@ export async function createTimeOff(_prev: TimeOffState, form: FormData): Promis
 }
 
 export async function deleteTimeOff(form: FormData) {
-  const { supabase, store } = await requireStore();
+  const { supabase, store } = await requireStore("agenda");
   const id = String(form.get("id") ?? "");
   if (isUuid(id)) await supabase.from("time_off").delete().eq("id", id).eq("store_id", store.id);
   revalidatePath("/painel/agenda/bloqueios");

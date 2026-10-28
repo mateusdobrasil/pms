@@ -361,6 +361,38 @@ export async function saveVariants(productId: string, input: VariantInput[]): Pr
   return { variants, ok: "Variações salvas." };
 }
 
+// Só o estoque (tela da Recepção): campos stock_<id> e orig_<id> (estoque quando a página abriu).
+// Mesma trava do editor: só grava se nenhuma venda mexeu no estoque desde então.
+export async function saveStock(_prev: FormState, form: FormData): Promise<FormState> {
+  const { supabase, store } = await requireStore("estoque");
+  const productId = String(form.get("productId") ?? "");
+  if (!isUuid(productId)) return { error: "Produto não encontrado." };
+  const { data: variants } = await supabase.from("product_variants").select("id, name").eq("product_id", productId).eq("store_id", store.id);
+  if (!variants?.length) return { error: "Produto não encontrado." };
+
+  const conflicts: string[] = [];
+  let changed = 0;
+  for (const v of variants) {
+    const raw = form.get(`stock_${v.id}`);
+    const orig = Number(form.get(`orig_${v.id}`));
+    if (raw === null || !Number.isInteger(orig)) continue;
+    const stock = Number(raw);
+    if (!Number.isInteger(stock) || stock < 0 || stock > 1_000_000) return { error: `${v.name}: estoque inválido.` };
+    if (stock === orig) continue;
+    const { data } = await supabase.from("product_variants").update({ stock }).eq("id", v.id).eq("store_id", store.id).eq("stock", orig).select("id");
+    if (data?.length) changed++;
+    else conflicts.push(v.name);
+  }
+
+  revalidateProduct(productId);
+  revalidatePath(`/painel/produtos/${productId}/estoque`);
+  if (changed) after(() => notifyBackInStock(store.id)); // estoque reposto: avisa quem pediu "avise-me"
+  if (conflicts.length) {
+    return { error: `O estoque de ${conflicts.join(", ")} mudou enquanto você editava (provavelmente uma venda). Recarregue a página e ajuste de novo.` };
+  }
+  return { ok: changed ? "Estoque salvo." : "Nada mudou." };
+}
+
 // Variações no formato do editor (preços como texto do formulário).
 async function loadVariants(
   supabase: Awaited<ReturnType<typeof requireStore>>["supabase"],

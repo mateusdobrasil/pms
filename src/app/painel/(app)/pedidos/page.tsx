@@ -25,7 +25,7 @@ export default async function OrdersPage({
 }: {
   searchParams: Promise<{ status?: string; q?: string; page?: string }>;
 }) {
-  const { supabase, store } = await requireStore();
+  const { supabase, store, role } = await requireStore("vendas");
   const sp = await searchParams;
   const status = ORDER_STATUSES.includes(sp.status as OrderStatus) ? (sp.status as OrderStatus) : null;
   const q = (sp.q ?? "").trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
@@ -79,12 +79,12 @@ export default async function OrdersPage({
           />
           <button type="submit" className="rounded-md border bg-white px-3 py-1.5 text-sm">Buscar</button>
           {/* Baixa a planilha com o filtro atual (todas as páginas). */}
-          <a
+          {role === "owner" && <a
             href={href({}).replace("/painel/pedidos", "/painel/pedidos/exportar")}
             className="rounded-md border bg-white px-3 py-1.5 text-sm"
           >
             Exportar planilha
-          </a>
+          </a>}
         </form>
       </div>
 

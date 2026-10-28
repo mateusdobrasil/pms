@@ -2,6 +2,7 @@ import "server-only";
 import { cache } from "react";
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { type Area, type MemberRole, canAccess, homeFor, isMemberRole } from "@/lib/team";
 
 export type PanelStore = {
   id: string;
@@ -21,25 +22,37 @@ export const getPanelContext = cache(async () => {
 
   const { data: memberships } = await supabase
     .from("store_members")
-    .select("role, created_at, stores(id, name, slug, status, logo_url)")
+    .select("store_id, role, created_at, stores(id, name, slug, status, logo_url)")
     .eq("user_id", userId)
     .order("created_at", { ascending: true })
     .limit(1);
 
   // v1: um lojista = uma loja. Com mais de uma, usa a primeira vinculada.
-  const membership = memberships?.[0] as unknown as { role: string; stores: PanelStore | null } | undefined;
+  const membership = memberships?.[0] as unknown as { store_id: string; role: string; stores: PanelStore | null } | undefined;
+  const role: MemberRole = isMemberRole(membership?.role) ? membership.role : "owner";
+
+  // Cadastro da agenda ligado ao acesso do profissional (SQL 20261124000000; lido à parte para não quebrar sem ele).
+  let professionalId: string | null = null;
+  if (role === "professional" && membership) {
+    const { data: link } = await supabase.from("store_members").select("professional_id").eq("store_id", membership.store_id).eq("user_id", userId).maybeSingle();
+    professionalId = (link as { professional_id: string | null } | null)?.professional_id ?? null;
+  }
 
   return {
     supabase,
     userId,
     email: (data.claims.email as string | undefined) ?? null,
     store: membership?.stores ?? null,
+    role,
+    professionalId,
   };
 });
 
-// Para páginas e actions que precisam de uma loja.
-export async function requireStore() {
+// Para páginas e actions que precisam de uma loja. Sem área, a tela é só do dono; quem não pode
+// acessar volta para a tela inicial do seu perfil (nas actions, o redirect interrompe a ação).
+export async function requireStore(area: Area = "dono") {
   const ctx = await getPanelContext();
   if (!ctx.store) redirect("/painel/sem-loja");
+  if (!canAccess(ctx.role, area)) redirect(homeFor(ctx.role));
   return { ...ctx, store: ctx.store };
 }

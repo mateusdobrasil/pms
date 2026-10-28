@@ -11,7 +11,7 @@ import { notifyBackInStock, notifyPackage } from "@/lib/email";
 
 // Pedidos e estoque só mudam pelo servidor (service role), depois de conferir o login do lojista.
 export async function registerCounterSale(input: CounterSaleInput) {
-  const { store } = await requireStore();
+  const { store } = await requireStore("vendas");
   try {
     const result = await createCounterSale(createAdminClient(), store.id, input);
     if (!result.ok) return result;
@@ -28,7 +28,7 @@ export async function registerCounterSale(input: CounterSaleInput) {
 }
 
 export async function cancelCounterSaleAction(orderId: string) {
-  const { store } = await requireStore();
+  const { store } = await requireStore("vendas");
   if (!isUuid(orderId)) return { error: "Venda não encontrada." };
   const result = await cancelCounterSale(createAdminClient(), store.id, orderId);
   if ("ok" in result && result.restocked) after(() => notifyBackInStock(store.id));

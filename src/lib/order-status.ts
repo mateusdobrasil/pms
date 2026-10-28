@@ -45,6 +45,10 @@ export const MEMBER_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
   expired: [],
 };
 
+// Recepção: avança o pedido, mas só cancela o que ainda não foi pago (cancelar venda paga é com o dono).
+export const staffTransitions = (status: OrderStatus): OrderStatus[] =>
+  status === "pending_payment" ? MEMBER_TRANSITIONS[status] : MEMBER_TRANSITIONS[status].filter((s) => s !== "canceled");
+
 // Cor do selo de status (classes Tailwind).
 const TONES: Record<OrderStatus, string> = {
   pending_payment: "bg-amber-100 text-amber-800 ring-amber-200",

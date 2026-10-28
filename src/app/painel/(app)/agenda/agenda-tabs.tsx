@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { type MemberRole, canSee } from "@/lib/team";
 
 const TABS = [
   { href: "/painel/agenda", label: "Agenda" },
@@ -12,11 +13,11 @@ const TABS = [
   { href: "/painel/agenda/comissoes", label: "Comissões" },
 ];
 
-export function AgendaTabs() {
+export function AgendaTabs({ role }: { role: MemberRole }) {
   const pathname = usePathname();
   return (
     <nav className="flex gap-1 overflow-x-auto border-b text-sm">
-      {TABS.map((t) => {
+      {TABS.filter((t) => canSee(role, t.href)).map((t) => {
         const active = t.href === "/painel/agenda" ? pathname === t.href : pathname.startsWith(t.href);
         return (
           <Link

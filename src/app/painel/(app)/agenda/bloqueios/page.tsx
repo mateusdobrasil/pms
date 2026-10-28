@@ -12,7 +12,7 @@ const when = (iso: string) =>
   new Date(iso).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", weekday: "short", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }).replace(",", "");
 
 export default async function TimeOffPage() {
-  const { supabase, store } = await requireStore();
+  const { supabase, store } = await requireStore("agenda");
   const [{ data: rows }, { data: pros }] = await Promise.all([
     supabase
       .from("time_off")

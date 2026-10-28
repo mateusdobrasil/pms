@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { signOut } from "../actions";
+import { type MemberRole, canSee } from "@/lib/team";
 
 type Item = { href: string; label: string };
 // heading: linha de título no topo da lista (o e-mail, na Conta); signOut: botão "Sair" no fim.
@@ -17,8 +18,8 @@ const tone = (active: boolean) => (active ? "bg-white/15 text-white" : "text-neu
 
 // Menu do painel, numa linha: Resumo, Clientes, Configurações e Ajuda direto; vendas, produtos, divulgação e a conta
 // em grupos. "Agenda" aparece para quem usa agendamentos (ou já está montando a agenda); "Campanhas", para loja com
-// cota de campanhas no WhatsApp.
-export function PanelNav({ agenda = false, campaigns = false, email }: { agenda?: boolean; campaigns?: boolean; email: string | null }) {
+// cota de campanhas no WhatsApp. A equipe vê só o que o perfil dela acessa (grupo sem item some).
+export function PanelNav({ agenda = false, campaigns = false, email, role = "owner" }: { agenda?: boolean; campaigns?: boolean; email: string | null; role?: MemberRole }) {
   const pathname = usePathname();
   const [open, setOpen] = useState<string | null>(null);
   const [alignRight, setAlignRight] = useState(false);
@@ -39,8 +40,9 @@ export function PanelNav({ agenda = false, campaigns = false, email }: { agenda?
     return () => document.removeEventListener("pointerdown", close);
   }, [open]);
 
-  const entries: Entry[] = [
+  const all: Entry[] = [
     { href: "/painel", label: "Resumo" },
+    { href: "/painel/minha-agenda", label: "Minha agenda" },
     {
       label: "Vendas",
       items: [
@@ -74,11 +76,18 @@ export function PanelNav({ agenda = false, campaigns = false, email }: { agenda?
       heading: email ?? undefined,
       items: [
         { href: "/painel/conta", label: "Minha conta" },
+        { href: "/painel/equipe", label: "Equipe" },
         { href: "/painel/assinatura", label: "Assinatura" },
       ],
       signOut: true,
     },
   ];
+
+  const entries = all.flatMap((e): Entry[] => {
+    if ("href" in e) return canSee(role, e.href) ? [e] : [];
+    const items = e.items.filter((i) => canSee(role, i.href));
+    return items.length || e.signOut ? [{ ...e, items }] : [];
+  });
 
   return (
     <nav ref={nav} className="flex flex-wrap gap-1 text-sm">
